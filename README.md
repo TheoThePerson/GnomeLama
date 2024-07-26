@@ -1,6 +1,6 @@
 Todo
 
-1. Make bacic messaging
+1. Make bacic message blobs like chatgpt
 2. Add ollama API -Theo will do this
 3. Add functionality to change models
 4. Possibly add a feature to do a screenshot and feed it into LLava
