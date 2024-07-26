@@ -9,3 +9,5 @@ Todo
 7. Make it look better
 8. Add keyboard shortcuts
 9. Maybe publish the extention
+
+I would love any help because I know hardly any java script
