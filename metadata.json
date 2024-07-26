@@ -1,0 +1,7 @@
+{
+    "uuid": "ollama-extension@yourdomain.com",
+    "name": "Ollama Extension",
+    "description": "Example extension with a chat entry",
+    "version": 1,
+    "shell-version": ["3.38", "40", "41", "42", "43"]
+}
