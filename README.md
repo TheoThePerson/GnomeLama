@@ -10,4 +10,4 @@ Todo
 8. Add keyboard shortcuts
 9. Maybe publish the extention
 
-I would love any help because I know hardly any java script
+I would love any help because I know hardly any java script pleese
