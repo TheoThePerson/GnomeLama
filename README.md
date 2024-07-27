@@ -1,7 +1,7 @@
 Todo
 
-1. Make bacic message blobs like chatgpt
-2. Add ollama API -Theo will do this
+1. Make bacic message blobs like chatgpt -Theo/I have no idea how to even start this and would love help for this
+2. Add ollama API -Theo/I am working on this right now
 3. Add functionality to change models
 4. Possibly add a feature to do a screenshot and feed it into LLava
 5. Search functionality
