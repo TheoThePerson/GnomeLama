@@ -1,13 +1,46 @@
-Todo
+# Ollama Extension
 
-1. Make bacic message blobs like chatgpt -Theo/I have no idea how to even start this and would love help for this
-2. Add ollama API -Theo/I am working on this right now
-3. Add functionality to change models
-4. Possibly add a feature to do a screenshot and feed it into LLava
-5. Search functionality
-6. Possible add Gnome search bar intergration with ollama like the calculator app
-7. Make it look better
-8. Add keyboard shortcuts
-9. Maybe publish the extention
+A GNOME extension that adds a chatbot interface powered by Ollama.
 
-I would love any help because I know hardly any java script pleese
+## Features
+
+- Basic message blobs like ChatGPT
+- Integration with Ollama API
+- Model selection functionality
+- Screenshot and image processing with LLava (future)
+- GNOME search bar integration
+- Improved UI and styles
+- Keyboard shortcuts
+- Easy installation and usage
+
+## Installation
+
+1. Clone this repository to your GNOME extensions directory:
+    ```
+    git clone https://github.com/yourusername/ollama-extension.git ~/.local/share/gnome-shell/extensions/ollama-extension@yourdomain.com
+    ```
+
+2. Enable the extension:
+    ```
+    gnome-extensions enable ollama-extension@yourdomain.com
+    ```
+
+3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
+
+## Usage
+
+- Click the icon in the top bar to toggle the chatbot interface.
+- Type your message and press Enter or click the Send button.
+- Use the GNOME search bar with a backslash (`\`) to trigger the chatbot.
+
+## Contributing
+
+1. Fork this repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -am 'Add new feature'`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Create a new Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
