@@ -11,3 +11,5 @@ Todo
 9. Maybe publish the extention
 
 I would love any help because I know hardly any java script pleese fork the project and then I will implement the changes to the main branch
+
+![consept](https://github.com/user-attachments/assets/5ad72b3d-5713-40a3-9275-ac905d4e54b2)
