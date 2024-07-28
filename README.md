@@ -10,4 +10,4 @@ Todo
 8. Add keyboard shortcuts
 9. Maybe publish the extention
 
-I would love any help because I know hardly any java script pleese
+I would love any help because I know hardly any java script pleese fork the project and then I will implement the changes to the main branch
