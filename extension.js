@@ -1,6 +1,11 @@
-const { St, Clutter } = imports.gi;
+const { St, Clutter, GLib, Gio, Meta } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const Soup = imports.gi.Soup;
+
+const Utils = Me.imports.utils;
 
 class SeparatePanels {
     constructor() {
@@ -9,6 +14,10 @@ class SeparatePanels {
         this._textPanel = null;
         this._isPanelVisible = false;
         this._chatEntry = null;
+        this._sendButton = null;
+        this._messageContainer = null;
+        this._searchProvider = null;
+        this._soupSession = Utils.makeSoupSession();
     }
 
     enable() {
@@ -18,7 +27,7 @@ class SeparatePanels {
         this._indicator.add_child(icon);
 
         // Connect the click event to toggle the panels
-        this._indicator.connect('button-press-event', (actor, event) => {
+        this._indicator.connect('button-press-event', () => {
             this._togglePanels();
             return Clutter.EVENT_STOP; // Stop further event propagation
         });
@@ -39,15 +48,32 @@ class SeparatePanels {
             hint_text: 'Type your message here...',
             can_focus: true
         });
+        this._chatEntry.connect('activate', () => this._handleChatSubmit());
+
+        // Create the send button
+        this._sendButton = new St.Button({
+            style_class: 'send-button',
+            can_focus: true,
+            label: 'Send'
+        });
+        this._sendButton.connect('clicked', () => this._handleChatSubmit());
 
         this._textPanel = new St.BoxLayout({
-            vertical: true,
+            vertical: false,
             reactive: true,
             visible: false,
             style_class: 'text-panel'
         });
 
         this._textPanel.add_child(this._chatEntry);
+        this._textPanel.add_child(this._sendButton);
+
+        // Create the message container
+        this._messageContainer = new St.BoxLayout({
+            vertical: true,
+            reactive: true,
+            style_class: 'message-container'
+        });
 
         // Update panel dimensions and positions
         this._updatePanelDimensions();
@@ -55,8 +81,13 @@ class SeparatePanels {
         // Add the panels to the layout
         Main.layoutManager.addChrome(this._backgroundPanel);
         Main.layoutManager.addChrome(this._textPanel);
+        Main.layoutManager.addChrome(this._messageContainer);
 
         this._applyStyles();
+
+        // Initialize and register the search provider
+        this._searchProvider = new (ExtensionUtils.getCurrentExtension().imports.searchProvider)();
+        Main.overview.addSearchProvider(this._searchProvider);
     }
 
     disable() {
@@ -74,20 +105,49 @@ class SeparatePanels {
             this._textPanel.destroy();
             this._textPanel = null;
         }
+
+        if (this._messageContainer) {
+            this._messageContainer.destroy();
+            this._messageContainer = null;
+        }
+
+        if (this._searchProvider) {
+            Main.overview.removeSearchProvider(this._searchProvider);
+            this._searchProvider = null;
+        }
     }
 
     _togglePanels() {
         this._isPanelVisible = !this._isPanelVisible;
         this._backgroundPanel.visible = this._isPanelVisible;
         this._textPanel.visible = this._isPanelVisible;
+        this._messageContainer.visible = this._isPanelVisible;
     }
 
     _handleChatSubmit() {
         let message = this._chatEntry.get_text();
         if (message.trim() !== '') {
-            log('Chat message: ' + message);
+            this._addMessageToContainer(message, 'user-message');
             this._chatEntry.set_text('');
+
+            let ollamaUrl = 'http://localhost:11343'; // Default Ollama URL
+            if (Utils.checkOllamaInstallation() === true) {
+                Utils.sendChatMessage(this._soupSession, ollamaUrl, message, (response, error) => {
+                    if (error) {
+                        this._addMessageToContainer('Error: ' + error.message, 'bot-message');
+                    } else {
+                        this._addMessageToContainer(response.message, 'bot-message');
+                    }
+                });
+            } else {
+                this._addMessageToContainer(Utils.checkOllamaInstallation(), 'bot-message');
+            }
         }
+    }
+
+    _addMessageToContainer(message, styleClass) {
+        let messageLabel = new St.Label({ text: message, style_class: 'message ' + styleClass });
+        this._messageContainer.add_child(messageLabel);
     }
 
     _updatePanelDimensions() {
@@ -106,37 +166,18 @@ class SeparatePanels {
         this._textPanel.height = 60; // Fixed height for text panel
         this._textPanel.set_position(screenWidth * 0.7, screenHeight - 135); // Position at the bottom of the screen
 
-        // Ensure the chat entry fits within the text panel with padding
-        this._chatEntry.set_size(this._textPanel.width - 50, 50); // Padding of 10 pixels on each side
+        // Update dimensions for the message container
+        this._messageContainer.width = screenWidth * 0.3; // Match the width of the background panel
+        this._messageContainer.height = screenHeight - topBarHeight - this._textPanel.height; // Fill the space above the text panel
+        this._messageContainer.set_position(screenWidth * 0.7, topBarHeight); // Position at the right edge
     }
 
     _applyStyles() {
-        // Apply styles directly in JavaScript
-        this._backgroundPanel.style = `
-            background-color: #303030;
-            border-left: 1px solid #4c566a;
-            z-index: 20;
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-        `;
-
-        this._textPanel.style = `
-            background-color: #303030;
-            border-left: 1px solid #4c566a;
-            padding: 50px;
-            z-index: 60;
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-        `;
-
-        this._chatEntry.style = `
-            background-color: #3c3c3c;
-            border: 1px solid #4c566a;
-            color: #d8dee9;
-        `;
+        // Apply styles from stylesheet
+        let themeContext = St.ThemeContext.get_for_stage(global.stage);
+        let cssProvider = new St.CssProvider();
+        cssProvider.load_from_file(Me.dir.get_child('stylesheet.css'));
+        themeContext.add_provider_for_screen(global.screen, cssProvider, St.StyleProviderPriority.APPLICATION);
     }
 }
 
