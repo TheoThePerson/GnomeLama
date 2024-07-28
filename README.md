@@ -12,4 +12,8 @@ Todo
 
 I would love any help because I know hardly any java script pleese fork the project and then I will implement the changes to the main branch
 
+consept
 ![consept](https://github.com/user-attachments/assets/5ad72b3d-5713-40a3-9275-ac905d4e54b2)
+
+how it is right now
+![Screenshot from 2024-07-25 21-13-06](https://github.com/user-attachments/assets/b7f0c614-fa6c-4fd8-8bdf-a07768a63460)
