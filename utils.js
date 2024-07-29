@@ -1,26 +1,9 @@
-const { GLib, Gio } = imports.gi;
-const Soup = imports.gi.Soup;
+const { GLib } = imports.gi;
 
-function makeSoupSession() {
-    return new Soup.SessionAsync();
-}
-
-function sendChatMessage(session, url, message, callback) {
-    let request = Soup.Message.new('POST', url);
-    request.request_body.set_form_data({
-        'message': message
-    });
-    session.queue_message(request, (session, message) => {
-        if (message.status_code === 200) {
-            callback(JSON.parse(request.response_body.data));
-        } else {
-            callback(null, new Error(`Request failed with status ${message.status_code}`));
-        }
-    });
-}
-
+/**
+ * Checks if Ollama is installed on the system.
+ * @returns {boolean|string} Returns true if Ollama is installed, otherwise returns an error message.
+ */
 function checkOllamaInstallation() {
-    // Implement a check for Ollama installation, e.g., by checking if a certain command or file exists
-    // If not installed, return instructions to install Ollama
     return GLib.find_program_in_path('ollama') ? true : 'Please install Ollama from ollama.com';
 }
