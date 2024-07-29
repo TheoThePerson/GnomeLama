@@ -18,6 +18,9 @@ class SeparatePanels {
         let icon = new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'system-status-icon' });
         this._indicator.add_child(icon);
 
+        // Adjust the icon size and position
+        icon.set_style('icon-size: 16px; margin-top: -4px;'); // Smaller icon size and move it up
+
         // Connect the click event to toggle the panels
         this._indicator.connect('button-press-event', (actor, event) => {
             this._togglePanels();
@@ -125,10 +128,10 @@ class SeparatePanels {
         // Update dimensions and position for the text panel
         this._textPanel.width = screenWidth * 0.2; // Match the width of the background panel
         this._textPanel.height = 60; // Fixed height for text panel
-        this._textPanel.set_position(screenWidth * 0.8, screenHeight - 60); // Position at the bottom of the screen
+        this._textPanel.set_position(screenWidth * 0.8, screenHeight - 70); // Position at the bottom of the screen
 
         // Ensure the chat entry fits within the text panel with padding
-        this._chatEntry.set_width(this._textPanel.width - 70); // Adjust for padding and button width
+        this._chatEntry.set_width(this._textPanel.width - 80); // Adjust for padding and button width
         this._chatEntry.set_height(40); // Set height for chat entry
     }
 
@@ -159,7 +162,7 @@ class SeparatePanels {
             border: none;
             color: #d8dee9;
             border-radius: 25px;
-            padding-left: 10px;
+            padding-left: 30px;
         `;
 
         this._sendButton.style = `
@@ -170,6 +173,11 @@ class SeparatePanels {
             width: 40px;
             height: 40px;
             margin-left: 10px;
+            padding: 0;
+        `;
+
+        this._sendButton.get_child().style = `
+            icon-size: 16px; /* Smaller icon size */
         `;
     }
 }
