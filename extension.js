@@ -5,6 +5,9 @@ const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Soup = imports.gi.Soup;
 
+const Adw = imports.gi.Adw;
+const Gtk = imports.gi.Gtk;
+
 const Utils = Me.imports.utils;
 
 class SeparatePanels {
@@ -35,44 +38,46 @@ class SeparatePanels {
         Main.panel.addToStatusArea('separate-panels-indicator', this._indicator);
 
         // Create the background panel
-        this._backgroundPanel = new St.BoxLayout({
-            vertical: true,
-            reactive: false,
+        this._backgroundPanel = new Adw.Bin({
             visible: false,
-            style_class: 'background-panel'
+            css_classes: ['background-panel']
         });
 
         // Create and add the chat entry to the text panel
-        this._chatEntry = new St.Entry({
-            style_class: 'chat-entry',
-            hint_text: 'Type your message here...',
-            can_focus: true
+        this._chatEntry = new Gtk.Entry({
+            placeholder_text: 'Type your message here...',
+            can_focus: true,
+            hexpand: true,
+            vexpand: false
         });
         this._chatEntry.connect('activate', () => this._handleChatSubmit());
 
         // Create the send button
-        this._sendButton = new St.Button({
-            style_class: 'send-button',
-            can_focus: true,
-            label: 'Send'
+        this._sendButton = new Gtk.Button({
+            label: 'Send',
+            css_classes: ['send-button']
         });
         this._sendButton.connect('clicked', () => this._handleChatSubmit());
 
-        this._textPanel = new St.BoxLayout({
-            vertical: false,
-            reactive: true,
+        this._textPanel = new Adw.Bin({
+            css_classes: ['text-panel'],
             visible: false,
-            style_class: 'text-panel'
+            can_focus: true
         });
 
-        this._textPanel.add_child(this._chatEntry);
-        this._textPanel.add_child(this._sendButton);
+        // Create a horizontal box to contain the entry and the button
+        let hbox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 6
+        });
+        hbox.append(this._chatEntry);
+        hbox.append(this._sendButton);
+        this._textPanel.set_child(hbox);
 
         // Create the message container
-        this._messageContainer = new St.BoxLayout({
-            vertical: true,
-            reactive: true,
-            style_class: 'message-container'
+        this._messageContainer = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            css_classes: ['message-container']
         });
 
         // Update panel dimensions and positions
@@ -146,8 +151,11 @@ class SeparatePanels {
     }
 
     _addMessageToContainer(message, styleClass) {
-        let messageLabel = new St.Label({ text: message, style_class: 'message ' + styleClass });
-        this._messageContainer.add_child(messageLabel);
+        let messageLabel = new Gtk.Label({
+            label: message,
+            css_classes: ['message', styleClass]
+        });
+        this._messageContainer.append(messageLabel);
     }
 
     _updatePanelDimensions() {
