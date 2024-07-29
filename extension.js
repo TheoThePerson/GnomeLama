@@ -109,8 +109,19 @@ class SeparatePanels {
     _handleChatSubmit() {
         let message = this._chatEntry.get_text();
         if (message.trim() !== '') {
-            log('Chat message: ' + message);
+            // Create a label for the user message
+            let userMessage = new St.Label({ text: 'You: ' + message, style_class: 'chat-message' });
+            this._textPanel.add_child(userMessage);
+
+            // Clear the chat entry
             this._chatEntry.set_text('');
+
+            // Simulate a response after a short delay
+            Mainloop.timeout_add(1000, () => {
+                let responseMessage = new St.Label({ text: 'Bot: Hi', style_class: 'chat-message' });
+                this._textPanel.add_child(responseMessage);
+                return false; // Remove the timeout
+            });
         }
     }
 
