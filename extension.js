@@ -9,6 +9,7 @@ class SeparatePanels {
         this._textPanel = null;
         this._isPanelVisible = false;
         this._chatEntry = null;
+        this._sendButton = null;
     }
 
     enable() {
@@ -33,12 +34,32 @@ class SeparatePanels {
             style_class: 'background-panel'
         });
 
-        // Create and add the chat entry to the text panel
+        // Create the chat entry and send button container
+        let chatContainer = new St.BoxLayout({
+            vertical: false,
+            reactive: true,
+            style_class: 'chat-container'
+        });
+
+        // Create and add the chat entry to the container
         this._chatEntry = new St.Entry({
             style_class: 'chat-entry',
             hint_text: 'Type your message here...',
             can_focus: true
         });
+
+        chatContainer.add_child(this._chatEntry);
+
+        // Create and add the send button to the container
+        this._sendButton = new St.Button({
+            style_class: 'send-button',
+            child: new St.Icon({ icon_name: 'go-up-symbolic', style_class: 'send-icon' })
+        });
+
+        // Connect the send button to handle chat submission
+        this._sendButton.connect('clicked', () => this._handleChatSubmit());
+
+        chatContainer.add_child(this._sendButton);
 
         this._textPanel = new St.BoxLayout({
             vertical: true,
@@ -47,7 +68,7 @@ class SeparatePanels {
             style_class: 'text-panel'
         });
 
-        this._textPanel.add_child(this._chatEntry);
+        this._textPanel.add_child(chatContainer);
 
         // Update panel dimensions and positions
         this._updatePanelDimensions();
@@ -97,24 +118,25 @@ class SeparatePanels {
         let topBarHeight = Main.panel.actor.get_height();
 
         // Update dimensions for the background panel
-        this._backgroundPanel.width = screenWidth * 0.3; // Cover one-third of the screen horizontally
+        this._backgroundPanel.width = screenWidth * 0.2; // Cover one-fifth of the screen horizontally
         this._backgroundPanel.height = screenHeight - topBarHeight; // Cover from the top bar to the bottom
-        this._backgroundPanel.set_position(screenWidth * 0.7, topBarHeight); // Position at the right edge
+        this._backgroundPanel.set_position(screenWidth * 0.8, topBarHeight); // Position at the right edge
 
         // Update dimensions and position for the text panel
-        this._textPanel.width = screenWidth * 0.3; // Match the width of the background panel
+        this._textPanel.width = screenWidth * 0.2; // Match the width of the background panel
         this._textPanel.height = 60; // Fixed height for text panel
-        this._textPanel.set_position(screenWidth * 0.7, screenHeight - 135); // Position at the bottom of the screen
+        this._textPanel.set_position(screenWidth * 0.8, screenHeight - 60); // Position at the bottom of the screen
 
         // Ensure the chat entry fits within the text panel with padding
-        this._chatEntry.set_size(this._textPanel.width - 50, 50); // Padding of 10 pixels on each side
+        this._chatEntry.set_width(this._textPanel.width - 70); // Adjust for padding and button width
+        this._chatEntry.set_height(40); // Set height for chat entry
     }
 
     _applyStyles() {
         // Apply styles directly in JavaScript
         this._backgroundPanel.style = `
-            background-color: #303030;
-            border-left: 1px solid #4c566a;
+            background-color: #1e1e1e;
+            border-radius: 10px;
             z-index: 20;
             position: absolute;
             top: 0;
@@ -123,9 +145,9 @@ class SeparatePanels {
         `;
 
         this._textPanel.style = `
-            background-color: #303030;
-            border-left: 1px solid #4c566a;
-            padding: 50px;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 10px;
             z-index: 60;
             position: absolute;
             bottom: 0;
@@ -133,9 +155,21 @@ class SeparatePanels {
         `;
 
         this._chatEntry.style = `
-            background-color: #3c3c3c;
-            border: 1px solid #4c566a;
+            background-color: #4b4b4b;
+            border: none;
             color: #d8dee9;
+            border-radius: 25px;
+            padding-left: 10px;
+        `;
+
+        this._sendButton.style = `
+            background-color: #4b4b4b;
+            border: none;
+            color: #d8dee9;
+            border-radius: 20px;
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
         `;
     }
 }
