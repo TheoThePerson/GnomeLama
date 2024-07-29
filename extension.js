@@ -1,13 +1,8 @@
-const { St, Clutter, GLib, Gio, Meta } = imports.gi;
+const { St, Clutter } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-
-const Adw = imports.gi.Adw;
-const Gtk = imports.gi.Gtk;
-
-const Utils = Me.imports.utils;
 
 class SeparatePanels {
     constructor() {
