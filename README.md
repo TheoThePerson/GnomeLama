@@ -18,4 +18,4 @@ consept
 
 how it is right now
 
-![Screenshot from 2024-07-25 21-13-06](https://github.com/user-attachments/assets/b7f0c614-fa6c-4fd8-8bdf-a07768a63460)
+![Screenshot from 2024-07-28 20-50-41](https://github.com/user-attachments/assets/98287bfa-ae31-4408-87dd-fbae342a35d5)
