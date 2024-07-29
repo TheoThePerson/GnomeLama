@@ -1,4 +1,4 @@
-const { St, Clutter } = imports.gi;
+const { St, Clutter, GLib } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 
@@ -10,6 +10,7 @@ class SeparatePanels {
         this._isPanelVisible = false;
         this._chatEntry = null;
         this._sendButton = null;
+        this._messageContainer = null;
     }
 
     enable() {
@@ -64,13 +65,29 @@ class SeparatePanels {
 
         chatContainer.add_child(this._sendButton);
 
+        // Create the text panel
         this._textPanel = new St.BoxLayout({
             vertical: true,
             reactive: true,
             visible: false,
-            style_class: 'text-panel'
+            style_class: 'text-panel',
+            y_expand: true,
+            x_align: St.Align.START
         });
 
+        // Create a container for messages
+        this._messageContainer = new St.BoxLayout({
+            vertical: true,
+            reactive: true,
+            style_class: 'message-container',
+            y_expand: true,
+            y_align: St.Align.END,
+            height: -1, // Allow it to expand to fit messages
+            width: -1
+        });
+
+        // Add the message container to the text panel
+        this._textPanel.add_child(this._messageContainer);
         this._textPanel.add_child(chatContainer);
 
         // Update panel dimensions and positions
@@ -111,18 +128,31 @@ class SeparatePanels {
         if (message.trim() !== '') {
             // Create a label for the user message
             let userMessage = new St.Label({ text: 'You: ' + message, style_class: 'chat-message' });
-            this._textPanel.add_child(userMessage);
+            this._messageContainer.insert_child_at_index(userMessage, 0); // Add the message to the top
 
             // Clear the chat entry
             this._chatEntry.set_text('');
 
-            // Simulate a response after a short delay
-            Mainloop.timeout_add(1000, () => {
-                let responseMessage = new St.Label({ text: 'Bot: Hi', style_class: 'chat-message' });
-                this._textPanel.add_child(responseMessage);
-                return false; // Remove the timeout
-            });
+            // Scroll to the bottom
+            this._scrollToBottom();
+
+            // Simulate a response after a short delay without using Mainloop
+            this._simulateBotResponse();
         }
+    }
+
+    _simulateBotResponse() {
+            let responseMessage = new St.Label({ text: 'Bot: Hi', style_class: 'chat-message' });
+            this._messageContainer.insert_child_at_index(responseMessage, 0); // Add the response to the top
+
+            // Scroll to the bottom
+            this._scrollToBottom();
+    }
+
+    _scrollToBottom() {
+        // Scroll the text panel to the bottom
+        let adjustment = this._textPanel.get_vertical_scroll_adjustment();
+        adjustment.value = adjustment.upper;
     }
 
     _updatePanelDimensions() {
@@ -138,8 +168,8 @@ class SeparatePanels {
 
         // Update dimensions and position for the text panel
         this._textPanel.width = screenWidth * 0.19; // Match the width of the background panel
-        this._textPanel.height = 80; // Fixed height for text panel
-        this._textPanel.set_position(screenWidth * 0.8 + 25, screenHeight - 80); // Position at the bottom of the screen
+        this._textPanel.height = screenHeight * 0.3; // Adjustable height for the text panel
+        this._textPanel.set_position(screenWidth * 0.8 + 25, screenHeight - this._textPanel.height); // Position at the bottom of the screen
 
         // Ensure the chat entry fits within the text panel with padding
         this._chatEntry.set_width(this._textPanel.width - 100); // Adjust for padding and button width
@@ -166,6 +196,12 @@ class SeparatePanels {
             position: absolute;
             bottom: 0;
             width: 100%;
+            overflow-y: auto; /* Allow scrolling */
+        `;
+
+        this._messageContainer.style = `
+            background-color: #1e1e1e;
+            padding-bottom: 10px;
         `;
 
         this._chatEntry.style = `
