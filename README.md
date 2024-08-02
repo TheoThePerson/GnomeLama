@@ -2,7 +2,7 @@
 
 GnomeLama is a intergration between ollama and gnome.
 
-## Features
+## Features In Progress
 
 - Basic message blobs like ChatGPT
 - Integration with Ollama API
@@ -11,7 +11,8 @@ GnomeLama is a intergration between ollama and gnome.
 - GNOME search bar integration
 - Improved UI and styles
 - Keyboard shortcuts
-- Easy installation and usage
+- Putting it on the gnome extention page (after getting bacic functionalaty)
+- Adding image generation (future)
 
 ## Installation
 
