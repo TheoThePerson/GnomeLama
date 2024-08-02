@@ -24,3 +24,15 @@ GnomeLama is a intergration between ollama and gnome.
     gnome-extensions enable GnomeLama
     ```
 3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
+
+## Contributing
+
+1. Fork this repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -am 'Add new feature'`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Create a new Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
