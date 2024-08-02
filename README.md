@@ -12,7 +12,7 @@ GnomeLama is a intergration between ollama and gnome.
 - Improved UI and styles
 - Keyboard shortcuts
 - Putting it on the gnome extention page (after getting bacic functionalaty)
-- Adding image generation (future)
+- Adding image generation (future possiblility)
 
 ## Installation
 
