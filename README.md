@@ -2,9 +2,6 @@
 
 GnomeLama is a intergration between ollama and gnome.
 
-> [!NOTE]
-> This extention is only for Gnome (desktop enviorment) on Linux
-
 ## Features In Progress
 
 - Basic message blobs like ChatGPT
@@ -18,6 +15,9 @@ GnomeLama is a intergration between ollama and gnome.
 - Adding image generation (future possiblility)
 
 ## Installation
+
+> [!NOTE]
+> This extention is only for Gnome (desktop enviorment) on Linux
 
 1. Clone this repository to your GNOME extensions directory:
     ```
