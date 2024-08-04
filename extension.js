@@ -12,6 +12,7 @@ class OllamaExtension {
         this._isPanelVisible = false;
         this._chatEntry = null;
         this._sendButton = null;
+        this._clearButton = null;
         this._messageContainer = null;
         this._dropDownMenu = null;
         this._searchProvider = null;
@@ -67,6 +68,17 @@ class OllamaExtension {
         this._sendButton.connect('clicked', () => this._handleChatSubmit());
 
         chatContainer.add_child(this._sendButton);
+
+        // Create and add the clear chat button to the container
+        this._clearButton = new St.Button({
+            style_class: 'clear-button',
+            child: new St.Icon({ icon_name: 'edit-clear-symbolic', style_class: 'clear-icon' })
+        });
+
+        // Connect the clear button to handle clearing the chat
+        this._clearButton.connect('clicked', () => this._clearChat());
+
+        chatContainer.add_child(this._clearButton);
 
         // Create the text panel
         this._textPanel = new St.BoxLayout({
@@ -191,6 +203,11 @@ class OllamaExtension {
         // Scroll the text panel to the bottom
         let adjustment = this._textPanel.get_vertical_scroll_adjustment();
         adjustment.value = adjustment.upper;
+    }
+
+    _clearChat() {
+        // Remove all children from the message container
+        this._messageContainer.destroy_all_children();
     }
 
     _updatePanelDimensions() {
