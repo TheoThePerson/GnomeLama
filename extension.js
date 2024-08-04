@@ -1,8 +1,9 @@
-const { St, Clutter, GLib } = imports.gi;
+const { St, Clutter, GLib, Gio, Gtk } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
+const Util = imports.misc.util;
 
-class SeparatePanels {
+class OllamaExtension {
     constructor() {
         this._indicator = null;
         this._backgroundPanel = null;
@@ -14,8 +15,11 @@ class SeparatePanels {
     }
 
     enable() {
+        // Load CSS
+        this._loadStyles();
+
         // Create the indicator button
-        this._indicator = new PanelMenu.Button(0.0, 'SeparatePanels');
+        this._indicator = new PanelMenu.Button(0.0, 'OllamaExtension');
         let icon = new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'system-status-icon' });
         this._indicator.add_child(icon);
 
@@ -23,12 +27,11 @@ class SeparatePanels {
         icon.set_style('icon-size: 16px; margin-top: -12px;'); // Smaller icon size and move it up
 
         // Connect the click event to toggle the panels
-        this._indicator.connect('button-press-event', (actor, event) => {
+        this._indicator.connect('button-press-event', () => {
             this._togglePanels();
-            return Clutter.EVENT_STOP; // Stop further event propagation
         });
 
-        Main.panel.addToStatusArea('separate-panels-indicator', this._indicator);
+        Main.panel.addToStatusArea('ollama-extension-indicator', this._indicator);
 
         // Create the background panel
         this._backgroundPanel = new St.BoxLayout({
@@ -97,7 +100,8 @@ class SeparatePanels {
         Main.layoutManager.addChrome(this._backgroundPanel);
         Main.layoutManager.addChrome(this._textPanel);
 
-        this._applyStyles();
+        // Install Ollama if not installed
+        this._checkAndInstallOllama();
     }
 
     disable() {
@@ -115,6 +119,8 @@ class SeparatePanels {
             this._textPanel.destroy();
             this._textPanel = null;
         }
+
+        this._unloadStyles();
     }
 
     _togglePanels() {
@@ -123,7 +129,7 @@ class SeparatePanels {
         this._textPanel.visible = this._isPanelVisible;
     }
 
-    _handleChatSubmit() {
+    async _handleChatSubmit() {
         let message = this._chatEntry.get_text();
         if (message.trim() !== '') {
             // Create a label for the user message
@@ -136,17 +142,32 @@ class SeparatePanels {
             // Scroll to the bottom
             this._scrollToBottom();
 
-            // Simulate a response after a short delay without using Mainloop
-            this._simulateBotResponse();
-        }
-    }
+            // Send the message to the Ollama API and get a response
+            let response = await this._sendMessageToOllama(message);
 
-    _simulateBotResponse() {
-            let responseMessage = new St.Label({ text: 'Bot: Hi', style_class: 'chat-message' });
+            // Create a label for the bot response
+            let responseMessage = new St.Label({ text: 'Bot: ' + response, style_class: 'chat-message' });
             this._messageContainer.insert_child_at_index(responseMessage, 0); // Add the response to the top
 
             // Scroll to the bottom
             this._scrollToBottom();
+        }
+    }
+
+    async _sendMessageToOllama(message) {
+        // Make an API request to the Ollama server running on localhost
+        try {
+            let response = await fetch('http://localhost:11343/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            let data = await response.json();
+            return data.response;
+        } catch (error) {
+            log('Error communicating with Ollama API: ' + error);
+            return 'Error communicating with Ollama API.';
+        }
     }
 
     _scrollToBottom() {
@@ -176,59 +197,85 @@ class SeparatePanels {
         this._chatEntry.set_height(40); // Set height for chat entry
     }
 
-    _applyStyles() {
-        // Apply styles directly in JavaScript
-        this._backgroundPanel.style = `
-            background-color: #1e1e1e;
-            border-radius: 10px;
-            z-index: 20;
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-        `;
+    _loadStyles() {
+        this._stylesheet = new Gio.File.new_for_path(`${GLib.get_current_dir()}/style.css`);
+        this._cssProvider = new Gtk.CssProvider();
+        this._cssProvider.load_from_file(this._stylesheet);
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            this._cssProvider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
+    }
 
-        this._textPanel.style = `
-            background-color: #1e1e1e;
-            border-radius: 10px;
-            padding: 10px;
-            z-index: 10;
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            overflow-y: auto; /* Allow scrolling */
-        `;
+    _unloadStyles() {
+        if (this._cssProvider) {
+            Gtk.StyleContext.remove_provider_for_screen(
+                Gdk.Screen.get_default(),
+                this._cssProvider
+            );
+            this._cssProvider = null;
+        }
+    }
 
-        this._messageContainer.style = `
-            background-color: #1e1e1e;
-            padding-bottom: 10px;
-        `;
+    _checkAndInstallOllama() {
+        let process = new Gio.Subprocess({
+            argv: ['which', 'ollama'],
+            flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+        });
 
-        this._chatEntry.style = `
-            background-color: #4b4b4b;
-            border: none;
-            color: #d8dee9;
-            border-radius: 20px;
-            padding-left: 15px;
-            margin-right: 15px;
-        `;
+        process.communicate_utf8_async(null, null, (proc, res) => {
+            try {
+                let [, stdout, stderr] = proc.communicate_utf8_finish(res);
+                if (stdout.trim() === '') {
+                    // Ollama is not installed, prompt to install
+                    this._promptToInstallOllama();
+                } else {
+                    log('Ollama is already installed');
+                }
+            } catch (e) {
+                log('Failed to check Ollama installation: ' + e.message);
+            }
+        });
+    }
 
-        this._sendButton.style = `
-            background-color: #4b4b4b;
-            border: none;
-            color: #d8dee9;
-            border-radius: 20px;
-            width: 40px;
-            height: 40px;
-            padding: 100;
-        `;
+    _promptToInstallOllama() {
+        let dialog = new Gtk.MessageDialog({
+            transient_for: null,
+            modal: true,
+            buttons: Gtk.ButtonsType.OK_CANCEL,
+            text: 'Ollama is not installed. Would you like to install it now?',
+        });
 
-        this._sendButton.get_child().style = `
-            icon-size: 16px;
-        `;
+        dialog.connect('response', (widget, responseId) => {
+            if (responseId === Gtk.ResponseType.OK) {
+                this._installOllama();
+            }
+            dialog.destroy();
+        });
+
+        dialog.show();
+    }
+
+    _installOllama() {
+        let [success, pid] = GLib.spawn_async(
+            null,
+            ['pkexec', 'sh', '-c', 'curl -fsSL https://ollama.com/install.sh | sh'],
+            null,
+            GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+            null
+        );
+
+        if (!success) {
+            log('Failed to start Ollama installation');
+        } else {
+            GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => {
+                log('Ollama installation completed');
+            });
+        }
     }
 }
 
 function init() {
-    return new SeparatePanels();
+    return new OllamaExtension();
 }
