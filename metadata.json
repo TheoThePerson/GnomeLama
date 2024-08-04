@@ -1,7 +1,7 @@
 {
-    "uuid": "ollama-extension@yourdomain.com",
+    "uuid": "ollama-extension@yourdomain",
     "name": "Ollama Extension",
-    "description": "Example extension with a chat entry",
+    "description": "A GNOME extension integrating Ollama for local AI chat functionalities.",
     "version": 1,
-    "shell-version": ["3.38", "40", "41", "42", "43"]
+    "shell-version": ["41", "42", "43", "44", "45", "46", "47"]
 }
