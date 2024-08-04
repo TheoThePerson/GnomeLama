@@ -1,1 +1,69 @@
+/* General styles */
+.background-panel {
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    z-index: 20;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+}
+
+.text-panel {
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    padding: 10px;
+    z-index: 10;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    overflow-y: auto; /* Allow scrolling */
+}
+
+.message-container {
+    background-color: #1e1e1e;
+    padding-bottom: 10px;
+}
+
+.chat-entry {
+    background-color: #4b4b4b;
+    border: none;
+    color: #d8dee9;
+    border-radius: 20px;
+    padding-left: 15px;
+    margin-right: 15px;
+    font-size: 14px; /* Adjust font size if needed */
+    height: 40px;
+    width: calc(100% - 100px); /* Adjust width considering the send and clear button widths */
+}
+
+.send-button, .clear-button {
+    background-color: #4b4b4b;
+    border: none;
+    color: #d8dee9;
+    border-radius: 50%; /* Circular button */
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer; /* Show pointer cursor */
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+    margin-right: 10px; /* Add margin to separate buttons */
+}
+
+.send-button:hover, .clear-button:hover {
+    background-color: #3a3a3a; /* Darker color on hover */
+}
+
+.send-icon, .clear-icon {
+    icon-size: 16px;
+    color: #d8dee9; /* Ensures icon color matches the text */
+}
+
+.chat-message {
+    color: #d8dee9;
+    margin-bottom: 10px;
+    font-size: 14px; /* Adjust font size if needed */
+}
 
