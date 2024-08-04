@@ -15,9 +15,6 @@ class OllamaExtension {
     }
 
     enable() {
-        // Load CSS
-        this._loadStyles();
-
         // Create the indicator button
         this._indicator = new PanelMenu.Button(0.0, 'OllamaExtension');
         let icon = new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'system-status-icon' });
@@ -100,6 +97,8 @@ class OllamaExtension {
         Main.layoutManager.addChrome(this._backgroundPanel);
         Main.layoutManager.addChrome(this._textPanel);
 
+        this._applyStyles();
+
         // Install Ollama if not installed
         this._checkAndInstallOllama();
     }
@@ -119,8 +118,6 @@ class OllamaExtension {
             this._textPanel.destroy();
             this._textPanel = null;
         }
-
-        this._unloadStyles();
     }
 
     _togglePanels() {
@@ -197,25 +194,9 @@ class OllamaExtension {
         this._chatEntry.set_height(40); // Set height for chat entry
     }
 
-    _loadStyles() {
-        this._stylesheet = new Gio.File.new_for_path(`${GLib.get_current_dir()}/style.css`);
-        this._cssProvider = new Gtk.CssProvider();
-        this._cssProvider.load_from_file(this._stylesheet);
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(),
-            this._cssProvider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    }
-
-    _unloadStyles() {
-        if (this._cssProvider) {
-            Gtk.StyleContext.remove_provider_for_screen(
-                Gdk.Screen.get_default(),
-                this._cssProvider
-            );
-            this._cssProvider = null;
-        }
+    _applyStyles() {
+        // Apply styles directly in JavaScript if needed
+        // But styles should ideally be managed in the CSS file for better maintainability
     }
 
     _checkAndInstallOllama() {
