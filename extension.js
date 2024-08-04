@@ -1,7 +1,8 @@
-const { St, Clutter, GLib, Gio, Gtk } = imports.gi;
+const { St, Clutter, GLib, Gio, Gtk, PopupMenu, Shell } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const Util = imports.misc.util;
+const Search = imports.ui.search;
 
 class OllamaExtension {
     constructor() {
@@ -12,6 +13,8 @@ class OllamaExtension {
         this._chatEntry = null;
         this._sendButton = null;
         this._messageContainer = null;
+        this._dropDownMenu = null;
+        this._searchProvider = null;
     }
 
     enable() {
@@ -97,10 +100,17 @@ class OllamaExtension {
         Main.layoutManager.addChrome(this._backgroundPanel);
         Main.layoutManager.addChrome(this._textPanel);
 
+        // Create and add the drop-down menu
+        this._createDropDownMenu();
+
         this._applyStyles();
 
         // Install Ollama if not installed
         this._checkAndInstallOllama();
+
+        // Create and register the search provider
+        this._searchProvider = new OllamaSearchProvider(this);
+        Main.overview.viewSelector._searchResults._registerProvider(this._searchProvider);
     }
 
     disable() {
@@ -117,6 +127,16 @@ class OllamaExtension {
         if (this._textPanel) {
             this._textPanel.destroy();
             this._textPanel = null;
+        }
+
+        if (this._dropDownMenu) {
+            this._dropDownMenu.destroy();
+            this._dropDownMenu = null;
+        }
+
+        if (this._searchProvider) {
+            Main.overview.viewSelector._searchResults._unregisterProvider(this._searchProvider);
+            this._searchProvider = null;
         }
     }
 
@@ -254,6 +274,75 @@ class OllamaExtension {
                 log('Ollama installation completed');
             });
         }
+    }
+
+    _createDropDownMenu() {
+        // Create the drop-down menu
+        this._dropDownMenu = new PopupMenu.PopupMenu(this._indicator, 0.0, St.Side.TOP, 0);
+
+        // Add options to the drop-down menu
+        this._addDropDownMenuItem('Llama3:8b', 'ollama run llama3:8b');
+        this._addDropDownMenuItem('Llama2:13b', 'ollama run llama2:13b');
+        this._addDropDownMenuItem('GPT-3:10b', 'ollama run gpt-3:10b');
+
+        // Add the drop-down menu to the indicator
+        this._indicator.menu.addMenuItem(this._dropDownMenu);
+    }
+
+    _addDropDownMenuItem(label, command) {
+        let menuItem = new PopupMenu.PopupMenuItem(label);
+        menuItem.connect('activate', () => {
+            Util.spawnCommandLine(command);
+        });
+        this._dropDownMenu.addMenuItem(menuItem);
+    }
+
+    async handleSearch(query) {
+        // Handle the search query and return the response
+        let response = await this._sendMessageToOllama(query);
+        return response;
+    }
+}
+
+class OllamaSearchProvider extends Search.SearchProvider {
+    constructor(extension) {
+        super('Ollama');
+        this._extension = extension;
+    }
+
+    getResultMetas(resultIds) {
+        return resultIds.map((resultId) => {
+            return {
+                id: resultId,
+                name: resultId,
+                createIcon: () => new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'popup-menu-icon' })
+            };
+        });
+    }
+
+    async getInitialResultSet(terms, callback) {
+        let query = terms.join(' ');
+        let response = await this._extension.handleSearch(query);
+        callback([response]);
+    }
+
+    async getSubsearchResultSet(previousResults, terms, callback) {
+        let query = terms.join(' ');
+        let response = await this._extension.handleSearch(query);
+        callback([response]);
+    }
+
+    getResultMeta(resultId) {
+        return {
+            id: resultId,
+            name: resultId,
+            createIcon: () => new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'popup-menu-icon' })
+        };
+    }
+
+    activateResult(resultId) {
+        this._extension._chatEntry.set_text(resultId);
+        this._extension._handleChatSubmit();
     }
 }
 
