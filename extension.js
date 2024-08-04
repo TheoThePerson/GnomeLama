@@ -299,8 +299,14 @@ class OllamaExtension {
 
         // Add options to the drop-down menu
         this._addDropDownMenuItem('Llama3:8b', 'ollama run llama3:8b');
-        this._addDropDownMenuItem('Llama2:13b', 'ollama run llama2:13b');
-        this._addDropDownMenuItem('GPT-3:10b', 'ollama run gpt-3:10b');
+        this._addDropDownMenuItem('Llama3:70b', 'ollama run llama3:70b');
+        this._addDropDownMenuItem('Llama3.1:8b', 'ollama run llama3.1:8b');
+        this._addDropDownMenuItem('Llama3.1:70b', 'ollama run llama3.1:70b');
+        this._addDropDownMenuItem('Llama3.1:405b', 'ollama run llama3.1:405b');
+        this._addDropDownMenuItem('Gemma2:2b', 'ollama run gemma2:2b');
+        this._addDropDownMenuItem('Gemma2:9b', 'ollama run gemma2:9b');
+        this._addDropDownMenuItem('Gemma2:27b', 'ollama run gemma2:27b');
+        this._addDropDownMenuItem('Phi3:3.8b', 'ollama run phi3:3.8b');
 
         // Add the drop-down menu to the indicator
         this._indicator.menu.addMenuItem(this._dropDownMenu);
