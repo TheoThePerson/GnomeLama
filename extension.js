@@ -3,6 +3,7 @@ const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const Util = imports.misc.util;
 const Search = imports.ui.search;
+const SearchProvider = imports.misc.extensionUtils.getCurrentExtension().imports.searchProvider;
 
 class OllamaExtension {
     constructor() {
@@ -121,7 +122,7 @@ class OllamaExtension {
         this._checkAndInstallOllama();
 
         // Create and register the search provider
-        this._searchProvider = new OllamaSearchProvider(this);
+        this._searchProvider = new SearchProvider.init(this);
         Main.overview.viewSelector._searchResults._registerProvider(this._searchProvider);
     }
 
@@ -201,171 +202,53 @@ class OllamaExtension {
 
     _scrollToBottom() {
         // Scroll the text panel to the bottom
-        let adjustment = this._textPanel.get_vertical_scroll_adjustment();
-        adjustment.value = adjustment.upper;
+        let adjustment = this._textPanel.get_vertical_scroll_bar().get_adjustment();
+        adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size());
     }
 
     _clearChat() {
-        // Remove all children from the message container
+        // Clear the message container
         this._messageContainer.destroy_all_children();
     }
 
     _updatePanelDimensions() {
-        let monitor = Main.layoutManager.primaryMonitor;
-        let screenWidth = monitor.width;
-        let screenHeight = monitor.height;
-        let topBarHeight = Main.panel.actor.get_height();
+        const monitor = Main.layoutManager.primaryMonitor;
+        const padding = 20;
 
-        // Update dimensions for the background panel
-        this._backgroundPanel.width = screenWidth * 0.2; // Cover one-fifth of the screen horizontally
-        this._backgroundPanel.height = screenHeight - topBarHeight; // Cover from the top bar to the bottom
-        this._backgroundPanel.set_position(screenWidth * 0.8, topBarHeight); // Position at the right edge
+        this._backgroundPanel.set_position(padding, Main.panel.height + padding);
+        this._backgroundPanel.set_size(monitor.width - 2 * padding, monitor.height - Main.panel.height - 2 * padding);
 
-        // Update dimensions and position for the text panel
-        this._textPanel.width = screenWidth * 0.19; // Match the width of the background panel
-        this._textPanel.height = screenHeight * 0.3; // Adjustable height for the text panel
-        this._textPanel.set_position(screenWidth * 0.8 + 25, screenHeight - this._textPanel.height); // Position at the bottom of the screen
-
-        // Ensure the chat entry fits within the text panel with padding
-        this._chatEntry.set_width(this._textPanel.width - 100); // Adjust for padding and button width
-        this._chatEntry.set_height(40); // Set height for chat entry
-    }
-
-    _applyStyles() {
-        // Apply styles directly in JavaScript if needed
-        // But styles should ideally be managed in the CSS file for better maintainability
-    }
-
-    _checkAndInstallOllama() {
-        let process = new Gio.Subprocess({
-            argv: ['which', 'ollama'],
-            flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-        });
-
-        process.communicate_utf8_async(null, null, (proc, res) => {
-            try {
-                let [, stdout, stderr] = proc.communicate_utf8_finish(res);
-                if (stdout.trim() === '') {
-                    // Ollama is not installed, prompt to install
-                    this._promptToInstallOllama();
-                } else {
-                    log('Ollama is already installed');
-                }
-            } catch (e) {
-                log('Failed to check Ollama installation: ' + e.message);
-            }
-        });
-    }
-
-    _promptToInstallOllama() {
-        let dialog = new Gtk.MessageDialog({
-            transient_for: null,
-            modal: true,
-            buttons: Gtk.ButtonsType.OK_CANCEL,
-            text: 'Ollama is not installed. Would you like to install it now?',
-        });
-
-        dialog.connect('response', (widget, responseId) => {
-            if (responseId === Gtk.ResponseType.OK) {
-                this._installOllama();
-            }
-            dialog.destroy();
-        });
-
-        dialog.show();
-    }
-
-    _installOllama() {
-        let [success, pid] = GLib.spawn_async(
-            null,
-            ['pkexec', 'sh', '-c', 'curl -fsSL https://ollama.com/install.sh | sh'],
-            null,
-            GLib.SpawnFlags.DO_NOT_REAP_CHILD,
-            null
-        );
-
-        if (!success) {
-            log('Failed to start Ollama installation');
-        } else {
-            GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => {
-                log('Ollama installation completed');
-            });
-        }
+        this._textPanel.set_position(monitor.width * 0.1, Main.panel.height + padding * 2);
+        this._textPanel.set_size(monitor.width * 0.8, monitor.height * 0.6);
     }
 
     _createDropDownMenu() {
-        // Create the drop-down menu
         this._dropDownMenu = new PopupMenu.PopupMenu(this._indicator, 0.0, St.Side.TOP, 0);
-
-        // Add options to the drop-down menu
-        this._addDropDownMenuItem('Llama3:8b', 'ollama run llama3:8b');
-        this._addDropDownMenuItem('Llama3:70b', 'ollama run llama3:70b');
-        this._addDropDownMenuItem('Llama3.1:8b', 'ollama run llama3.1:8b');
-        this._addDropDownMenuItem('Llama3.1:70b', 'ollama run llama3.1:70b');
-        this._addDropDownMenuItem('Llama3.1:405b', 'ollama run llama3.1:405b');
-        this._addDropDownMenuItem('Gemma2:2b', 'ollama run gemma2:2b');
-        this._addDropDownMenuItem('Gemma2:9b', 'ollama run gemma2:9b');
-        this._addDropDownMenuItem('Gemma2:27b', 'ollama run gemma2:27b');
-        this._addDropDownMenuItem('Phi3:3.8b', 'ollama run phi3:3.8b');
-
-        // Add the drop-down menu to the indicator
-        this._indicator.menu.addMenuItem(this._dropDownMenu);
+        Main.uiGroup.add_actor(this._dropDownMenu.actor);
+        this._dropDownMenu.actor.hide();
+        this._dropDownMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
     }
 
-    _addDropDownMenuItem(label, command) {
-        let menuItem = new PopupMenu.PopupMenuItem(label);
-        menuItem.connect('activate', () => {
-            Util.spawnCommandLine(command);
-        });
-        this._dropDownMenu.addMenuItem(menuItem);
+    _applyStyles() {
+        // Add custom styles
+        let themeContext = St.ThemeContext.get_for_stage(global.stage);
+        let theme = themeContext.get_theme();
+        let cssProvider = new St.CssProvider();
+        cssProvider.load_from_path(GLib.build_filenamev([GLib.get_current_dir(), 'stylesheet.css']));
+        themeContext.add_provider(cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
+    }
+
+    _checkAndInstallOllama() {
+        // Check if the Ollama server is installed and install it if not
+        let [_, output] = GLib.spawn_sync(null, ['which', 'ollama'], null, GLib.SpawnFlags.SEARCH_PATH, null);
+        if (!output || output.length === 0) {
+            Util.spawn(['bash', '-c', 'curl -sSL https://ollama.com/install.sh | bash']);
+        }
     }
 
     async handleSearch(query) {
-        // Handle the search query and return the response
-        let response = await this._sendMessageToOllama(query);
-        return response;
-    }
-}
-
-class OllamaSearchProvider extends Search.SearchProvider {
-    constructor(extension) {
-        super('Ollama');
-        this._extension = extension;
-    }
-
-    getResultMetas(resultIds) {
-        return resultIds.map((resultId) => {
-            return {
-                id: resultId,
-                name: resultId,
-                createIcon: () => new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'popup-menu-icon' })
-            };
-        });
-    }
-
-    async getInitialResultSet(terms, callback) {
-        let query = terms.join(' ');
-        let response = await this._extension.handleSearch(query);
-        callback([response]);
-    }
-
-    async getSubsearchResultSet(previousResults, terms, callback) {
-        let query = terms.join(' ');
-        let response = await this._extension.handleSearch(query);
-        callback([response]);
-    }
-
-    getResultMeta(resultId) {
-        return {
-            id: resultId,
-            name: resultId,
-            createIcon: () => new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'popup-menu-icon' })
-        };
-    }
-
-    activateResult(resultId) {
-        this._extension._chatEntry.set_text(resultId);
-        this._extension._handleChatSubmit();
+        // Handle the search query using the same function used for chat submissions
+        return await this._sendMessageToOllama(query);
     }
 }
 
