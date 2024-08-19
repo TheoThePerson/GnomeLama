@@ -1,41 +1,35 @@
-const { St, Clutter, GLib, Gio, Gtk, PopupMenu, Shell } = imports.gi;
+const { St, Gio, Shell, GLib } = imports.gi;
 const Main = imports.ui.main;
 const Search = imports.ui.search;
-const Util = imports.misc.util;
 
 class OllamaSearchProvider extends Search.SearchProvider {
     constructor(extension) {
-        super('Ollama');
-        this._extension = extension;
+        super('Ollama Search');
+        this.extension = extension;
     }
 
-    getInitialResultSet(terms, callback) {
-        let query = terms.join(' ');
-        this._extension.handleSearch(query).then(response => {
-            callback([response]);
-        });
+    async getInitialResultSet(terms, callback) {
+        let results = await this.extension.handleSearch(terms.join(' '));
+        callback(results ? [results] : []);
     }
 
-    getSubsearchResultSet(previousResults, terms, callback) {
-        let query = terms.join(' ');
-        this._extension.handleSearch(query).then(response => {
-            callback([response]);
-        });
+    async getSubsearchResultSet(previousResults, terms, callback) {
+        let results = await this.extension.handleSearch(terms.join(' '));
+        callback(results ? [results] : []);
     }
 
-    getResultMetas(resultIds) {
-        return resultIds.map((resultId) => {
-            return {
-                id: resultId,
-                name: resultId,
-                createIcon: () => new St.Icon({ icon_name: 'system-run-symbolic', style_class: 'popup-menu-icon' })
-            };
-        });
+    getResultMetas(resultIds, callback) {
+        let metas = resultIds.map(result => ({
+            id: result,
+            name: result,
+            description: 'Ollama Search Result',
+            createIcon: size => new St.Icon({ icon_name: 'system-search-symbolic', icon_size: size })
+        }));
+        callback(metas);
     }
 
-    activateResult(resultId) {
-        this._extension._chatEntry.set_text(resultId);
-        this._extension._handleChatSubmit();
+    activateResult(resultId, terms) {
+        Util.spawn(['xdg-open', resultId]);
     }
 }
 
