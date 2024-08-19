@@ -2,7 +2,6 @@ const { St, Clutter, GLib, Gio, Gtk, PopupMenu, Shell } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const Util = imports.misc.util;
-const Search = imports.ui.search;
 const SearchProvider = imports.misc.extensionUtils.getCurrentExtension().imports.searchProvider;
 
 class OllamaExtension {
