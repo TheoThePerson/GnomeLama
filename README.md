@@ -24,7 +24,7 @@ GnomeLama is a intergration between ollama and gnome.
 
 1. Clone this repository to your GNOME extensions directory:
     ```
-    git clone https://github.com/yourusername/GnomeLama.git ~/.local/share/gnome-shell/extensions/GnomeLama
+    git clone https://github.com/TheoThePerson/GnomeLama.git ~/.local/share/gnome-shell/extensions/GnomeLama
     ```
 2. Enable the extension:
     ```
