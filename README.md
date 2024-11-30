@@ -5,7 +5,7 @@ GnomeLama is a intergration between ollama and gnome.
 ## Features In Progress
 
 > [!Important]
-> This extention is being worked on and is not fully functional yet, but with some help I hope to finish it soon.
+> This extention is being worked on and is functional but doesn't have all the features like context
 
 - Basic message blobs like ChatGPT
 - Integration with Ollama API
