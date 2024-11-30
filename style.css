@@ -1,47 +1,30 @@
-.background-panel {
-    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
-    padding: 10px; /* Padding for content */
+.panel-overlay {
+    background-color: rgba(128, 128, 128, 1); /* Opaque grey color */
+    border-radius: 0; /* No rounded corners */
+    padding: 0; /* No padding */
+    margin: 0; /* No margin */
 }
 
-.text-panel {
-    background-color: #ffffff; /* White background */
-    border-radius: 10px; /* Rounded corners */
-    padding: 10px; /* Padding for content */
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Slight shadow */
-    overflow: auto; /* Enable scrolling if content overflows */
+.panel-content-box {
+    padding: 10px; /* Padding for the content area */
+    vertical-align: bottom; /* Align items to the bottom */
+    expand: true; /* Allow the box to take available vertical space */
 }
 
-.chat-container {
-    padding: 5px; /* Padding inside the chat container */
+.panel-bottom-box {
+    vertical: false; /* Layout the input and button horizontally */
+    margin-top: auto; /* Push this box to the bottom */
 }
 
-.chat-entry {
-    padding: 5px; /* Padding inside the chat entry */
-    border: 1px solid #ccc; /* Light gray border */
-    border-radius: 5px; /* Rounded corners */
+.panel-input-field {
+    height: 40px; /* Use value from PanelConfig for height */
+    flex: 1; /* Allow the field to take available width */
+    margin-right: 5px; /* Space between input field and button */
 }
 
-.send-button, .clear-button {
-    margin-left: 10px; /* Space between buttons and chat entry */
-    background-color: #007bff; /* Blue background */
-    border: none; /* Remove default border */
-    border-radius: 5px; /* Rounded corners */
-    padding: 5px; /* Padding inside the button */
-}
-
-.send-icon, .clear-icon {
-    color: white; /* White icon color */
-}
-
-.message-container {
-    padding: 10px; /* Padding inside the message container */
-    max-height: 400px; /* Limit the height of the message container */
-    overflow-y: auto; /* Enable vertical scrolling */
-}
-
-.chat-message {
-    padding: 5px; /* Padding inside the chat message */
-    margin-bottom: 5px; /* Space between messages */
-    background-color: #f1f1f1; /* Light gray background */
-    border-radius: 5px; /* Rounded corners */
+.panel-send-button {
+    height: 40px; /* Use value from PanelConfig for height */
+    background-color: #4CAF50; /* Green background for the button */
+    color: white; /* White text for the button */
+    border-radius: 5px; /* Rounded corners for button */
 }
