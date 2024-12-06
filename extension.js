@@ -33,21 +33,27 @@ const Indicator = GObject.registerClass(
           Main.layoutManager.primaryMonitor.width *
             PanelConfig.panelWidthFraction
         ),
-        height: Math.floor(Main.layoutManager.primaryMonitor.height * 0.5),
+        height:
+          Main.layoutManager.primaryMonitor.height - Main.panel.actor.height,
+        x:
+          Main.layoutManager.primaryMonitor.width -
+          Math.floor(
+            Main.layoutManager.primaryMonitor.width *
+              PanelConfig.panelWidthFraction
+          ),
+        y: Main.panel.actor.height,
+        style: "background-color: #333; border-radius: 5px;", // Dark gray background
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
-      // Position the panel at the right side of the screen
-      this._panelOverlay.set_position(
-        Main.layoutManager.primaryMonitor.width - this._panelOverlay.width,
-        Main.panel.height
-      );
-
       this._contentBox = new St.BoxLayout({
         vertical: true,
         style_class: "panel-content-box",
+        x_expand: true,
+        y_expand: true,
       });
+
       this._panelOverlay.add_child(this._contentBox);
 
       // Input field for user messages
