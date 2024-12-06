@@ -8,7 +8,7 @@ const _ = ExtensionUtils.gettext;
 
 const PanelConfig = {
   panelWidthFraction: 0.3,
-  inputFieldHeight: 40,
+  inputFieldHeight: 100,
 };
 
 const Indicator = GObject.registerClass(
@@ -24,16 +24,11 @@ const Indicator = GObject.registerClass(
         })
       );
 
-      // Menu item to toggle panel visibility
-      const toggleItem = new PopupMenu.PopupMenuItem(_("Show Panel"));
-      toggleItem.connect("activate", () => this._togglePanel());
-      this.menu.addMenuItem(toggleItem);
-
       // Create overlay panel
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
         reactive: true,
-        visible: false,
+        visible: false, // Initially hidden
         width: Math.floor(
           Main.layoutManager.primaryMonitor.width *
             PanelConfig.panelWidthFraction
@@ -90,14 +85,15 @@ const Indicator = GObject.registerClass(
       });
 
       this._contentBox.add_child(this._outputLabel);
-    }
 
-    _togglePanel() {
-      this._panelOverlay.visible = !this._panelOverlay.visible;
+      // Toggle panel visibility on icon click
+      this.connect("button-press-event", () => {
+        this._panelOverlay.visible = !this._panelOverlay.visible;
 
-      if (this._panelOverlay.visible) {
-        global.stage.set_key_focus(this._inputField.clutter_text);
-      }
+        if (this._panelOverlay.visible) {
+          global.stage.set_key_focus(this._inputField.clutter_text);
+        }
+      });
     }
 
     _sendMessage() {
@@ -119,7 +115,7 @@ const Indicator = GObject.registerClass(
         "-H",
         "Content-Type: application/json",
         "-d",
-        JSON.stringify({ model: "llama3.2", prompt: userMessage }),
+        JSON.stringify({ model: "llama3.2:1b", prompt: userMessage }),
       ];
 
       try {
