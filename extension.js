@@ -115,6 +115,21 @@ const Indicator = GObject.registerClass(
       this._inputField.set_text(""); // Clear the input field
       this._outputLabel.set_text(_("Waiting for response..."));
 
+      // Prepare the payload
+      const payload = {
+        model: "llama3.2:1b",
+        prompt: userMessage,
+      };
+
+      // Include context if it exists and is not empty
+      if (
+        this._context &&
+        Array.isArray(this._context) &&
+        this._context.length > 0
+      ) {
+        payload.context = this._context;
+      }
+
       // Construct the curl command
       const curlCommand = [
         "curl",
@@ -124,7 +139,7 @@ const Indicator = GObject.registerClass(
         "-H",
         "Content-Type: application/json",
         "-d",
-        JSON.stringify({ model: "llama3.2:1b", prompt: userMessage }),
+        JSON.stringify(payload),
       ];
 
       try {
