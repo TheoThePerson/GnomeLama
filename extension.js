@@ -16,6 +16,9 @@ const Indicator = GObject.registerClass(
     _init() {
       super._init(0.0, _("AI Chat Panel"));
 
+      // Initialize the context storage
+      this._context = null;
+
       // Icon in the top bar
       this.add_child(
         new St.Icon({
@@ -172,6 +175,12 @@ const Indicator = GObject.registerClass(
             continue;
           }
 
+          // Update the stored context if available
+          if (json.context && Array.isArray(json.context)) {
+            this._context = json.context;
+            log(`[DEBUG] Updated context: ${JSON.stringify(this._context)}`);
+          }
+
           // Update the output label with the response
           if (json && json.response) {
             const currentText = this._outputLabel.get_text();
@@ -183,6 +192,11 @@ const Indicator = GObject.registerClass(
       } finally {
         stream.close(null); // Close the stream
       }
+    }
+
+    // Method to retrieve the current context
+    getContext() {
+      return this._context;
     }
 
     destroy() {
