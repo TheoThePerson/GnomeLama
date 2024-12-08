@@ -2,13 +2,14 @@ const { GObject, St, Clutter, GLib, Gio } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
 
 const _ = ExtensionUtils.gettext;
 
 const PanelConfig = {
   panelWidthFraction: 0.3,
-  inputFieldHeight: 100,
+  inputFieldWidthFraction: 0.8,
+  inputFieldHeightFraction: 0.08,
+  paddingFraction: 0.02,
 };
 
 const Indicator = GObject.registerClass(
@@ -16,10 +17,8 @@ const Indicator = GObject.registerClass(
     _init() {
       super._init(0.0, _("AI Chat Panel"));
 
-      // Initialize the context storage
       this._context = null;
 
-      // Icon in the top bar
       this.add_child(
         new St.Icon({
           icon_name: "face-smile-symbolic",
@@ -27,28 +26,33 @@ const Indicator = GObject.registerClass(
         })
       );
 
-      // Create overlay panel
+      // Monitor dimensions
+      const monitor = Main.layoutManager.primaryMonitor;
+      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+      const panelHeight = monitor.height - Main.panel.actor.height;
+      const panelPadding = monitor.width * PanelConfig.paddingFraction;
+
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
         reactive: true,
-        visible: false, // Initially hidden
-        width: Math.floor(
-          Main.layoutManager.primaryMonitor.width *
-            PanelConfig.panelWidthFraction
-        ),
-        height:
-          Main.layoutManager.primaryMonitor.height - Main.panel.actor.height,
-        x:
-          Main.layoutManager.primaryMonitor.width -
-          Math.floor(
-            Main.layoutManager.primaryMonitor.width *
-              PanelConfig.panelWidthFraction
-          ),
+        visible: false,
+        width: panelWidth,
+        height: panelHeight,
+        x: monitor.width - panelWidth,
         y: Main.panel.actor.height,
-        style: "background-color: #333; border-radius: 5px;", // Dark gray background
+        style: "background-color: #333; border-radius: 0px;",
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
+
+      // Create a padded container for the panel's content
+      this._paddedBox = new St.Bin({
+        style: `padding: ${panelPadding}px;`,
+        x_expand: true,
+        y_expand: true,
+      });
+
+      this._panelOverlay.add_child(this._paddedBox);
 
       this._contentBox = new St.BoxLayout({
         vertical: true,
@@ -57,14 +61,36 @@ const Indicator = GObject.registerClass(
         y_expand: true,
       });
 
-      this._panelOverlay.add_child(this._contentBox);
+      this._paddedBox.set_child(this._contentBox);
+
+      const inputFieldHeight =
+        panelHeight * PanelConfig.inputFieldHeightFraction;
+      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
+
+      // Output label for AI response
+      this._outputLabel = new St.Label({
+        text: _(""),
+        style_class: "panel-output-label",
+        x_expand: true,
+        y_expand: true,
+        y_align: Clutter.ActorAlign.START,
+      });
+
+      this._contentBox.add_child(this._outputLabel);
 
       // Input field for user messages
+      this._inputFieldBox = new St.BoxLayout({
+        style_class: "panel-input-box",
+        x_expand: true,
+        y_align: Clutter.ActorAlign.END,
+        vertical: false,
+      });
+
       this._inputField = new St.Entry({
         style_class: "panel-input-field",
         hint_text: _("Type your message here..."),
-        height: PanelConfig.inputFieldHeight,
-        width: 300,
+        height: inputFieldHeight,
+        width: inputFieldWidth,
         can_focus: true,
       });
 
@@ -76,24 +102,20 @@ const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      this._contentBox.add_child(this._inputField);
+      this._inputFieldBox.add_child(this._inputField);
 
       // Button to send the message
       this._sendButton = new St.Button({
         label: _("Send"),
         style_class: "panel-send-button",
+        height: inputFieldHeight,
       });
 
       this._sendButton.connect("clicked", () => this._sendMessage());
-      this._contentBox.add_child(this._sendButton);
+      this._inputFieldBox.add_child(this._sendButton);
 
-      // Output label to display the AI's response
-      this._outputLabel = new St.Label({
-        text: _(""),
-        style_class: "panel-output-label",
-      });
-
-      this._contentBox.add_child(this._outputLabel);
+      // Add input field box to the content box
+      this._contentBox.add_child(this._inputFieldBox);
 
       // Toggle panel visibility on icon click
       this.connect("button-press-event", () => {
@@ -115,13 +137,11 @@ const Indicator = GObject.registerClass(
       this._inputField.set_text(""); // Clear the input field
       this._outputLabel.set_text(_("Waiting for response..."));
 
-      // Prepare the payload
       const payload = {
         model: "llama3.2:1b",
         prompt: userMessage,
       };
 
-      // Include context if it exists and is not empty
       if (
         this._context &&
         Array.isArray(this._context) &&
@@ -130,7 +150,6 @@ const Indicator = GObject.registerClass(
         payload.context = this._context;
       }
 
-      // Construct the curl command
       const curlCommand = [
         "curl",
         "-X",
@@ -163,7 +182,7 @@ const Indicator = GObject.registerClass(
 
       try {
         while (true) {
-          let [line, length] = await new Promise((resolve, reject) => {
+          let [line] = await new Promise((resolve, reject) => {
             stream.read_line_async(
               GLib.PRIORITY_DEFAULT,
               null,
@@ -178,10 +197,9 @@ const Indicator = GObject.registerClass(
           });
 
           if (line === null) {
-            break; // End of stream
+            break;
           }
 
-          // Parse the JSON response
           let json;
           try {
             json = JSON.parse(line);
@@ -190,13 +208,11 @@ const Indicator = GObject.registerClass(
             continue;
           }
 
-          // Update the stored context if available
           if (json.context && Array.isArray(json.context)) {
             this._context = json.context;
             log(`[DEBUG] Updated context: ${JSON.stringify(this._context)}`);
           }
 
-          // Update the output label with the response
           if (json && json.response) {
             const currentText = this._outputLabel.get_text();
             this._outputLabel.set_text(currentText + json.response);
@@ -205,11 +221,10 @@ const Indicator = GObject.registerClass(
       } catch (error) {
         this._outputLabel.set_text(_("Stream processing error."));
       } finally {
-        stream.close(null); // Close the stream
+        stream.close(null);
       }
     }
 
-    // Method to retrieve the current context
     getContext() {
       return this._context;
     }
