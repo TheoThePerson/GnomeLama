@@ -8,7 +8,7 @@ const _ = ExtensionUtils.gettext;
 const PanelConfig = {
   panelWidthFraction: 0.3,
   inputFieldWidthFraction: 0.8,
-  inputFieldHeightFraction: 0.08,
+  inputFieldHeightFraction: 0.03,
   paddingFraction: 0.02,
 };
 
