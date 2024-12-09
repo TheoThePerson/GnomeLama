@@ -33,7 +33,10 @@ const Indicator = GObject.registerClass(
       const panelHeight = monitor.height - Main.panel.actor.height;
       const panelPaddingX = monitor.width * PanelConfig.paddingFractionX; // Horizontal padding
       const panelPaddingY = monitor.height * PanelConfig.paddingFractionY; // Vertical padding
+      const settingsPanelHeight =
+        monitor.height * PanelConfig.inputFieldHeightFraction;
 
+      // Chat Panel
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
         reactive: true,
@@ -47,7 +50,7 @@ const Indicator = GObject.registerClass(
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
-      // Create a padded container for the panel's content
+      // Chat panel content
       this._paddedBox = new St.Bin({
         style: `padding: ${panelPaddingY}px ${panelPaddingX}px;`,
         x_expand: true,
@@ -119,11 +122,27 @@ const Indicator = GObject.registerClass(
       // Add input field box to the content box
       this._contentBox.add_child(this._inputFieldBox);
 
+      // Settings Panel
+      this._settingsPanel = new St.Widget({
+        style_class: "settings-panel-overlay",
+        reactive: true,
+        visible: false,
+        width: panelWidth,
+        height: settingsPanelHeight,
+        x: monitor.width - panelWidth,
+        y: Main.panel.actor.height, // Position below the GNOME top bar
+        style: `background-color: #222; border-radius: 0px;`,
+      });
+
+      Main.layoutManager.uiGroup.add_child(this._settingsPanel);
+
       // Toggle panel visibility on icon click
       this.connect("button-press-event", () => {
-        this._panelOverlay.visible = !this._panelOverlay.visible;
+        const isVisible = !this._panelOverlay.visible;
+        this._panelOverlay.visible = isVisible;
+        this._settingsPanel.visible = isVisible;
 
-        if (this._panelOverlay.visible) {
+        if (isVisible) {
           global.stage.set_key_focus(this._inputField.clutter_text);
         }
       });
