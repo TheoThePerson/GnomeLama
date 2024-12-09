@@ -5,7 +5,8 @@ GnomeLama is a intergration between ollama and gnome.
 ## Features In Progress
 
 > [!Important]
-> This extention is still being worked on but now does work at a bacic level
+> This extention is still being worked on but now does work at a bacic level. Unfortunatly it doesn't work with gnome 47.
+> but it does work with 43
 
 - Basic message blobs like ChatGPT
 - Model selection functionality
