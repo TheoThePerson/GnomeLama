@@ -39,7 +39,7 @@ Here is the color palette for the project:
 ![#FCA311](https://img.shields.io/badge/-FCA311-FCA311?style=flat-square)
 ![#FFF5EB](https://img.shields.io/badge/-FFF5EB-FFF5EB?style=flat-square)
 
-Each color has a unique HEX value:
+HEX values:
 - `#12162B` (a dark blue shade for background)
 - `#999999` (a light gray shade for top bar and input feild)
 - `#00ACE0` (a bright blue shade for you messages)
