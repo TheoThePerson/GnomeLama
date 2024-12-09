@@ -29,6 +29,23 @@ GnomeLama is an integration between ollama and gnome.
 	```
 3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
 
+# Color Palette
+
+Here is the color palette for the project:
+
+![#12162B](https://img.shields.io/badge/-12162B-12162B?style=flat-square)
+![#999999](https://img.shields.io/badge/-999999-999999?style=flat-square)
+![#00ACE0](https://img.shields.io/badge/-00ACE0-00ACE0?style=flat-square)
+![#FCA311](https://img.shields.io/badge/-FCA311-FCA311?style=flat-square)
+![#FFF5EB](https://img.shields.io/badge/-FFF5EB-FFF5EB?style=flat-square)
+
+Each color has a unique HEX value:
+- `#12162B` (a dark blue shade for background)
+- `#999999` (a light gray shade for top bar and input feild)
+- `#00ACE0` (a bright blue shade for you messages)
+- `#FCA311` (a vibrant orange shade for responce)
+- `#FFF5EB` (a warm white for text)
+- 
 ## Contributing
 
 1. Fork this repository.
@@ -42,3 +59,8 @@ Any help is much appreciated
 ## License
 
 This project is licensed under the MIT License.
+
+
+
+
+
