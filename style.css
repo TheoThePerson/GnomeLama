@@ -1,29 +1,24 @@
 .panel-overlay {
     background-color: rgba(128, 128, 128, 1); /* Opaque grey color */
     border-radius: 0; /* No rounded corners */
-    padding: 0; /* No padding */
-    margin: 0; /* No margin */
 }
 
 .panel-content-box {
-    padding: 10px; /* Padding for the content area */
     vertical-align: bottom; /* Align items to the bottom */
     expand: true; /* Allow the box to take available vertical space */
 }
 
-.panel-bottom-box {
+.panel-input-box {
     vertical: false; /* Layout the input and button horizontally */
     margin-top: auto; /* Push this box to the bottom */
 }
 
 .panel-input-field {
-    height: 40px; /* Use value from PanelConfig for height */
     flex: 1; /* Allow the field to take available width */
     margin-right: 5px; /* Space between input field and button */
 }
 
 .panel-send-button {
-    height: 40px; /* Use value from PanelConfig for height */
     background-color: #4CAF50; /* Green background for the button */
     color: white; /* White text for the button */
     border-radius: 5px; /* Rounded corners for button */

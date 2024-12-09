@@ -6,10 +6,11 @@ const PanelMenu = imports.ui.panelMenu;
 const _ = ExtensionUtils.gettext;
 
 const PanelConfig = {
-  panelWidthFraction: 0.3,
+  panelWidthFraction: 0.2,
   inputFieldWidthFraction: 0.8,
   inputFieldHeightFraction: 0.03,
-  paddingFraction: 0.02,
+  paddingFractionX: 0.02, // Horizontal padding as a fraction of width
+  paddingFractionY: 0.9, // Vertical padding as a fraction of height
 };
 
 const Indicator = GObject.registerClass(
@@ -30,7 +31,8 @@ const Indicator = GObject.registerClass(
       const monitor = Main.layoutManager.primaryMonitor;
       const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
       const panelHeight = monitor.height - Main.panel.actor.height;
-      const panelPadding = monitor.width * PanelConfig.paddingFraction;
+      const panelPaddingX = monitor.width * PanelConfig.paddingFractionX; // Horizontal padding
+      const panelPaddingY = monitor.height * PanelConfig.paddingFractionY; // Vertical padding
 
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
@@ -40,14 +42,14 @@ const Indicator = GObject.registerClass(
         height: panelHeight,
         x: monitor.width - panelWidth,
         y: Main.panel.actor.height,
-        style: "background-color: #333; border-radius: 0px;",
+        style: `background-color: #333; border-radius: 0px;`,
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
       // Create a padded container for the panel's content
       this._paddedBox = new St.Bin({
-        style: `padding: ${panelPadding}px;`,
+        style: `padding: ${panelPaddingY}px ${panelPaddingX}px;`,
         x_expand: true,
         y_expand: true,
       });
