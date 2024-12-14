@@ -1,3 +1,5 @@
+![GnomeLama4](https://github.com/user-attachments/assets/64b8c9e7-cd14-4adf-92d4-e92d7aac13d9)
+
 # Ollama Extension
 
 GnomeLama is an integration between ollama and gnome.
