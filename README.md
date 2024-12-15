@@ -30,6 +30,10 @@ GnomeLama is an integration between ollama and gnome.
 	gnome-extensions enable GnomeLama
 	```
 3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
+
+## Concept Art
+
+<img src="https://github.com/user-attachments/assets/548157d2-ae6c-4b46-9247-52a05bdcb6c8" width="200" />
  
 ## Contributing
 
