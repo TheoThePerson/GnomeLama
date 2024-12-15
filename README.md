@@ -41,12 +41,11 @@ GnomeLama is an integration between ollama and gnome.
 
 Any help is much appreciated
 
-## License
-
-This project is licensed under the MIT License.
-
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=TheoThePerson/GnomeLama&type=Date)](https://star-history.com/#TheoThePerson/GnomeLama&Date)
 
 
+## License
+
+This project is licensed under the MIT License.
