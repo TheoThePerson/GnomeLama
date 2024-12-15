@@ -45,7 +45,8 @@ Any help is much appreciated
 
 This project is licensed under the MIT License.
 
+## Star History
 
-
+[![Star History Chart](https://api.star-history.com/svg?repos=TheoThePerson/GnomeLama&type=Date)](https://star-history.com/#TheoThePerson/GnomeLama&Date)
 
 
