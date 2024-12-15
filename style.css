@@ -16,6 +16,7 @@
 .panel-input-field {
     flex: 1; /* Allow the field to take available width */
     margin-right: 5px; /* Space between input field and button */
+    border-radius: 9999px;
 }
 
 .panel-send-button {

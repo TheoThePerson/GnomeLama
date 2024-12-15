@@ -97,6 +97,7 @@ const Indicator = GObject.registerClass(
         height: inputFieldHeight,
         width: inputFieldWidth,
         can_focus: true,
+        style: "border-radius: 9999px;", // Fully rounded corners
       });
 
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
