@@ -110,11 +110,17 @@ const Indicator = GObject.registerClass(
 
       this._inputFieldBox.add_child(this._inputField);
 
-      // Button to send the message
+      const sendIconPath = `${
+        ExtensionUtils.getCurrentExtension().path
+      }/icons/send-icon.svg`;
+
       this._sendButton = new St.Button({
-        label: _("Send"),
         style_class: "panel-send-button",
         height: inputFieldHeight,
+        child: new St.Icon({
+          gicon: Gio.icon_new_for_string(sendIconPath),
+          style_class: "system-status-icon",
+        }),
       });
 
       this._sendButton.connect("clicked", () => this._sendMessage());
