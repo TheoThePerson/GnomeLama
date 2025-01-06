@@ -7,7 +7,7 @@ GnomeLama is an integration between ollama and gnome.
 ## Features In Progress
 
 > [!Important]
-> This extension is a work in progress and works at a basic level. Gnome 43 should work and I am now on Gnome 47 and am looking to move it over if anybody has any expiriance in this that would be a big help.
+> This extension is a work in progress and works at a basic level. Gnome 47 is now functional!
 
 - Basic message blobs like ChatGPT
 - Model selection functionality
