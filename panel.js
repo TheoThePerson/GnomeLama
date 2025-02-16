@@ -4,7 +4,7 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
-import { sendMessage } from "./messaging.js";
+import { sendMessage, getConversationHistory } from "./messaging.js";
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
@@ -45,19 +45,19 @@ export const Indicator = GObject.registerClass(
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
-      // Calculate heights for the two areas:
+      // Calculate heights for output and input areas:
       const inputFieldHeight =
         panelHeight * PanelConfig.inputFieldHeightFraction;
       const outputHeight = panelHeight - inputFieldHeight;
 
-      // Create a scrollable output area:
+      // Create a scrollable output area for the conversation history:
       this._outputScrollView = new St.ScrollView({
         width: panelWidth,
         height: outputHeight,
         style_class: "output-scrollview",
       });
 
-      // Wrap the label inside a container that is acceptable to the scroll view
+      // Wrap the label in a container that works with ScrollView:
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
@@ -79,7 +79,7 @@ export const Indicator = GObject.registerClass(
         vertical: false,
       });
       this._inputFieldBox.set_height(inputFieldHeight);
-      // Position it so its top edge is at the bottom of the output area:
+      // Position the input box at the bottom of the overlay:
       this._inputFieldBox.set_position(0, outputHeight);
       this._panelOverlay.add_child(this._inputFieldBox);
 
@@ -96,7 +96,6 @@ export const Indicator = GObject.registerClass(
         }
         return Clutter.EVENT_PROPAGATE;
       });
-
       this._inputFieldBox.add_child(this._inputField);
 
       this._sendButton = new St.Button({
@@ -105,14 +104,14 @@ export const Indicator = GObject.registerClass(
           style_class: "system-status-icon",
         }),
       });
-
       this._sendButton.connect("clicked", () => this._sendMessage());
       this._inputFieldBox.add_child(this._sendButton);
 
-      // Toggle the overlay when clicking on the panel icon:
+      // Toggle the overlay when clicking on the panel icon and update history:
       this.connect("button-press-event", () => {
         this._panelOverlay.visible = !this._panelOverlay.visible;
         if (this._panelOverlay.visible) {
+          this._updateHistory();
           global.stage.set_key_focus(this._inputField.clutter_text);
         }
       });
@@ -125,15 +124,28 @@ export const Indicator = GObject.registerClass(
         return;
       }
 
+      // Clear the input field and show waiting feedback
       this._inputField.set_text("");
       this._outputLabel.set_text("Waiting for response...");
 
-      const response = await sendMessage(userMessage, this._context);
-      if (response) {
-        this._outputLabel.set_text(response);
-      } else {
-        this._outputLabel.set_text("Error: Unable to get a response.");
+      // Send the message; conversation history is updated within sendMessage
+      await sendMessage(userMessage, this._context);
+
+      // Refresh the displayed conversation history
+      this._updateHistory();
+    }
+
+    _updateHistory() {
+      const history = getConversationHistory();
+      let text = "";
+      for (const msg of history) {
+        if (msg.type === "user") {
+          text += `You: ${msg.text}\n\n`;
+        } else {
+          text += `AI: ${msg.text}\n\n`;
+        }
       }
+      this._outputLabel.set_text(text);
     }
 
     destroy() {
