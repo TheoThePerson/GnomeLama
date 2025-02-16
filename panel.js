@@ -57,18 +57,12 @@ export const Indicator = GObject.registerClass(
         style_class: "output-scrollview",
       });
 
-      // Wrap the label in a container that works with ScrollView:
+      // Use a vertical BoxLayout container for individual message widgets:
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
         clip_to_allocation: true,
       });
-      this._outputLabel = new St.Label({
-        text: "",
-        x_expand: true,
-        y_align: Clutter.ActorAlign.START,
-      });
-      this._outputContainer.add_child(this._outputLabel);
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
 
@@ -79,7 +73,6 @@ export const Indicator = GObject.registerClass(
         vertical: false,
       });
       this._inputFieldBox.set_height(inputFieldHeight);
-      // Position the input box at the bottom of the overlay:
       this._inputFieldBox.set_position(0, outputHeight);
       this._panelOverlay.add_child(this._inputFieldBox);
 
@@ -88,7 +81,6 @@ export const Indicator = GObject.registerClass(
         can_focus: true,
         style: "border-radius: 9999px;",
       });
-
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
           this._sendMessage();
@@ -107,7 +99,7 @@ export const Indicator = GObject.registerClass(
       this._sendButton.connect("clicked", () => this._sendMessage());
       this._inputFieldBox.add_child(this._sendButton);
 
-      // Toggle the overlay when clicking on the panel icon and update history:
+      // Toggle the overlay when clicking on the panel icon, refreshing history:
       this.connect("button-press-event", () => {
         this._panelOverlay.visible = !this._panelOverlay.visible;
         if (this._panelOverlay.visible) {
@@ -120,32 +112,53 @@ export const Indicator = GObject.registerClass(
     async _sendMessage() {
       const userMessage = this._inputField.get_text().trim();
       if (!userMessage) {
-        this._outputLabel.set_text("Please enter a message.");
+        this._clearOutput();
+        this._addTemporaryMessage("Please enter a message.");
         return;
       }
 
-      // Clear the input field and show waiting feedback
+      // Clear waiting feedback and input field:
       this._inputField.set_text("");
-      this._outputLabel.set_text("Waiting for response...");
+      this._clearOutput();
+      this._addTemporaryMessage("Waiting for response...");
 
-      // Send the message; conversation history is updated within sendMessage
+      // Send the message and update history once done:
       await sendMessage(userMessage, this._context);
-
-      // Refresh the displayed conversation history
       this._updateHistory();
     }
 
     _updateHistory() {
+      // Clear existing children:
+      this._outputContainer.get_children().forEach((child) => child.destroy());
+
       const history = getConversationHistory();
-      let text = "";
       for (const msg of history) {
-        if (msg.type === "user") {
-          text += `You: ${msg.text}\n\n`;
-        } else {
-          text += `AI: ${msg.text}\n\n`;
-        }
+        const isUser = msg.type === "user";
+        const alignment = isUser
+          ? Clutter.ActorAlign.END
+          : Clutter.ActorAlign.START;
+        const prefix = isUser ? "You: " : "AI: ";
+        const label = new St.Label({
+          text: prefix + msg.text,
+          x_align: alignment,
+          style: "padding: 5px; margin-bottom: 5px; max-width: 90%;",
+        });
+        this._outputContainer.add_child(label);
       }
-      this._outputLabel.set_text(text);
+    }
+
+    _clearOutput() {
+      // Remove any temporary message in the output container:
+      this._outputContainer.get_children().forEach((child) => child.destroy());
+    }
+
+    _addTemporaryMessage(text) {
+      const tempLabel = new St.Label({
+        text,
+        x_align: Clutter.ActorAlign.START,
+        style: "padding: 5px; margin-bottom: 5px;",
+      });
+      this._outputContainer.add_child(tempLabel);
     }
 
     destroy() {
