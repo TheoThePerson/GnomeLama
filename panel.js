@@ -45,28 +45,43 @@ export const Indicator = GObject.registerClass(
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
-      this._contentBox = new St.BoxLayout({
-        vertical: true,
-        x_expand: true,
-        y_expand: true,
+      // Calculate heights for the two areas:
+      const inputFieldHeight =
+        panelHeight * PanelConfig.inputFieldHeightFraction;
+      const outputHeight = panelHeight - inputFieldHeight;
+
+      // Create a scrollable output area:
+      this._outputScrollView = new St.ScrollView({
+        width: panelWidth,
+        height: outputHeight,
+        style_class: "output-scrollview",
       });
 
-      this._panelOverlay.add_child(this._contentBox);
-
+      // Wrap the label inside a container that is acceptable to the scroll view
+      this._outputContainer = new St.BoxLayout({
+        vertical: true,
+        reactive: true,
+        clip_to_allocation: true,
+      });
       this._outputLabel = new St.Label({
         text: "",
         x_expand: true,
-        y_expand: true,
         y_align: Clutter.ActorAlign.START,
       });
+      this._outputContainer.add_child(this._outputLabel);
+      this._outputScrollView.set_child(this._outputContainer);
+      this._panelOverlay.add_child(this._outputScrollView);
 
-      this._contentBox.add_child(this._outputLabel);
-
+      // Create the input area and position it at the bottom:
       this._inputFieldBox = new St.BoxLayout({
+        style_class: "input-field-box",
         x_expand: true,
-        y_align: Clutter.ActorAlign.END,
         vertical: false,
       });
+      this._inputFieldBox.set_height(inputFieldHeight);
+      // Position it so its top edge is at the bottom of the output area:
+      this._inputFieldBox.set_position(0, outputHeight);
+      this._panelOverlay.add_child(this._inputFieldBox);
 
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
@@ -94,8 +109,7 @@ export const Indicator = GObject.registerClass(
       this._sendButton.connect("clicked", () => this._sendMessage());
       this._inputFieldBox.add_child(this._sendButton);
 
-      this._contentBox.add_child(this._inputFieldBox);
-
+      // Toggle the overlay when clicking on the panel icon:
       this.connect("button-press-event", () => {
         this._panelOverlay.visible = !this._panelOverlay.visible;
         if (this._panelOverlay.visible) {
