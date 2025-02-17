@@ -45,6 +45,16 @@ export const Indicator = GObject.registerClass(
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
+      // Create a lighter-colored top bar
+      this._topBar = new St.BoxLayout({
+        style_class: "top-bar",
+        width: panelWidth,
+        height: 40,
+        style:
+          "background-color: rgba(255, 255, 255, 0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.3); padding: 5px;",
+      });
+      this._panelOverlay.add_child(this._topBar);
+
       // Calculate heights for output and input areas:
       const inputFieldHeight =
         panelHeight * PanelConfig.inputFieldHeightFraction;
@@ -128,7 +138,6 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateHistory() {
-      // Clear existing children:
       this._outputContainer.get_children().forEach((child) => child.destroy());
 
       const history = getConversationHistory();
@@ -148,7 +157,6 @@ export const Indicator = GObject.registerClass(
     }
 
     _clearOutput() {
-      // Remove any temporary message in the output container:
       this._outputContainer.get_children().forEach((child) => child.destroy());
     }
 
