@@ -12,6 +12,7 @@ const PanelConfig = {
   inputFieldHeightFraction: 0.03,
   paddingFractionX: 0.02,
   paddingFractionY: 0.9,
+  topBarHeight: 40,
 };
 
 export const Indicator = GObject.registerClass(
@@ -45,29 +46,31 @@ export const Indicator = GObject.registerClass(
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
 
-      // Create a lighter-colored top bar
+      // Create top bar with explicit height
       this._topBar = new St.BoxLayout({
         style_class: "top-bar",
         width: panelWidth,
-        height: 40,
+        height: PanelConfig.topBarHeight,
+        reactive: true,
         style:
           "background-color: rgba(255, 255, 255, 0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.3); padding: 5px;",
       });
+
       this._panelOverlay.add_child(this._topBar);
 
-      // Calculate heights for output and input areas:
+      // Calculate heights for output and input areas
       const inputFieldHeight =
         panelHeight * PanelConfig.inputFieldHeightFraction;
-      const outputHeight = panelHeight - inputFieldHeight;
+      const outputHeight =
+        panelHeight - inputFieldHeight - PanelConfig.topBarHeight - 10;
 
-      // Create a scrollable output area for the conversation history:
       this._outputScrollView = new St.ScrollView({
         width: panelWidth,
         height: outputHeight,
         style_class: "output-scrollview",
+        y: PanelConfig.topBarHeight + 10,
       });
 
-      // Use a vertical BoxLayout container for individual message widgets:
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
@@ -76,14 +79,16 @@ export const Indicator = GObject.registerClass(
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
 
-      // Create the input area and position it at the bottom:
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
         x_expand: true,
         vertical: false,
       });
       this._inputFieldBox.set_height(inputFieldHeight);
-      this._inputFieldBox.set_position(0, outputHeight);
+      this._inputFieldBox.set_position(
+        0,
+        outputHeight + PanelConfig.topBarHeight + 10
+      );
       this._panelOverlay.add_child(this._inputFieldBox);
 
       this._inputField = new St.Entry({
@@ -109,7 +114,7 @@ export const Indicator = GObject.registerClass(
       this._sendButton.connect("clicked", () => this._sendMessage());
       this._inputFieldBox.add_child(this._sendButton);
 
-      // Toggle the overlay when clicking on the panel icon, refreshing history:
+      // Restore original panel toggle behavior
       this.connect("button-press-event", () => {
         this._panelOverlay.visible = !this._panelOverlay.visible;
         if (this._panelOverlay.visible) {
@@ -127,12 +132,10 @@ export const Indicator = GObject.registerClass(
         return;
       }
 
-      // Clear waiting feedback and input field:
       this._inputField.set_text("");
       this._clearOutput();
       this._addTemporaryMessage("Waiting for response...");
 
-      // Send the message and update history once done:
       await sendMessage(userMessage, this._context);
       this._updateHistory();
     }

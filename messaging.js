@@ -95,3 +95,7 @@ async function processStream(outputStream) {
 export function getConversationHistory() {
   return conversationHistory;
 }
+
+function clearConversationHistory() {
+  conversationHistory.splice(0, conversationHistory.length);
+}
