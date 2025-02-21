@@ -17,10 +17,11 @@ const PanelConfig = {
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
-    _init() {
+    _init(extensionPath) {
       super._init(0.0, "AI Chat Panel");
 
       this._context = null;
+      this._extensionPath = extensionPath;
 
       this.add_child(
         new St.Icon({
@@ -107,7 +108,9 @@ export const Indicator = GObject.registerClass(
 
       this._sendButton = new St.Button({
         child: new St.Icon({
-          gicon: Gio.icon_new_for_string(this.path + "/icons/send-icon.svg"),
+          gicon: Gio.icon_new_for_string(
+            `${this._extensionPath}/icons/send-icon.svg`
+          ),
           style_class: "system-status-icon",
         }),
       });

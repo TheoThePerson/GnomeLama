@@ -4,7 +4,7 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 export default class MyExtension extends Extension {
   enable() {
-    this._indicator = new Indicator();
+    this._indicator = new Indicator(this.path); // Pass the path to the Indicator
     Main.panel.addToStatusArea(this.metadata.uuid, this._indicator);
   }
 
