@@ -8,11 +8,12 @@ import { sendMessage, getConversationHistory } from "./messaging.js";
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
-  inputFieldWidthFraction: 0.88,
+  inputFieldWidthFraction: 0.86,
   inputFieldHeightFraction: 0.03,
-  paddingFractionX: 0.1,
-  paddingFractionY: 0.9,
-  topBarHeight: 40,
+  paddingFractionX: 0.02,
+  paddingFractionY: 0.01,
+  topBarHeightFraction: 0.03,
+  inputButtonSpacingFraction: 0.01,
 };
 
 export const Indicator = GObject.registerClass(
@@ -33,6 +34,9 @@ export const Indicator = GObject.registerClass(
       const monitor = Main.layoutManager.primaryMonitor;
       const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
       const panelHeight = monitor.height - Main.panel.actor.height;
+      const paddingX = panelWidth * PanelConfig.paddingFractionX;
+      const paddingY = panelHeight * PanelConfig.paddingFractionY;
+      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
 
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
@@ -51,10 +55,11 @@ export const Indicator = GObject.registerClass(
       this._topBar = new St.BoxLayout({
         style_class: "top-bar",
         width: panelWidth,
-        height: PanelConfig.topBarHeight,
+        height: topBarHeight,
         reactive: true,
-        style:
-          "background-color: rgba(255, 255, 255, 0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.3); padding: 5px;",
+        style: `background-color: rgba(255, 255, 255, 0.2); 
+                border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
+                padding: ${paddingY}px ${paddingX}px;`,
       });
 
       this._panelOverlay.add_child(this._topBar);
@@ -63,20 +68,20 @@ export const Indicator = GObject.registerClass(
       const inputFieldHeight =
         panelHeight * PanelConfig.inputFieldHeightFraction;
       const outputHeight =
-        panelHeight - inputFieldHeight - PanelConfig.topBarHeight - 10;
+        panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
 
       this._outputScrollView = new St.ScrollView({
         width: panelWidth,
         height: outputHeight,
         style_class: "output-scrollview",
-        y: PanelConfig.topBarHeight + 10,
+        y: topBarHeight + paddingY,
       });
 
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
         clip_to_allocation: true,
-        style: "padding: 0 10px;",
+        style: `padding: 0 ${paddingX}px;`,
       });
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
@@ -85,21 +90,24 @@ export const Indicator = GObject.registerClass(
         style_class: "input-field-box",
         x_expand: false,
         vertical: false,
-        style: "padding: 0 10px;",
+        style: `padding: 0 ${paddingX}px;`,
       });
       this._inputFieldBox.set_height(inputFieldHeight);
       this._inputFieldBox.set_width(panelWidth);
       this._inputFieldBox.set_position(
         0,
-        outputHeight + PanelConfig.topBarHeight + 10
+        outputHeight + topBarHeight + paddingY
       );
       this._panelOverlay.add_child(this._inputFieldBox);
 
       const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
+      const inputButtonSpacing =
+        panelWidth * PanelConfig.inputButtonSpacingFraction;
+
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
-        style: "border-radius: 9999px; width: " + inputFieldWidth + "px;",
+        style: `border-radius: 9999px; width: ${inputFieldWidth}px; margin-right: ${inputButtonSpacing}px;`,
       });
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
