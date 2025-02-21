@@ -8,9 +8,9 @@ import { sendMessage, getConversationHistory } from "./messaging.js";
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
-  inputFieldWidthFraction: 0.75,
+  inputFieldWidthFraction: 0.88,
   inputFieldHeightFraction: 0.03,
-  paddingFractionX: 0.02,
+  paddingFractionX: 0.1,
   paddingFractionY: 0.9,
   topBarHeight: 40,
 };
@@ -76,26 +76,30 @@ export const Indicator = GObject.registerClass(
         vertical: true,
         reactive: true,
         clip_to_allocation: true,
+        style: "padding: 0 10px;",
       });
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
 
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
-        x_expand: true,
+        x_expand: false,
         vertical: false,
+        style: "padding: 0 10px;",
       });
       this._inputFieldBox.set_height(inputFieldHeight);
+      this._inputFieldBox.set_width(panelWidth);
       this._inputFieldBox.set_position(
         0,
         outputHeight + PanelConfig.topBarHeight + 10
       );
       this._panelOverlay.add_child(this._inputFieldBox);
 
+      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
-        style: "border-radius: 9999px;",
+        style: "border-radius: 9999px; width: " + inputFieldWidth + "px;",
       });
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
@@ -156,7 +160,8 @@ export const Indicator = GObject.registerClass(
         const label = new St.Label({
           text: prefix + msg.text,
           x_align: alignment,
-          style: "padding: 5px; margin-bottom: 5px; max-width: 90%;",
+          style:
+            "padding: 5px; margin-bottom: 5px; max-width: 90%; word-wrap: break-word;",
         });
         this._outputContainer.add_child(label);
       }
