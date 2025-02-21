@@ -2,20 +2,16 @@
 
 # Ollama Extension
 
-GnomeLama is an integration between ollama and gnome.
+GnomeLama is an integration between ollama and gnome. (a linux copiolot)
 
 ## Features In Progress
 
 > [!Important]
 > This extension is a work in progress and works at a basic level. Gnome 47 is now functional!
 
-- Basic message blobs like ChatGPT (implemented)
-- Context/Memory (implemented)
 - Model selection functionality
-- Screenshot and image processing with LLava (future)
-- GNOME search bar integration
+- Running commands (to install do updates etc)
 - Putting it on the gnome extension page (after getting basic functionality)
-- Adding image generation (future possibility)
 
 ## Installation
 
