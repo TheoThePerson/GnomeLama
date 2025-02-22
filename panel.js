@@ -4,6 +4,7 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import {
   sendMessage,
   getConversationHistory,
@@ -68,12 +69,61 @@ export const Indicator = GObject.registerClass(
                 padding: ${paddingY}px ${paddingX}px;`,
       });
 
-      // Add an expanding widget to push the button to the right
-      this._topBar.add_child(
-        new St.Widget({
-          x_expand: true,
-        })
+      // Create dropdown menu button with initial text
+      this._modelButtonLabel = new St.Label({
+        text: "Models ▼",
+        style: "color: white; padding: 5px;",
+        y_align: Clutter.ActorAlign.CENTER,
+      });
+
+      this._modelButton = new St.Button({
+        child: this._modelButtonLabel,
+        style:
+          "background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; margin: 2px 0;",
+        y_align: Clutter.ActorAlign.CENTER,
+      });
+
+      // Create the menu
+      this._modelMenu = new PopupMenu.PopupMenu(
+        this._modelButton,
+        0.0,
+        St.Side.TOP
       );
+      Main.uiGroup.add_child(this._modelMenu.actor);
+
+      // Add items with click handlers
+      let item1 = new PopupMenu.PopupMenuItem("Test Item 1");
+      item1.connect("activate", () => {
+        this._modelButtonLabel.set_text("Test Item 1 ▼");
+        this._modelMenu.close();
+      });
+
+      let item2 = new PopupMenu.PopupMenuItem("Test Item 2");
+      item2.connect("activate", () => {
+        this._modelButtonLabel.set_text("Test Item 2 ▼");
+        this._modelMenu.close();
+      });
+
+      let item3 = new PopupMenu.PopupMenuItem("Test Item 3");
+      item3.connect("activate", () => {
+        this._modelButtonLabel.set_text("Test Item 3 ▼");
+        this._modelMenu.close();
+      });
+
+      this._modelMenu.addMenuItem(item1);
+      this._modelMenu.addMenuItem(item2);
+      this._modelMenu.addMenuItem(item3);
+
+      // Connect the button click to toggle the menu
+      this._modelButton.connect("button-press-event", () => {
+        this._modelMenu.toggle();
+      });
+
+      // Add the button to the top bar
+      this._topBar.add_child(this._modelButton);
+
+      // Add a separator widget to push the clear button to the right
+      this._topBar.add_child(new St.Widget({ x_expand: true }));
 
       this._clearButton = new St.Button({
         style: `margin: auto ${
@@ -232,6 +282,9 @@ export const Indicator = GObject.registerClass(
     }
 
     destroy() {
+      if (this._modelMenu) {
+        this._modelMenu.destroy();
+      }
       this._panelOverlay.destroy();
       super.destroy();
     }
