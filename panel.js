@@ -19,6 +19,7 @@ const PanelConfig = {
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
   clearIconScale: 2,
+  clearButtonPaddingFraction: 0.01,
 };
 
 export const Indicator = GObject.registerClass(
@@ -75,7 +76,9 @@ export const Indicator = GObject.registerClass(
       );
 
       this._clearButton = new St.Button({
-        style: "margin: auto 0;", // Just center vertically
+        style: `margin: auto ${
+          panelWidth * PanelConfig.clearButtonPaddingFraction
+        }px auto 0;`,
         child: new St.Icon({
           gicon: Gio.icon_new_for_string(
             `${this._extensionPath}/icons/trash-icon.svg`
