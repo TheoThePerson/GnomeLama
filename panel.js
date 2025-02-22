@@ -18,6 +18,7 @@ const PanelConfig = {
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
+  clearIconScale: 2,
 };
 
 export const Indicator = GObject.registerClass(
@@ -66,15 +67,26 @@ export const Indicator = GObject.registerClass(
                 padding: ${paddingY}px ${paddingX}px;`,
       });
 
-      // Add clear history button to top bar
+      // Add an expanding widget to push the button to the right
+      this._topBar.add_child(
+        new St.Widget({
+          x_expand: true,
+        })
+      );
+
       this._clearButton = new St.Button({
-        style_class: "clear-button",
+        style: "margin: auto 0;", // Just center vertically
         child: new St.Icon({
-          icon_name: "edit-clear-symbolic",
+          gicon: Gio.icon_new_for_string(
+            `${this._extensionPath}/icons/trash-icon.svg`
+          ),
           style_class: "system-status-icon",
+          scale_x: PanelConfig.clearIconScale,
+          scale_y: PanelConfig.clearIconScale,
+          translation_x: -8 * (PanelConfig.clearIconScale - 1),
+          translation_y: -8 * (PanelConfig.clearIconScale - 1),
         }),
-        style:
-          "background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 4px;",
+        style_class: "clear-button",
       });
 
       this._clearButton.connect("clicked", () => {
