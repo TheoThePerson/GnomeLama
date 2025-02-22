@@ -1,8 +1,9 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
-// Global conversation history array
-const conversationHistory = [];
+// Global conversation history array and context
+let conversationHistory = [];
+let currentContext = null;
 
 /**
  * Sends a message to the API and stores both the user message and the response.
@@ -12,7 +13,7 @@ const conversationHistory = [];
  * @returns {Promise<string>} - The response from the API.
  */
 export async function sendMessage(userMessage, context) {
-  // Store the user's message in conversation history.
+  // Store the user's message in conversation history
   conversationHistory.push({ type: "user", text: userMessage });
 
   const payload = {
@@ -20,8 +21,13 @@ export async function sendMessage(userMessage, context) {
     prompt: userMessage,
   };
 
-  if (context?.length > 0) {
-    payload.context = context;
+  // Include context if it exists
+  if (
+    currentContext &&
+    Array.isArray(currentContext) &&
+    currentContext.length > 0
+  ) {
+    payload.context = currentContext;
   }
 
   const curlCommand = [
@@ -42,8 +48,16 @@ export async function sendMessage(userMessage, context) {
     });
 
     process.init(null);
-    const response = await processStream(process.get_stdout_pipe());
-    // Store the response in conversation history.
+    const [response, newContext] = await processStream(
+      process.get_stdout_pipe()
+    );
+
+    // Update context if received
+    if (newContext) {
+      currentContext = newContext;
+    }
+
+    // Store the response in conversation history
     conversationHistory.push({ type: "response", text: response });
     return response;
   } catch (e) {
@@ -59,6 +73,7 @@ async function processStream(outputStream) {
   });
 
   let fullResponse = "";
+  let newContext = null;
 
   try {
     while (true) {
@@ -69,7 +84,12 @@ async function processStream(outputStream) {
       try {
         json = JSON.parse(line);
       } catch {
-        return "Error parsing response.";
+        return ["Error parsing response.", null];
+      }
+
+      // Update context if available
+      if (json.context && Array.isArray(json.context)) {
+        newContext = json.context;
       }
 
       if (json.response) {
@@ -77,28 +97,40 @@ async function processStream(outputStream) {
       }
     }
   } catch {
-    return "Stream processing error.";
+    return ["Stream processing error.", null];
   } finally {
     stream.close(null);
   }
 
-  return fullResponse;
+  return [fullResponse, newContext];
 }
 
 /**
  * Returns the complete conversation history.
- *
- * Each entry is an object with:
- *  - type: 'user' or 'response'
- *  - text: the message content
  */
 export function getConversationHistory() {
   return conversationHistory;
 }
 
 /**
- * Clears the entire conversation history
+ * Clears the entire conversation history and context
  */
 export function clearConversationHistory() {
-  conversationHistory.splice(0, conversationHistory.length);
+  conversationHistory = [];
+  currentContext = null;
+}
+
+/**
+ * Gets the current context
+ */
+export function getContext() {
+  return currentContext;
+}
+
+/**
+ * Sets the current context
+ * @param {Array} context - The context to set
+ */
+export function setContext(context) {
+  currentContext = context;
 }

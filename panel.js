@@ -78,8 +78,10 @@ export const Indicator = GObject.registerClass(
       });
 
       this._clearButton.connect("clicked", () => {
-        clearConversationHistory();
-        this._clearOutput();
+        clearConversationHistory(); // This now clears both history and context
+        this._outputContainer
+          .get_children()
+          .forEach((child) => child.destroy());
       });
 
       this._topBar.add_child(this._clearButton);
@@ -178,22 +180,26 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateHistory() {
-      this._outputContainer.get_children().forEach((child) => child.destroy());
+      // First clear all existing messages
+      this._clearOutput();
 
       const history = getConversationHistory();
-      for (const msg of history) {
-        const isUser = msg.type === "user";
-        const alignment = isUser
-          ? Clutter.ActorAlign.END
-          : Clutter.ActorAlign.START;
-        const prefix = isUser ? "You: " : "AI: ";
-        const label = new St.Label({
-          text: prefix + msg.text,
-          x_align: alignment,
-          style:
-            "padding: 5px; margin-bottom: 5px; max-width: 90%; word-wrap: break-word;",
-        });
-        this._outputContainer.add_child(label);
+      // Only add messages if there are any in the history
+      if (history.length > 0) {
+        for (const msg of history) {
+          const isUser = msg.type === "user";
+          const alignment = isUser
+            ? Clutter.ActorAlign.END
+            : Clutter.ActorAlign.START;
+          const prefix = isUser ? "You: " : "AI: ";
+          const label = new St.Label({
+            text: prefix + msg.text,
+            x_align: alignment,
+            style:
+              "padding: 5px; margin-bottom: 5px; max-width: 90%; word-wrap: break-word;",
+          });
+          this._outputContainer.add_child(label);
+        }
       }
     }
 
