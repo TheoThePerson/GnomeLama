@@ -4,6 +4,6 @@
   <circle cx="12" cy="12" r="10" fill="white"/>
   <!-- Scaled-down arrow -->
   <g transform="scale(0.5) translate(12,12)">
-    <path d="M12 5V19M12 5L6 11M12 5L18 11" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M12 5V19M12 5L6 11M12 5L18 11" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

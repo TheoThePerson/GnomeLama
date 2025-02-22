@@ -96,6 +96,9 @@ export function getConversationHistory() {
   return conversationHistory;
 }
 
-function clearConversationHistory() {
+/**
+ * Clears the entire conversation history
+ */
+export function clearConversationHistory() {
   conversationHistory.splice(0, conversationHistory.length);
 }

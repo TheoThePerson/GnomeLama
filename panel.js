@@ -4,7 +4,11 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
-import { sendMessage, getConversationHistory } from "./messaging.js";
+import {
+  sendMessage,
+  getConversationHistory,
+  clearConversationHistory,
+} from "./messaging.js";
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
@@ -61,6 +65,24 @@ export const Indicator = GObject.registerClass(
                 border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
                 padding: ${paddingY}px ${paddingX}px;`,
       });
+
+      // Add clear history button to top bar
+      this._clearButton = new St.Button({
+        style_class: "clear-button",
+        child: new St.Icon({
+          icon_name: "edit-clear-symbolic",
+          style_class: "system-status-icon",
+        }),
+        style:
+          "background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 4px;",
+      });
+
+      this._clearButton.connect("clicked", () => {
+        clearConversationHistory();
+        this._clearOutput();
+      });
+
+      this._topBar.add_child(this._clearButton);
 
       this._panelOverlay.add_child(this._topBar);
 
