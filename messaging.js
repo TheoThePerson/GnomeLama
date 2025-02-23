@@ -5,6 +5,17 @@ import GLib from "gi://GLib";
 let conversationHistory = [];
 let currentContext = null;
 
+// Global variable to hold the selected model
+let selectedModel = "llama3.2:1b"; // Default model
+
+/**
+ * Sets the model to be used for sending messages.
+ * @param {string} model - The model to set.
+ */
+export function setModel(model) {
+  selectedModel = model;
+}
+
 /**
  * Sends a message to the API and stores both the user message and the response.
  *
@@ -17,7 +28,7 @@ export async function sendMessage(userMessage, context) {
   conversationHistory.push({ type: "user", text: userMessage });
 
   const payload = {
-    model: "llama3.2:1b",
+    model: selectedModel, // Use the selected model
     prompt: userMessage,
   };
 

@@ -10,6 +10,7 @@ import {
   getConversationHistory,
   clearConversationHistory,
   fetchModelNames,
+  setModel,
 } from "./messaging.js";
 
 const PanelConfig = {
@@ -136,6 +137,7 @@ export const Indicator = GObject.registerClass(
         const item = new PopupMenu.PopupMenuItem(modelName);
         item.connect("activate", () => {
           this._modelButtonLabel.set_text(modelName);
+          setModel(modelName);
           this._modelMenu.close();
         });
         this._modelMenu.addMenuItem(item);
