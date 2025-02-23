@@ -9,6 +9,7 @@ import {
   sendMessage,
   getConversationHistory,
   clearConversationHistory,
+  fetchModelNames,
 } from "./messaging.js";
 
 const PanelConfig = {
@@ -91,7 +92,7 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay.add_child(this._topBar);
     }
 
-    _setupModelMenu() {
+    async _setupModelMenu() {
       this._modelButtonLabel = new St.Label({
         text: "Models ▼",
         style: "color: white; padding: 5px;",
@@ -120,7 +121,7 @@ export const Indicator = GObject.registerClass(
       Main.uiGroup.add_child(this._modelMenu.actor);
       this._modelMenu.actor.hide();
 
-      this._addModelMenuItems();
+      await this._addModelMenuItems();
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
         return Clutter.EVENT_STOP;
@@ -129,12 +130,12 @@ export const Indicator = GObject.registerClass(
       this._topBar.add_child(this._modelButton);
     }
 
-    _addModelMenuItems() {
-      const items = ["Test Item 1", "Test Item 2", "Test Item 3"];
-      items.forEach((itemText) => {
-        const item = new PopupMenu.PopupMenuItem(itemText);
+    async _addModelMenuItems() {
+      const modelNames = await fetchModelNames();
+      modelNames.forEach((modelName) => {
+        const item = new PopupMenu.PopupMenuItem(modelName);
         item.connect("activate", () => {
-          this._modelButtonLabel.set_text(itemText);
+          this._modelButtonLabel.set_text(modelName);
           this._modelMenu.close();
         });
         this._modelMenu.addMenuItem(item);

@@ -134,3 +134,47 @@ export function getContext() {
 export function setContext(context) {
   currentContext = context;
 }
+
+/**
+ * Fetches model names from the API and outputs them in a sorted list format.
+ */
+export async function fetchModelNames() {
+  const curlCommand = ["curl", "-s", "http://localhost:11434/api/tags"];
+  try {
+    let process = new Gio.Subprocess({
+      argv: curlCommand,
+      flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+    });
+    process.init(null);
+
+    const outputStream = process.get_stdout_pipe();
+    const stream = new Gio.DataInputStream({
+      base_stream: outputStream,
+    });
+
+    // Read the entire response as a single string
+    let jsonData = "";
+    while (true) {
+      const [readLine] = await stream.read_line_async(
+        GLib.PRIORITY_DEFAULT,
+        null
+      );
+      if (!readLine) break;
+      jsonData += readLine;
+    }
+    stream.close(null);
+
+    // Parse JSON and extract model names
+    const data = JSON.parse(jsonData);
+    const modelNames = data.models
+      .map((model) => model.name.split(":")[0])
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort();
+
+    console.log("Available Models:", modelNames);
+    return modelNames;
+  } catch (e) {
+    console.error("Error fetching model names:", e);
+    throw e;
+  }
+}
