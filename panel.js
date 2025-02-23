@@ -19,7 +19,7 @@ const PanelConfig = {
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
-  clearIconScale: 2,
+  clearIconScale: 1,
   clearButtonPaddingFraction: 0.01,
 };
 
@@ -27,23 +27,33 @@ export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init(extensionPath) {
       super._init(0.0, "AI Chat Panel");
-
       this._context = null;
       this._extensionPath = extensionPath;
 
+      this._createIcon();
+      this._setupPanelOverlay();
+      this._setupTopBar();
+      this._setupModelMenu();
+      this._setupClearButton();
+      this._setupOutputArea();
+      this._setupInputArea();
+
+      this.connect("button-press-event", this._togglePanelOverlay.bind(this));
+    }
+
+    _createIcon() {
       this.add_child(
         new St.Icon({
           icon_name: "face-smile-symbolic",
           style_class: "system-status-icon",
         })
       );
+    }
 
+    _setupPanelOverlay() {
       const monitor = Main.layoutManager.primaryMonitor;
       const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
       const panelHeight = monitor.height - Main.panel.actor.height;
-      const paddingX = panelWidth * PanelConfig.paddingFractionX;
-      const paddingY = panelHeight * PanelConfig.paddingFractionY;
-      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
 
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
@@ -57,73 +67,84 @@ export const Indicator = GObject.registerClass(
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
+    }
 
-      // Create top bar with explicit height
+    _setupTopBar() {
+      const monitor = Main.layoutManager.primaryMonitor;
+      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+      const panelHeight = monitor.height - Main.panel.actor.height;
+      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
+
       this._topBar = new St.BoxLayout({
         style_class: "top-bar",
         width: panelWidth,
         height: topBarHeight,
         reactive: true,
-        style: `background-color: rgba(255, 255, 255, 0.2); 
-                border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
-                padding: ${paddingY}px ${paddingX}px;`,
+        style: `
+          background-color: rgba(255, 255, 255, 0.2); 
+          border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
+          padding: 0;
+          margin: 0;
+        `,
       });
 
-      // Create dropdown menu button with initial text
+      this._panelOverlay.add_child(this._topBar);
+    }
+
+    _setupModelMenu() {
       this._modelButtonLabel = new St.Label({
         text: "Models ▼",
         style: "color: white; padding: 5px;",
+        x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
       });
 
       this._modelButton = new St.Button({
         child: this._modelButtonLabel,
-        style:
-          "background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; margin: 2px 0;",
-        y_align: Clutter.ActorAlign.CENTER,
+        style: `
+          background-color: rgba(255, 255, 255, 0.1); 
+          border-radius: 0px;
+          margin: 0;
+          width: 100%;
+          height: 100%;
+        `,
+        x_align: Clutter.ActorAlign.FILL,
+        y_align: Clutter.ActorAlign.FILL,
       });
 
-      // Create the menu
       this._modelMenu = new PopupMenu.PopupMenu(
         this._modelButton,
         0.0,
         St.Side.TOP
       );
       Main.uiGroup.add_child(this._modelMenu.actor);
+      this._modelMenu.actor.hide();
 
-      // Add items with click handlers
-      let item1 = new PopupMenu.PopupMenuItem("Test Item 1");
-      item1.connect("activate", () => {
-        this._modelButtonLabel.set_text("Test Item 1 ▼");
-        this._modelMenu.close();
-      });
-
-      let item2 = new PopupMenu.PopupMenuItem("Test Item 2");
-      item2.connect("activate", () => {
-        this._modelButtonLabel.set_text("Test Item 2 ▼");
-        this._modelMenu.close();
-      });
-
-      let item3 = new PopupMenu.PopupMenuItem("Test Item 3");
-      item3.connect("activate", () => {
-        this._modelButtonLabel.set_text("Test Item 3 ▼");
-        this._modelMenu.close();
-      });
-
-      this._modelMenu.addMenuItem(item1);
-      this._modelMenu.addMenuItem(item2);
-      this._modelMenu.addMenuItem(item3);
-
-      // Connect the button click to toggle the menu
+      this._addModelMenuItems();
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
+        return Clutter.EVENT_STOP;
       });
 
-      // Add the button to the top bar
       this._topBar.add_child(this._modelButton);
+    }
 
-      // Add a separator widget to push the clear button to the right
-      this._topBar.add_child(new St.Widget({ x_expand: true }));
+    _addModelMenuItems() {
+      const items = ["Test Item 1", "Test Item 2", "Test Item 3"];
+      items.forEach((itemText) => {
+        const item = new PopupMenu.PopupMenuItem(itemText);
+        item.connect("activate", () => {
+          this._modelButtonLabel.set_text(itemText);
+          this._modelMenu.close();
+        });
+        this._modelMenu.addMenuItem(item);
+      });
+    }
+
+    _setupClearButton() {
+      const panelWidth =
+        Main.layoutManager.primaryMonitor.width *
+        PanelConfig.panelWidthFraction;
 
       this._clearButton = new St.Button({
         style: `margin: auto ${
@@ -140,20 +161,25 @@ export const Indicator = GObject.registerClass(
           translation_y: -8 * (PanelConfig.clearIconScale - 1),
         }),
         style_class: "clear-button",
+        x_align: Clutter.ActorAlign.END,
+        x_expand: true,
       });
 
-      this._clearButton.connect("clicked", () => {
-        clearConversationHistory(); // This now clears both history and context
-        this._outputContainer
-          .get_children()
-          .forEach((child) => child.destroy());
-      });
-
+      this._clearButton.connect("clicked", this._clearHistory.bind(this));
       this._topBar.add_child(this._clearButton);
+    }
 
-      this._panelOverlay.add_child(this._topBar);
+    _clearHistory() {
+      clearConversationHistory();
+      this._clearOutput();
+    }
 
-      // Calculate heights for output and input areas
+    _setupOutputArea() {
+      const monitor = Main.layoutManager.primaryMonitor;
+      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+      const panelHeight = monitor.height - Main.panel.actor.height;
+      const paddingY = panelHeight * PanelConfig.paddingFractionY;
+      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
       const inputFieldHeight =
         panelHeight * PanelConfig.inputFieldHeightFraction;
       const outputHeight =
@@ -170,17 +196,34 @@ export const Indicator = GObject.registerClass(
         vertical: true,
         reactive: true,
         clip_to_allocation: true,
-        style: `padding: 0 ${paddingX}px;`,
+        style: `padding: 0 ${panelWidth * PanelConfig.paddingFractionX}px;`,
       });
+
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
+    }
+
+    _setupInputArea() {
+      const monitor = Main.layoutManager.primaryMonitor;
+      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+      const panelHeight = monitor.height - Main.panel.actor.height;
+      const paddingY = panelHeight * PanelConfig.paddingFractionY;
+      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
+      const inputFieldHeight =
+        panelHeight * PanelConfig.inputFieldHeightFraction;
+      const outputHeight =
+        panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
+      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
+      const inputButtonSpacing =
+        panelWidth * PanelConfig.inputButtonSpacingFraction;
 
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
         x_expand: false,
         vertical: false,
-        style: `padding: 0 ${paddingX}px;`,
+        style: `padding: 0 ${panelWidth * PanelConfig.paddingFractionX}px;`,
       });
+
       this._inputFieldBox.set_height(inputFieldHeight);
       this._inputFieldBox.set_width(panelWidth);
       this._inputFieldBox.set_position(
@@ -189,15 +232,12 @@ export const Indicator = GObject.registerClass(
       );
       this._panelOverlay.add_child(this._inputFieldBox);
 
-      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
-      const inputButtonSpacing =
-        panelWidth * PanelConfig.inputButtonSpacingFraction;
-
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
         style: `border-radius: 9999px; width: ${inputFieldWidth}px; margin-right: ${inputButtonSpacing}px;`,
       });
+
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
           this._sendMessage();
@@ -205,6 +245,7 @@ export const Indicator = GObject.registerClass(
         }
         return Clutter.EVENT_PROPAGATE;
       });
+
       this._inputFieldBox.add_child(this._inputField);
 
       this._sendButton = new St.Button({
@@ -215,17 +256,17 @@ export const Indicator = GObject.registerClass(
           style_class: "system-status-icon",
         }),
       });
-      this._sendButton.connect("clicked", () => this._sendMessage());
-      this._inputFieldBox.add_child(this._sendButton);
 
-      // Restore original panel toggle behavior
-      this.connect("button-press-event", () => {
-        this._panelOverlay.visible = !this._panelOverlay.visible;
-        if (this._panelOverlay.visible) {
-          this._updateHistory();
-          global.stage.set_key_focus(this._inputField.clutter_text);
-        }
-      });
+      this._sendButton.connect("clicked", this._sendMessage.bind(this));
+      this._inputFieldBox.add_child(this._sendButton);
+    }
+
+    _togglePanelOverlay() {
+      this._panelOverlay.visible = !this._panelOverlay.visible;
+      if (this._panelOverlay.visible) {
+        this._updateHistory();
+        global.stage.set_key_focus(this._inputField.clutter_text);
+      }
     }
 
     async _sendMessage() {
@@ -245,13 +286,10 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateHistory() {
-      // First clear all existing messages
       this._clearOutput();
-
       const history = getConversationHistory();
-      // Only add messages if there are any in the history
       if (history.length > 0) {
-        for (const msg of history) {
+        history.forEach((msg) => {
           const isUser = msg.type === "user";
           const alignment = isUser
             ? Clutter.ActorAlign.END
@@ -264,7 +302,7 @@ export const Indicator = GObject.registerClass(
               "padding: 5px; margin-bottom: 5px; max-width: 90%; word-wrap: break-word;",
           });
           this._outputContainer.add_child(label);
-        }
+        });
       }
     }
 
