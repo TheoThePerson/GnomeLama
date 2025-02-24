@@ -46,7 +46,9 @@ export const Indicator = GObject.registerClass(
     _createIcon() {
       this.add_child(
         new St.Icon({
-          icon_name: "face-smile-symbolic",
+          gicon: Gio.icon_new_for_string(
+            `${this._extensionPath}/icons/TopBar-icon.svg`
+          ),
           style_class: "system-status-icon",
         })
       );
