@@ -178,7 +178,7 @@ export async function fetchModelNames() {
     // Parse JSON and extract model names
     const data = JSON.parse(jsonData);
     const modelNames = data.models
-      .map((model) => model.name.split(":")[0])
+      .map((model) => model.name)
       .filter((value, index, self) => self.indexOf(value) === index)
       .sort();
 

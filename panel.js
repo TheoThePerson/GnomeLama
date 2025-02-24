@@ -141,6 +141,7 @@ export const Indicator = GObject.registerClass(
           this._modelButtonLabel.set_text(modelName);
           setModel(modelName);
           this._modelMenu.close();
+          this._clearHistory(); // Call _clearHistory after populating the menu
         });
         this._modelMenu.addMenuItem(item);
       });
