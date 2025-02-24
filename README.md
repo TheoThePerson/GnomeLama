@@ -4,12 +4,17 @@
 
 GnomeLama is an integration between ollama and gnome. (a linux copiolot)
 
+## Features
+- Model selection (changing models)
+- Clearing history
+- Chat messgages
+- Chat pannel
+
 ## Features In Progress
 
 > [!Important]
-> This extension is a work in progress and works at a basic level. Gnome 47 is now functional!
+> This extension is now fully functional but still needs a couple of tweaks.
 
-- Model selection functionality
 - Running commands (to install do updates etc)
 - Putting it on the gnome extension page (after getting basic functionality)
 
