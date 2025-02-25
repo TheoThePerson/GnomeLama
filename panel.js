@@ -40,6 +40,13 @@ export const Indicator = GObject.registerClass(
       this._setupOutputArea();
       this._setupInputArea();
 
+      // Listen for monitor changes and update the layout dynamically.
+      Main.layoutManager.connect("monitors-changed", () => {
+        this._updateLayout();
+      });
+      // Do an initial layout update.
+      this._updateLayout();
+
       this.connect("button-press-event", this._togglePanelOverlay.bind(this));
     }
 
@@ -141,7 +148,7 @@ export const Indicator = GObject.registerClass(
           this._modelButtonLabel.set_text(modelName);
           setModel(modelName);
           this._modelMenu.close();
-          this._clearHistory(); // Call _clearHistory after populating the menu
+          this._clearHistory(); // Reset history when a new model is selected
         });
         this._modelMenu.addMenuItem(item);
       });
@@ -323,6 +330,68 @@ export const Indicator = GObject.registerClass(
         style: "padding: 5px; margin-bottom: 5px;",
       });
       this._outputContainer.add_child(tempLabel);
+    }
+
+    /**
+     * Recalculate and update dimensions for each UI element.
+     */
+    _updateLayout() {
+      const monitor = Main.layoutManager.primaryMonitor;
+      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+      const panelHeight = monitor.height - Main.panel.actor.height;
+      const paddingY = panelHeight * PanelConfig.paddingFractionY;
+      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
+      const inputFieldHeight =
+        panelHeight * PanelConfig.inputFieldHeightFraction;
+      const outputHeight =
+        panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
+      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
+      const inputButtonSpacing =
+        panelWidth * PanelConfig.inputButtonSpacingFraction;
+
+      // Update panel overlay.
+      this._panelOverlay.set_size(panelWidth, panelHeight);
+      this._panelOverlay.set_position(
+        monitor.width - panelWidth,
+        Main.panel.actor.height
+      );
+
+      // Update top bar.
+      this._topBar.set_size(panelWidth, topBarHeight);
+
+      // Update clear button's margin.
+      if (this._clearButton) {
+        this._clearButton.set_style(
+          `margin: auto ${
+            panelWidth * PanelConfig.clearButtonPaddingFraction
+          }px auto 0;`
+        );
+      }
+
+      // Update output area.
+      if (this._outputScrollView) {
+        this._outputScrollView.set_size(panelWidth, outputHeight);
+        this._outputScrollView.set_position(0, topBarHeight + paddingY);
+      }
+      if (this._outputContainer) {
+        this._outputContainer.set_style(
+          `padding: 0 ${panelWidth * PanelConfig.paddingFractionX}px;`
+        );
+      }
+
+      // Update input area.
+      if (this._inputFieldBox) {
+        this._inputFieldBox.set_size(panelWidth, inputFieldHeight);
+        this._inputFieldBox.set_position(
+          0,
+          outputHeight + topBarHeight + paddingY
+        );
+      }
+      if (this._inputField) {
+        this._inputField.set_style(
+          `border-radius: 9999px; width: ${inputFieldWidth}px; margin-right: ${inputButtonSpacing}px;`
+        );
+      }
     }
 
     destroy() {
