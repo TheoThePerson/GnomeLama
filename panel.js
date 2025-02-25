@@ -15,9 +15,8 @@ import {
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
-  inputFieldWidthFraction: 0.86,
   inputFieldHeightFraction: 0.03,
-  paddingFractionX: 0.02,
+  paddingFractionX: 0.02, // used for spacing in multiple areas
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
@@ -116,11 +115,7 @@ export const Indicator = GObject.registerClass(
           background-color: rgba(255, 255, 255, 0.1); 
           border-radius: 0px;
           margin: 0;
-          width: 100%;
-          height: 100%;
         `,
-        x_align: Clutter.ActorAlign.FILL,
-        y_align: Clutter.ActorAlign.FILL,
       });
 
       this._modelMenu = new PopupMenu.PopupMenu(
@@ -132,12 +127,11 @@ export const Indicator = GObject.registerClass(
       this._modelMenu.actor.hide();
 
       await this._addModelMenuItems();
+
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
         return Clutter.EVENT_STOP;
       });
-
-      this._topBar.add_child(this._modelButton);
     }
 
     async _addModelMenuItems() {
@@ -155,14 +149,7 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupClearButton() {
-      const panelWidth =
-        Main.layoutManager.primaryMonitor.width *
-        PanelConfig.panelWidthFraction;
-
       this._clearButton = new St.Button({
-        style: `margin: auto ${
-          panelWidth * PanelConfig.clearButtonPaddingFraction
-        }px auto 0;`,
         child: new St.Icon({
           gicon: Gio.icon_new_for_string(
             `${this._extensionPath}/icons/trash-icon.svg`
@@ -170,16 +157,11 @@ export const Indicator = GObject.registerClass(
           style_class: "system-status-icon",
           scale_x: PanelConfig.clearIconScale,
           scale_y: PanelConfig.clearIconScale,
-          translation_x: -8 * (PanelConfig.clearIconScale - 1),
-          translation_y: -8 * (PanelConfig.clearIconScale - 1),
         }),
         style_class: "clear-button",
-        x_align: Clutter.ActorAlign.END,
-        x_expand: true,
       });
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
-      this._topBar.add_child(this._clearButton);
     }
 
     _clearHistory() {
@@ -217,38 +199,18 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupInputArea() {
-      const monitor = Main.layoutManager.primaryMonitor;
-      const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
-      const panelHeight = monitor.height - Main.panel.actor.height;
-      const paddingY = panelHeight * PanelConfig.paddingFractionY;
-      const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
-      const inputFieldHeight =
-        panelHeight * PanelConfig.inputFieldHeightFraction;
-      const outputHeight =
-        panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
-      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
-      const inputButtonSpacing =
-        panelWidth * PanelConfig.inputButtonSpacingFraction;
-
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
-        x_expand: false,
         vertical: false,
-        style: `padding: 0 ${panelWidth * PanelConfig.paddingFractionX}px;`,
+        style: `padding: 0;`,
       });
 
-      this._inputFieldBox.set_height(inputFieldHeight);
-      this._inputFieldBox.set_width(panelWidth);
-      this._inputFieldBox.set_position(
-        0,
-        outputHeight + topBarHeight + paddingY
-      );
       this._panelOverlay.add_child(this._inputFieldBox);
 
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
-        style: `border-radius: 9999px; width: ${inputFieldWidth}px; margin-right: ${inputButtonSpacing}px;`,
+        style: `border-radius: 9999px; margin-right: 5px;`,
       });
 
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
@@ -345,9 +307,6 @@ export const Indicator = GObject.registerClass(
         panelHeight * PanelConfig.inputFieldHeightFraction;
       const outputHeight =
         panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
-      const inputFieldWidth = panelWidth * PanelConfig.inputFieldWidthFraction;
-      const inputButtonSpacing =
-        panelWidth * PanelConfig.inputButtonSpacingFraction;
 
       // Update panel overlay.
       this._panelOverlay.set_size(panelWidth, panelHeight);
@@ -359,13 +318,24 @@ export const Indicator = GObject.registerClass(
       // Update top bar.
       this._topBar.set_size(panelWidth, topBarHeight);
 
-      // Update clear button's margin.
+      // Reorder top bar children: model dropdown on left, spacer, then clear button on right.
+      if (this._topBar) {
+        this._topBar.remove_all_children();
+        this._topBar.add_child(this._modelButton);
+        this._topBar.add_child(new St.Widget({ x_expand: true }));
+        this._topBar.add_child(this._clearButton);
+      }
+
+      // Update top bar children sizes.
+      if (this._modelButton) {
+        let modelButtonWidth = panelWidth * 0.3; // dropdown takes 30% of panel width
+        this._modelButton.set_width(modelButtonWidth);
+        this._modelButton.set_height(topBarHeight);
+      }
       if (this._clearButton) {
-        this._clearButton.set_style(
-          `margin: auto ${
-            panelWidth * PanelConfig.clearButtonPaddingFraction
-          }px auto 0;`
-        );
+        let clearButtonWidth = 50; // fixed width for clear button
+        this._clearButton.set_width(clearButtonWidth);
+        this._clearButton.set_height(topBarHeight);
       }
 
       // Update output area.
@@ -386,11 +356,40 @@ export const Indicator = GObject.registerClass(
           0,
           outputHeight + topBarHeight + paddingY
         );
+
+        // Define horizontal padding (H) that will be used as:
+        // • The left gap before the input field,
+        // • The spacing between the input field and send button, and
+        // • The right gap after the send button.
+        const H = panelWidth * PanelConfig.paddingFractionX;
+
+        // Set left/right padding on the input field container.
+        this._inputFieldBox.set_style(
+          `padding-left: ${H}px; padding-right: ${H}px;`
+        );
+
+        // Set spacing between children (input field and send button) equal to H.
+        this._inputFieldBox.spacing = H;
       }
+
+      // The send button will be circular: width equals inputFieldHeight.
+      const sendButtonWidth = inputFieldHeight;
+
+      // Calculate available width for the input field.
+      // Total width is divided as:
+      // [left padding H] + [input field width] + [spacing H] + [send button width] + [right padding H] = panelWidth
+      // Thus, availableInputWidth = panelWidth - (sendButtonWidth + 3 * H)
+      const H = panelWidth * PanelConfig.paddingFractionX;
+      const availableInputWidth = panelWidth - sendButtonWidth - 3 * H;
+
       if (this._inputField) {
         this._inputField.set_style(
-          `border-radius: 9999px; width: ${inputFieldWidth}px; margin-right: ${inputButtonSpacing}px;`
+          `border-radius: 9999px; width: ${availableInputWidth}px;`
         );
+      }
+      if (this._sendButton) {
+        this._sendButton.set_width(sendButtonWidth);
+        this._sendButton.set_height(inputFieldHeight);
       }
     }
 
