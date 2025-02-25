@@ -15,8 +15,8 @@ import {
 
 const PanelConfig = {
   panelWidthFraction: 0.2,
-  inputFieldHeightFraction: 0.03,
-  paddingFractionX: 0.02, // used for spacing in multiple areas
+  inputFieldHeightFraction: 0.05,
+  paddingFractionX: 0.02, // used for horizontal spacing in several areas
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
@@ -91,8 +91,8 @@ export const Indicator = GObject.registerClass(
         height: topBarHeight,
         reactive: true,
         style: `
-          background-color: rgba(255, 255, 255, 0.2); 
-          border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
+          background-color: rgba(255, 255, 255, 0.2);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.3);
           padding: 0;
           margin: 0;
         `,
@@ -112,7 +112,7 @@ export const Indicator = GObject.registerClass(
       this._modelButton = new St.Button({
         child: this._modelButtonLabel,
         style: `
-          background-color: rgba(255, 255, 255, 0.1); 
+          background-color: rgba(255, 255, 255, 0.1);
           border-radius: 0px;
           margin: 0;
         `,
@@ -210,7 +210,7 @@ export const Indicator = GObject.registerClass(
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
-        style: `border-radius: 9999px; margin-right: 5px;`,
+        style: `border-radius: 9999px;`,
       });
 
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
@@ -223,13 +223,16 @@ export const Indicator = GObject.registerClass(
 
       this._inputFieldBox.add_child(this._inputField);
 
+      // Create a scalable send icon.
+      this._sendIcon = new St.Icon({
+        gicon: Gio.icon_new_for_string(
+          `${this._extensionPath}/icons/send-icon.svg`
+        ),
+        style_class: "system-status-icon",
+      });
+
       this._sendButton = new St.Button({
-        child: new St.Icon({
-          gicon: Gio.icon_new_for_string(
-            `${this._extensionPath}/icons/send-icon.svg`
-          ),
-          style_class: "system-status-icon",
-        }),
+        child: this._sendIcon,
       });
 
       this._sendButton.connect("clicked", this._sendMessage.bind(this));
@@ -294,9 +297,6 @@ export const Indicator = GObject.registerClass(
       this._outputContainer.add_child(tempLabel);
     }
 
-    /**
-     * Recalculate and update dimensions for each UI element.
-     */
     _updateLayout() {
       const monitor = Main.layoutManager.primaryMonitor;
       const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
@@ -307,6 +307,8 @@ export const Indicator = GObject.registerClass(
         panelHeight * PanelConfig.inputFieldHeightFraction;
       const outputHeight =
         panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
+      const inputButtonSpacing =
+        panelWidth * PanelConfig.inputButtonSpacingFraction;
 
       // Update panel overlay.
       this._panelOverlay.set_size(panelWidth, panelHeight);
@@ -317,23 +319,19 @@ export const Indicator = GObject.registerClass(
 
       // Update top bar.
       this._topBar.set_size(panelWidth, topBarHeight);
-
-      // Reorder top bar children: model dropdown on left, spacer, then clear button on right.
       if (this._topBar) {
         this._topBar.remove_all_children();
         this._topBar.add_child(this._modelButton);
         this._topBar.add_child(new St.Widget({ x_expand: true }));
         this._topBar.add_child(this._clearButton);
       }
-
-      // Update top bar children sizes.
       if (this._modelButton) {
-        let modelButtonWidth = panelWidth * 0.3; // dropdown takes 30% of panel width
+        let modelButtonWidth = panelWidth * 0.3;
         this._modelButton.set_width(modelButtonWidth);
         this._modelButton.set_height(topBarHeight);
       }
       if (this._clearButton) {
-        let clearButtonWidth = 50; // fixed width for clear button
+        let clearButtonWidth = 50;
         this._clearButton.set_width(clearButtonWidth);
         this._clearButton.set_height(topBarHeight);
       }
@@ -356,40 +354,30 @@ export const Indicator = GObject.registerClass(
           0,
           outputHeight + topBarHeight + paddingY
         );
-
-        // Define horizontal padding (H) that will be used as:
-        // • The left gap before the input field,
-        // • The spacing between the input field and send button, and
-        // • The right gap after the send button.
         const H = panelWidth * PanelConfig.paddingFractionX;
-
-        // Set left/right padding on the input field container.
         this._inputFieldBox.set_style(
           `padding-left: ${H}px; padding-right: ${H}px;`
         );
-
-        // Set spacing between children (input field and send button) equal to H.
         this._inputFieldBox.spacing = H;
       }
-
-      // The send button will be circular: width equals inputFieldHeight.
-      const sendButtonWidth = inputFieldHeight;
-
-      // Calculate available width for the input field.
-      // Total width is divided as:
-      // [left padding H] + [input field width] + [spacing H] + [send button width] + [right padding H] = panelWidth
-      // Thus, availableInputWidth = panelWidth - (sendButtonWidth + 3 * H)
+      // Make the send button circular by setting its size equal to the input field height.
+      const sendButtonSize = inputFieldHeight;
       const H = panelWidth * PanelConfig.paddingFractionX;
-      const availableInputWidth = panelWidth - sendButtonWidth - 3 * H;
-
+      // Total width = left padding (H) + input field width + gap (H) + send button width + right padding (H)
+      // => availableInputWidth = panelWidth - (sendButtonSize + 3 * H)
+      const availableInputWidth = panelWidth - sendButtonSize - 3 * H;
       if (this._inputField) {
         this._inputField.set_style(
           `border-radius: 9999px; width: ${availableInputWidth}px;`
         );
       }
       if (this._sendButton) {
-        this._sendButton.set_width(sendButtonWidth);
-        this._sendButton.set_height(inputFieldHeight);
+        this._sendButton.set_width(sendButtonSize);
+        this._sendButton.set_height(sendButtonSize);
+      }
+      if (this._sendIcon) {
+        // Scale the SVG icon inside the button.
+        this._sendIcon.icon_size = sendButtonSize;
       }
     }
 
