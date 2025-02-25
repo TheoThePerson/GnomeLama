@@ -15,7 +15,7 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 
 ## Features In Progress
 
-- Running commands (to install do updates etc)
+- Running commands (to install applications, do updates, figgure out issues, etc)
 - Putting it on the gnome extension page (after getting basic functionality)
 
 ## Installation
@@ -45,7 +45,7 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 4. Push to the branch (`git push origin feature-branch`).
 5. Create a new Pull Request.
 
-Any help is much appreciated
+This is my first extention and I would much appritiate some help esspecialy with the visuals.
 
 ## Star History
 
