@@ -191,7 +191,6 @@ export const Indicator = GObject.registerClass(
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
-        clip_to_allocation: true,
         style: `padding: 0 ${panelWidth * PanelConfig.paddingFractionX}px;`,
       });
 
