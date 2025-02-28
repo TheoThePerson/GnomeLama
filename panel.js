@@ -5,6 +5,7 @@ import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+import Pango from "gi://Pango";
 import {
   sendMessage,
   getConversationHistory,
@@ -14,8 +15,8 @@ import {
 } from "./messaging.js";
 
 const PanelConfig = {
-  panelWidthFraction: 0.2,
-  inputFieldHeightFraction: 0.05,
+  panelWidthFraction: 0.15,
+  inputFieldHeightFraction: 0.03,
   paddingFractionX: 0.02, // used for horizontal spacing in several areas
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
@@ -272,14 +273,35 @@ export const Indicator = GObject.registerClass(
           const alignment = isUser
             ? Clutter.ActorAlign.END
             : Clutter.ActorAlign.START;
-          const prefix = isUser ? "You: " : "AI: ";
-          const label = new St.Label({
-            text: prefix + msg.text,
+          const bgColor = isUser ? "#007bff" : "#ff9800"; // Blue for user, orange for AI
+          const textColor = "white";
+
+          const messageBox = new St.BoxLayout({
+            style: `
+          background-color: ${bgColor};
+          color: ${textColor};
+          padding: 10px;
+          margin-bottom: 5px;
+          border-radius: 10px;
+          max-width: 80%;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        `,
             x_align: alignment,
-            style:
-              "padding: 5px; margin-bottom: 5px; max-width: 90%; word-wrap: break-word;",
           });
-          this._outputContainer.add_child(label);
+
+          const label = new St.Label({
+            text: msg.text,
+            style: "padding: 5px; white-space: normal;", // Ensure text wraps normally
+            x_expand: true,
+          });
+
+          // Enable line wrapping and disable ellipsizing
+          label.clutter_text.set_line_wrap(true);
+          label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+
+          messageBox.add_child(label);
+          this._outputContainer.add_child(messageBox);
         });
       }
     }
