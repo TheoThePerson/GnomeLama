@@ -250,17 +250,62 @@ export const Indicator = GObject.registerClass(
     async _sendMessage() {
       const userMessage = this._inputField.get_text().trim();
       if (!userMessage) {
-        this._clearOutput();
         this._addTemporaryMessage("Please enter a message.");
         return;
       }
-
       this._inputField.set_text("");
-      this._clearOutput();
-      this._addTemporaryMessage("Waiting for response...");
 
-      await sendMessage(userMessage, this._context);
-      this._updateHistory();
+      // Append the user’s message to the output area.
+      this._appendUserMessage(userMessage);
+
+      // Create a container for the streaming AI response.
+      const responseContainer = new St.BoxLayout({
+        style: `
+      background-color: #ff9800;
+      padding: 10px;
+      margin-bottom: 5px;
+      border-radius: 10px;
+      max-width: 80%;
+    `,
+        x_align: Clutter.ActorAlign.START,
+      });
+      const responseLabel = new St.Label({
+        text: "",
+        style: "padding: 5px; white-space: normal;",
+        x_expand: true,
+      });
+      responseLabel.clutter_text.set_line_wrap(true);
+      responseLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+      responseContainer.add_child(responseLabel);
+      this._outputContainer.add_child(responseContainer);
+
+      // Call sendMessage with an onData callback that updates the responseLabel.
+      await sendMessage(userMessage, this._context, (chunk) => {
+        responseLabel.set_text(responseLabel.get_text() + chunk);
+      });
+    }
+
+    // Helper method to append the user message.
+    _appendUserMessage(message) {
+      const userContainer = new St.BoxLayout({
+        style: `
+      background-color: #007bff;
+      padding: 10px;
+      margin-bottom: 5px;
+      border-radius: 10px;
+      max-width: 80%;
+    `,
+        x_align: Clutter.ActorAlign.END,
+      });
+      const userLabel = new St.Label({
+        text: message,
+        style: "padding: 5px; white-space: normal;",
+        x_expand: true,
+      });
+      userLabel.clutter_text.set_line_wrap(true);
+      userLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+      userContainer.add_child(userLabel);
+      this._outputContainer.add_child(userContainer);
     }
 
     _updateHistory() {

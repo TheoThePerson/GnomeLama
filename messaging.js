@@ -23,16 +23,15 @@ export function setModel(model) {
  * @param {Array} context - Optional context for the conversation.
  * @returns {Promise<string>} - The response from the API.
  */
-export async function sendMessage(userMessage, context) {
-  // Store the user's message in conversation history
+export async function sendMessage(userMessage, context, onData) {
+  // Store the user’s message in conversation history.
   conversationHistory.push({ type: "user", text: userMessage });
 
   const payload = {
-    model: selectedModel, // Use the selected model
+    model: selectedModel,
     prompt: userMessage,
   };
 
-  // Include context if it exists
   if (
     currentContext &&
     Array.isArray(currentContext) &&
@@ -59,16 +58,17 @@ export async function sendMessage(userMessage, context) {
     });
 
     process.init(null);
+    // Pass onData to processStream.
     const [response, newContext] = await processStream(
-      process.get_stdout_pipe()
+      process.get_stdout_pipe(),
+      onData
     );
 
-    // Update context if received
     if (newContext) {
       currentContext = newContext;
     }
 
-    // Store the response in conversation history
+    // Store the complete response in conversation history.
     conversationHistory.push({ type: "response", text: response });
     return response;
   } catch (e) {
@@ -78,11 +78,8 @@ export async function sendMessage(userMessage, context) {
   }
 }
 
-async function processStream(outputStream) {
-  const stream = new Gio.DataInputStream({
-    base_stream: outputStream,
-  });
-
+async function processStream(outputStream, onData) {
+  const stream = new Gio.DataInputStream({ base_stream: outputStream });
   let fullResponse = "";
   let newContext = null;
 
@@ -95,19 +92,23 @@ async function processStream(outputStream) {
       try {
         json = JSON.parse(line);
       } catch {
+        if (onData) onData("Error parsing response.");
         return ["Error parsing response.", null];
       }
 
-      // Update context if available
       if (json.context && Array.isArray(json.context)) {
         newContext = json.context;
       }
-
       if (json.response) {
         fullResponse += json.response;
+        if (onData) {
+          // Call the callback with the new chunk.
+          onData(json.response);
+        }
       }
     }
   } catch {
+    if (onData) onData("Stream processing error.");
     return ["Stream processing error.", null];
   } finally {
     stream.close(null);
