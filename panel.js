@@ -137,16 +137,22 @@ export const Indicator = GObject.registerClass(
 
     async _addModelMenuItems() {
       const modelNames = await fetchModelNames();
-      modelNames.forEach((modelName) => {
-        const item = new PopupMenu.PopupMenuItem(modelName);
-        item.connect("activate", () => {
-          this._modelButtonLabel.set_text(modelName);
-          setModel(modelName);
-          this._modelMenu.close();
-          this._clearHistory(); // Reset history when a new model is selected
+      if (modelNames.length > 0) {
+        // Set the first model as the default selection
+        this._modelButtonLabel.set_text(modelNames[0]);
+        setModel(modelNames[0]);
+
+        modelNames.forEach((modelName) => {
+          const item = new PopupMenu.PopupMenuItem(modelName);
+          item.connect("activate", () => {
+            this._modelButtonLabel.set_text(modelName);
+            setModel(modelName);
+            this._modelMenu.close();
+            this._clearHistory(); // Reset history when a new model is selected
+          });
+          this._modelMenu.addMenuItem(item);
         });
-        this._modelMenu.addMenuItem(item);
-      });
+      }
     }
 
     _setupClearButton() {
