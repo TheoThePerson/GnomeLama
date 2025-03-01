@@ -255,11 +255,12 @@ export const Indicator = GObject.registerClass(
       }
       this._inputField.set_text("");
 
-      // Append the user’s message to the output area.
+      // Append the user's message to the output area.
       this._appendUserMessage(userMessage);
 
       // Create a container for the streaming AI response.
       const responseContainer = new St.BoxLayout({
+        vertical: true,
         style: `
       background-color: #ff9800;
       padding: 10px;
@@ -269,6 +270,7 @@ export const Indicator = GObject.registerClass(
     `,
         x_align: Clutter.ActorAlign.START,
       });
+
       const responseLabel = new St.Label({
         text: "",
         style: "padding: 5px; white-space: normal;",
@@ -279,9 +281,53 @@ export const Indicator = GObject.registerClass(
       responseContainer.add_child(responseLabel);
       this._outputContainer.add_child(responseContainer);
 
-      // Call sendMessage with an onData callback that updates the responseLabel.
+      // Call sendMessage with an onData callback
+      let fullResponse = "";
+
       await sendMessage(userMessage, this._context, (chunk) => {
-        responseLabel.set_text(responseLabel.get_text() + chunk);
+        fullResponse += chunk;
+
+        // Parse the current full response for code blocks using the instance method.
+        const parts = this.parseMessageContent(fullResponse);
+
+        // Clear the container and add each part with appropriate styling
+        responseContainer.remove_all_children();
+
+        parts.forEach((part) => {
+          if (part.type === "code") {
+            const codeBox = new St.BoxLayout({
+              vertical: true,
+              style: `
+            background-color: #333;
+            color: #f8f8f8;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: monospace;
+          `,
+              x_expand: true,
+            });
+
+            const codeLabel = new St.Label({
+              text: part.content,
+              style: "padding: 5px; white-space: pre-wrap;",
+              x_expand: true,
+            });
+            codeLabel.clutter_text.set_line_wrap(true);
+            codeLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+            codeBox.add_child(codeLabel);
+            responseContainer.add_child(codeBox);
+          } else {
+            const textLabel = new St.Label({
+              text: part.content,
+              style: "padding: 5px; white-space: normal;",
+              x_expand: true,
+            });
+            textLabel.clutter_text.set_line_wrap(true);
+            textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+            responseContainer.add_child(textLabel);
+          }
+        });
       });
     }
 
@@ -318,36 +364,124 @@ export const Indicator = GObject.registerClass(
             ? Clutter.ActorAlign.END
             : Clutter.ActorAlign.START;
           const bgColor = isUser ? "#007bff" : "#ff9800"; // Blue for user, orange for AI
-          const textColor = "white";
 
-          const messageBox = new St.BoxLayout({
-            style: `
-          background-color: ${bgColor};
-          color: ${textColor};
-          padding: 10px;
-          margin-bottom: 5px;
-          border-radius: 10px;
-          max-width: 80%;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        `,
-            x_align: alignment,
-          });
+          if (isUser) {
+            // User messages remain unchanged
+            const messageBox = new St.BoxLayout({
+              style: `
+            background-color: ${bgColor};
+            color: white;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 10px;
+            max-width: 80%;
+          `,
+              x_align: alignment,
+            });
 
-          const label = new St.Label({
-            text: msg.text,
-            style: "padding: 5px; white-space: normal;", // Ensure text wraps normally
-            x_expand: true,
-          });
+            const label = new St.Label({
+              text: msg.text,
+              style: "padding: 5px; white-space: normal;",
+              x_expand: true,
+            });
 
-          // Enable line wrapping and disable ellipsizing
-          label.clutter_text.set_line_wrap(true);
-          label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+            label.clutter_text.set_line_wrap(true);
+            label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
 
-          messageBox.add_child(label);
-          this._outputContainer.add_child(messageBox);
+            messageBox.add_child(label);
+            this._outputContainer.add_child(messageBox);
+          } else {
+            // Parse AI messages for code blocks using the instance method.
+            const parts = this.parseMessageContent(msg.text);
+
+            const messageBox = new St.BoxLayout({
+              vertical: true,
+              style: `
+            background-color: ${bgColor};
+            color: white;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 10px;
+            max-width: 80%;
+          `,
+              x_align: alignment,
+            });
+
+            parts.forEach((part) => {
+              if (part.type === "code") {
+                const codeBox = new St.BoxLayout({
+                  vertical: true,
+                  style: `
+                background-color: #333;
+                color: #f8f8f8;
+                padding: 10px;
+                margin: 5px 0;
+                border-radius: 5px;
+                font-family: monospace;
+              `,
+                  x_expand: true,
+                });
+
+                const codeLabel = new St.Label({
+                  text: part.content,
+                  style: "padding: 5px; white-space: pre-wrap;",
+                  x_expand: true,
+                });
+                codeLabel.clutter_text.set_line_wrap(true);
+                codeLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+                codeBox.add_child(codeLabel);
+                messageBox.add_child(codeBox);
+              } else {
+                const textLabel = new St.Label({
+                  text: part.content,
+                  style: "padding: 5px; white-space: normal;",
+                  x_expand: true,
+                });
+                textLabel.clutter_text.set_line_wrap(true);
+                textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+                messageBox.add_child(textLabel);
+              }
+            });
+
+            this._outputContainer.add_child(messageBox);
+          }
         });
       }
+    }
+
+    parseMessageContent(text) {
+      const codeBlockRegex = /```bash\n([\s\S]*?)```/g;
+      const parts = [];
+      let lastIndex = 0;
+      let match;
+
+      while ((match = codeBlockRegex.exec(text)) !== null) {
+        // Add text before the code block
+        if (match.index > lastIndex) {
+          parts.push({
+            type: "text",
+            content: text.substring(lastIndex, match.index),
+          });
+        }
+
+        // Add the code block
+        parts.push({
+          type: "code",
+          content: match[1],
+        });
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add any remaining text
+      if (lastIndex < text.length) {
+        parts.push({
+          type: "text",
+          content: text.substring(lastIndex),
+        });
+      }
+
+      return parts;
     }
 
     _clearOutput() {
