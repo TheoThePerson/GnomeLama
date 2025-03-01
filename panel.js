@@ -21,7 +21,7 @@ const PanelConfig = {
   paddingFractionY: 0.01,
   topBarHeightFraction: 0.03,
   inputButtonSpacingFraction: 0.01,
-  clearIconScale: 1,
+  clearIconScale: 0.9,
   clearButtonPaddingFraction: 0.01,
 };
 
@@ -150,16 +150,26 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupClearButton() {
+      const iconSize = 24 * PanelConfig.clearIconScale; // Adjust base size dynamically
+
+      this._clearIcon = new St.Icon({
+        gicon: Gio.icon_new_for_string(
+          `${this._extensionPath}/icons/trash-icon.svg`
+        ),
+        style_class: "system-status-icon",
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+        width: iconSize,
+        height: iconSize,
+      });
+
       this._clearButton = new St.Button({
-        child: new St.Icon({
-          gicon: Gio.icon_new_for_string(
-            `${this._extensionPath}/icons/trash-icon.svg`
-          ),
-          style_class: "system-status-icon",
-          scale_x: PanelConfig.clearIconScale,
-          scale_y: PanelConfig.clearIconScale,
-        }),
+        child: this._clearIcon,
         style_class: "clear-button",
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+        width: iconSize + 10, // Add some extra padding for centering
+        height: iconSize + 10,
       });
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
