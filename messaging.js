@@ -24,12 +24,17 @@ export function setModel(model) {
  * @returns {Promise<string>} - The response from the API.
  */
 export async function sendMessage(userMessage, context, onData) {
-  // Store the user’s message in conversation history.
+  // Store the user's message in conversation history.
   conversationHistory.push({ type: "user", text: userMessage });
 
   const payload = {
     model: selectedModel,
     prompt: userMessage,
+    stream: true, // Explicitly request streaming
+    options: {
+      num_ctx: 4096, // Set context window
+      temperature: 0.7, // Add temperature control
+    },
   };
 
   if (
@@ -40,25 +45,39 @@ export async function sendMessage(userMessage, context, onData) {
     payload.context = currentContext;
   }
 
-  const curlCommand = [
-    "curl",
-    "-X",
-    "POST",
-    "http://localhost:11434/api/generate",
-    "-H",
-    "Content-Type: application/json",
-    "-d",
-    JSON.stringify(payload),
-  ];
+  // Use a cancellable to allow aborting the request
+  const cancellable = new Gio.Cancellable();
 
   try {
-    let process = new Gio.Subprocess({
+    // Use Gio.Subprocess for better performance
+    const curlCommand = [
+      "curl",
+      "-X",
+      "POST",
+      "http://localhost:11434/api/generate",
+      "-H",
+      "Content-Type: application/json",
+      "--no-buffer", // Disable output buffering
+      "-d",
+      JSON.stringify(payload),
+    ];
+
+    const process = new Gio.Subprocess({
       argv: curlCommand,
       flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     });
 
-    process.init(null);
-    // Pass onData to processStream.
+    process.init(cancellable);
+
+    // Optional: Add process status monitoring
+    process.wait_check_async(cancellable, (proc, result) => {
+      try {
+        proc.wait_check_finish(result);
+      } catch (e) {
+        console.error("Process error:", e.message);
+      }
+    });
+
     const [response, newContext] = await processStream(
       process.get_stdout_pipe(),
       onData
@@ -72,9 +91,17 @@ export async function sendMessage(userMessage, context, onData) {
     conversationHistory.push({ type: "response", text: response });
     return response;
   } catch (e) {
-    const errorMessage = "Error: Unable to execute command.";
+    console.error("API error:", e);
+    const errorMessage = `Error: ${e.message || "Unable to execute command."}`;
     conversationHistory.push({ type: "response", text: errorMessage });
     return errorMessage;
+  }
+}
+
+// Add a function to cancel ongoing requests
+export function cancelRequest() {
+  if (currentCancellable && !currentCancellable.is_cancelled()) {
+    currentCancellable.cancel();
   }
 }
 
@@ -82,6 +109,7 @@ async function processStream(outputStream, onData) {
   const stream = new Gio.DataInputStream({ base_stream: outputStream });
   let fullResponse = "";
   let newContext = null;
+  let buffer = ""; // Buffer to hold partial words
 
   try {
     while (true) {
@@ -99,15 +127,35 @@ async function processStream(outputStream, onData) {
       if (json.context && Array.isArray(json.context)) {
         newContext = json.context;
       }
+
       if (json.response) {
         fullResponse += json.response;
-        if (onData) {
-          // Call the callback with the new chunk.
-          onData(json.response);
+
+        // Process the response character by character
+        buffer += json.response;
+
+        // Find complete words and send them immediately
+        const words = buffer.split(/(\s+)/);
+
+        // If we have more than one item, we can send all but the last one
+        // (the last one might be incomplete)
+        if (words.length > 1) {
+          const completeContent = words.slice(0, -1).join("");
+          if (completeContent) {
+            if (onData) onData(completeContent);
+          }
+          // Keep the potentially incomplete word in the buffer
+          buffer = words[words.length - 1];
         }
       }
     }
-  } catch {
+
+    // Send any remaining content in the buffer
+    if (buffer && onData) {
+      onData(buffer);
+    }
+  } catch (error) {
+    console.error("Stream processing error:", error);
     if (onData) onData("Stream processing error.");
     return ["Stream processing error.", null];
   } finally {
