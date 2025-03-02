@@ -8,4 +8,6 @@ export const PanelConfig = {
   inputButtonSpacingFraction: 0.01,
   clearIconScale: 0.9,
   clearButtonPaddingFraction: 0.01,
+  userMessageColor: "#FF8800",
+  aiMessageColor: "#007BFF",
 };

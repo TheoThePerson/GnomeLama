@@ -7,6 +7,7 @@ import Clutter from "gi://Clutter";
 import Pango from "gi://Pango";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import { PanelConfig } from "./config.js";
 
 /**
  * Creates a message container (user or AI)
@@ -16,7 +17,9 @@ import GLib from "gi://GLib";
  * @returns {St.BoxLayout} The created message container
  */
 export function createMessageContainer(text, isUser, alignment) {
-  const bgColor = isUser ? "#007bff" : "#ff9800"; // Blue for user, orange for AI
+  const bgColor = isUser
+    ? PanelConfig.userMessageColor
+    : PanelConfig.aiMessageColor;
 
   const messageBox = new St.BoxLayout({
     style: `

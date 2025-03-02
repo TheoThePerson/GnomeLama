@@ -262,8 +262,7 @@ export const Indicator = GObject.registerClass(
       const responseContainer = new St.BoxLayout({
         vertical: true,
         style: `
-      background-color: #ff9800;
-      padding: 10px;
+background-color: ${PanelConfig.aiMessageColor};      padding: 10px;
       margin-bottom: 5px;
       border-radius: 10px;
       max-width: 80%;
@@ -341,7 +340,7 @@ export const Indicator = GObject.registerClass(
             const messageBox = new St.BoxLayout({
               vertical: true,
               style: `
-            background-color: #ff9800;
+            background-color: ${PanelConfig.aiMessageColor};
             color: white;
             padding: 10px;
             margin-bottom: 5px;
