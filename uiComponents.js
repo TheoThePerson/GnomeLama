@@ -109,6 +109,33 @@ export function createTextLabel(text) {
 }
 
 /**
+ * Creates a formatted text label (bold or italic)
+ * @param {string} text - The text content
+ * @param {string} format - The format type ('bold' or 'italic')
+ * @returns {St.Label} The created formatted text label
+ */
+export function createFormattedTextLabel(text, format) {
+  let styleAttribute = "";
+
+  if (format === "bold") {
+    styleAttribute = "font-weight: bold;";
+  } else if (format === "italic") {
+    styleAttribute = "font-style: italic;";
+  }
+
+  const formattedLabel = new St.Label({
+    text: text,
+    style: `padding: 5px; white-space: normal; ${styleAttribute}`,
+    x_expand: true,
+  });
+
+  formattedLabel.clutter_text.set_line_wrap(true);
+  formattedLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+
+  return formattedLabel;
+}
+
+/**
  * Creates a temporary message label
  * @param {string} text - The message text
  * @returns {St.Label} The created temporary message label

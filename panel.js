@@ -292,6 +292,12 @@ export const Indicator = GObject.registerClass(
               part.language
             );
             responseContainer.add_child(codeBox);
+          } else if (part.type === "formatted") {
+            const formattedLabel = UIComponents.createFormattedTextLabel(
+              part.content,
+              part.format
+            );
+            responseContainer.add_child(formattedLabel);
           } else {
             const textLabel = UIComponents.createTextLabel(part.content);
             responseContainer.add_child(textLabel);
@@ -352,6 +358,12 @@ export const Indicator = GObject.registerClass(
                   part.language
                 );
                 messageBox.add_child(codeBox);
+              } else if (part.type === "formatted") {
+                const formattedLabel = UIComponents.createFormattedTextLabel(
+                  part.content,
+                  part.format
+                );
+                messageBox.add_child(formattedLabel);
               } else {
                 const textLabel = UIComponents.createTextLabel(part.content);
                 messageBox.add_child(textLabel);
