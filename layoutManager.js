@@ -73,7 +73,7 @@ export function updateTopBar(topBar, modelButton, clearButton) {
   topBar.add_child(clearButton);
 
   // Set sizes
-  let modelButtonWidth = panelWidth * 0.3;
+  let modelButtonWidth = panelWidth * 0.6;
   modelButton.set_width(modelButtonWidth);
   modelButton.set_height(topBarHeight);
 
