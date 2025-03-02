@@ -287,7 +287,10 @@ export const Indicator = GObject.registerClass(
 
         parts.forEach((part) => {
           if (part.type === "code") {
-            const codeBox = UIComponents.createCodeContainer(part.content);
+            const codeBox = UIComponents.createCodeContainer(
+              part.content,
+              part.language
+            );
             responseContainer.add_child(codeBox);
           } else {
             const textLabel = UIComponents.createTextLabel(part.content);
@@ -344,7 +347,10 @@ export const Indicator = GObject.registerClass(
 
             parts.forEach((part) => {
               if (part.type === "code") {
-                const codeBox = UIComponents.createCodeContainer(part.content);
+                const codeBox = UIComponents.createCodeContainer(
+                  part.content,
+                  part.language
+                );
                 messageBox.add_child(codeBox);
               } else {
                 const textLabel = UIComponents.createTextLabel(part.content);

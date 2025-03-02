@@ -44,9 +44,10 @@ export function createMessageContainer(text, isUser, alignment) {
 /**
  * Creates a code block container
  * @param {string} code - The code content
+ * @param {string} language - The language of the code block
  * @returns {St.BoxLayout} The created code container
  */
-export function createCodeContainer(code) {
+export function createCodeContainer(code, language = "code") {
   const codeBox = new St.BoxLayout({
     vertical: true,
     style: `
@@ -59,6 +60,22 @@ export function createCodeContainer(code) {
     `,
     x_expand: true,
   });
+
+  // Add language label at the top
+  const languageLabel = new St.Label({
+    text: language,
+    style: `
+      color: #aaa;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 0 5px 5px 5px;
+      border-bottom: 1px solid #555;
+      margin-bottom: 5px;
+    `,
+    x_expand: true,
+  });
+
+  codeBox.add_child(languageLabel);
 
   const codeLabel = new St.Label({
     text: code,
