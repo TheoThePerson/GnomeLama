@@ -8,7 +8,7 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import Pango from "gi://Pango";
 
 // Import our modular components
-import { PanelConfig } from "./config.js";
+import { getSettings } from "./settings.js";
 import { parseMessageContent } from "./messageParser.js";
 import * as UIComponents from "./uiComponents.js";
 import * as LayoutManager from "./layoutManager.js";
@@ -28,6 +28,12 @@ export const Indicator = GObject.registerClass(
       super._init(0.0, "AI Chat Panel");
       this._context = null;
       this._extensionPath = extensionPath;
+      this._settings = getSettings();
+
+      // Connect to settings changes to update the UI when preferences change
+      this._settingsChangedId = this._settings.connect("changed", () => {
+        this._updateLayout();
+      });
 
       this._createIcon();
       this._setupPanelOverlay();
@@ -148,7 +154,7 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupClearButton() {
-      const iconSize = 24 * PanelConfig.clearIconScale; // Adjust base size dynamically
+      const iconSize = 24 * this._settings.get_double("clear-icon-scale"); // Adjust base size dynamically
 
       this._clearIcon = new St.Icon({
         gicon: Gio.icon_new_for_string(
@@ -262,7 +268,9 @@ export const Indicator = GObject.registerClass(
       const responseContainer = new St.BoxLayout({
         vertical: true,
         style: `
-background-color: ${PanelConfig.aiMessageColor};      padding: 10px;
+background-color: ${this._settings.get_string(
+          "aiMessageColor"
+        )};      padding: 10px;
       margin-bottom: 5px;
       border-radius: 10px;
       max-width: 80%;
@@ -340,7 +348,7 @@ background-color: ${PanelConfig.aiMessageColor};      padding: 10px;
             const messageBox = new St.BoxLayout({
               vertical: true,
               style: `
-            background-color: ${PanelConfig.aiMessageColor};
+            background-color: ${this._settings.get_string("aiMessageColor")};
             color: white;
             padding: 10px;
             margin-bottom: 5px;
@@ -411,6 +419,12 @@ background-color: ${PanelConfig.aiMessageColor};      padding: 10px;
     }
 
     destroy() {
+      // Disconnect settings signal
+      if (this._settingsChangedId) {
+        this._settings.disconnect(this._settingsChangedId);
+        this._settingsChangedId = null;
+      }
+
       if (this._modelMenu) {
         this._modelMenu.destroy();
       }

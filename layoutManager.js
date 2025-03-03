@@ -4,7 +4,9 @@
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import St from "gi://St";
-import { PanelConfig } from "./config.js";
+import { getSettings } from "./settings.js";
+import GObject from "gi://GObject";
+import Clutter from "gi://Clutter";
 
 /**
  * Calculates dimensions for the panel layout
@@ -12,17 +14,22 @@ import { PanelConfig } from "./config.js";
  */
 export function calculatePanelDimensions() {
   const monitor = Main.layoutManager.primaryMonitor;
-  const panelWidth = monitor.width * PanelConfig.panelWidthFraction;
+  const settings = getSettings();
+  const panelWidth =
+    monitor.width * settings.get_double("panel-width-fraction");
   const panelHeight = monitor.height - Main.panel.actor.height;
-  const paddingY = panelHeight * PanelConfig.paddingFractionY;
-  const topBarHeight = panelHeight * PanelConfig.topBarHeightFraction;
-  const inputFieldHeight = panelHeight * PanelConfig.inputFieldHeightFraction;
+  const paddingY = panelHeight * settings.get_double("padding-fraction-y");
+  const topBarHeight =
+    panelHeight * settings.get_double("top-bar-height-fraction");
+  const inputFieldHeight =
+    panelHeight * settings.get_double("input-field-height-fraction");
   const outputHeight =
     panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
   const inputButtonSpacing =
-    panelWidth * PanelConfig.inputButtonSpacingFraction;
+    panelWidth * settings.get_double("input-button-spacing-fraction");
   const sendButtonSize = inputFieldHeight;
-  const horizontalPadding = panelWidth * PanelConfig.paddingFractionX;
+  const horizontalPadding =
+    panelWidth * settings.get_double("padding-fraction-x");
   const availableInputWidth =
     panelWidth - sendButtonSize - 3 * horizontalPadding;
 

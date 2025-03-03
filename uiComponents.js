@@ -7,7 +7,10 @@ import Clutter from "gi://Clutter";
 import Pango from "gi://Pango";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
-import { PanelConfig } from "./config.js";
+import { getSettings } from "./settings.js";
+import GObject from "gi://GObject";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import Graphene from "gi://Graphene";
 
 /**
  * Creates a message container (user or AI)
@@ -17,9 +20,10 @@ import { PanelConfig } from "./config.js";
  * @returns {St.BoxLayout} The created message container
  */
 export function createMessageContainer(text, isUser, alignment) {
+  const settings = getSettings();
   const bgColor = isUser
-    ? PanelConfig.userMessageColor
-    : PanelConfig.aiMessageColor;
+    ? settings.get_string("user-message-color")
+    : settings.get_string("ai-message-color");
 
   const messageBox = new St.BoxLayout({
     style: `
@@ -261,5 +265,16 @@ export function createTemporaryMessageLabel(text) {
 
   tempLabel.clutter_text.set_selectable(true);
 
+  return tempLabel;
+}
+
+// Create temporary message
+export function createTemporaryMessage(text) {
+  const tempLabel = new St.Label({
+    text: text,
+    style: "font-style: italic; color: gray;",
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+  });
   return tempLabel;
 }

@@ -26,6 +26,16 @@
       <summary>Top Bar Height Fraction</summary>
       <description>Defines the height of the top bar.</description>
     </key>
+    <key name="input-button-spacing-fraction" type="d">
+      <default>0.01</default>
+      <summary>Input Button Spacing Fraction</summary>
+      <description>Spacing between input field and buttons as a fraction of panel width.</description>
+    </key>
+    <key name="clear-icon-scale" type="d">
+      <default>0.9</default>
+      <summary>Clear Icon Scale</summary>
+      <description>Scale factor for the clear history icon.</description>
+    </key>
     <key name="user-message-color" type="s">
       <default>"#007BFF"</default>
       <summary>User Message Color</summary>
