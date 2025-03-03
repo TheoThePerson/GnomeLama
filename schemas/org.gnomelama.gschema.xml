@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnomelama" path="/org/gnomelama/">
+    <key name="panel-width-fraction" type="d">
+      <default>0.15</default>
+      <summary>Panel Width Fraction</summary>
+      <description>Defines the fraction of screen width occupied by the panel.</description>
+    </key>
+    <key name="input-field-height-fraction" type="d">
+      <default>0.03</default>
+      <summary>Input Field Height Fraction</summary>
+      <description>Height of the input field as a fraction of screen height.</description>
+    </key>
+    <key name="padding-fraction-x" type="d">
+      <default>0.02</default>
+      <summary>Padding Fraction X</summary>
+      <description>Horizontal padding fraction.</description>
+    </key>
+    <key name="padding-fraction-y" type="d">
+      <default>0.01</default>
+      <summary>Padding Fraction Y</summary>
+      <description>Vertical padding fraction.</description>
+    </key>
+    <key name="top-bar-height-fraction" type="d">
+      <default>0.03</default>
+      <summary>Top Bar Height Fraction</summary>
+      <description>Defines the height of the top bar.</description>
+    </key>
+    <key name="user-message-color" type="s">
+      <default>"#007BFF"</default>
+      <summary>User Message Color</summary>
+      <description>Color of user messages.</description>
+    </key>
+    <key name="ai-message-color" type="s">
+      <default>"#FF8800"</default>
+      <summary>AI Message Color</summary>
+      <description>Color of AI messages.</description>
+    </key>
+  </schema>
+</schemalist>

@@ -1,6 +1,6 @@
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as Main from "resource:///org/gnome/Shell/Extensions/js/ui/main.js";
 import { Indicator } from "./panel.js";
-import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
+import { Extension } from "resource:///org/gnome/Shell/Extensions/js/extensions/extension.js";
 
 export default class GnomeLamaExtension extends Extension {
   enable() {

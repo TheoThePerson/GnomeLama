@@ -4,5 +4,7 @@
     "description": "A GNOME extension integrating Ollama for local AI chat functionalities.",
     "version": 1,
     "shell-version": ["47"],
-    "stylesheets": ["style.css"]
+    "settings-schema": "org.gnomelama",
+    "url": "https://github.com/yourusername/GnomeLama",
+    "gettext-domain": "GnomeLama"
 }
