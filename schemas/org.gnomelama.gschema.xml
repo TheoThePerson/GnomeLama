@@ -36,6 +36,11 @@
       <summary>Clear Icon Scale</summary>
       <description>Scale factor for the clear history icon.</description>
     </key>
+    <key name="clear-button-padding-fraction" type="d">
+      <default>0.01</default>
+      <summary>Clear Button Padding Fraction</summary>
+      <description>Padding for the clear button as a fraction.</description>
+    </key>
     <key name="user-message-color" type="s">
       <default>"#007BFF"</default>
       <summary>User Message Color</summary>

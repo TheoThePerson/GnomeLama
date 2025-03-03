@@ -52,6 +52,17 @@ export function createMessageContainer(text, isUser, alignment) {
 }
 
 /**
+ * Creates a message container specifically for AI responses that may contain code blocks
+ * @param {Clutter.ActorAlign} alignment - Alignment of the message box
+ * @returns {St.BoxLayout} The created message container
+ */
+export function createAIMessageContainer(alignment) {
+  const container = createMessageContainer("", false, alignment);
+  container.vertical = true;
+  return container;
+}
+
+/**
  * Copies text to clipboard
  * @param {string} text - The text to copy
  */
@@ -265,16 +276,5 @@ export function createTemporaryMessageLabel(text) {
 
   tempLabel.clutter_text.set_selectable(true);
 
-  return tempLabel;
-}
-
-// Create temporary message
-export function createTemporaryMessage(text) {
-  const tempLabel = new St.Label({
-    text: text,
-    style: "font-style: italic; color: gray;",
-    x_align: Clutter.ActorAlign.CENTER,
-    y_align: Clutter.ActorAlign.CENTER,
-  });
   return tempLabel;
 }

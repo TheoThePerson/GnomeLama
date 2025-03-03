@@ -264,20 +264,10 @@ export const Indicator = GObject.registerClass(
       // Append the user's message to the output area.
       this._appendUserMessage(userMessage);
 
-      // Create a container for the streaming AI response.
-      const responseContainer = new St.BoxLayout({
-        vertical: true,
-        style: `
-background-color: ${this._settings.get_string(
-          "aiMessageColor"
-        )};      padding: 10px;
-      margin-bottom: 5px;
-      border-radius: 10px;
-      max-width: 80%;
-    `,
-        x_align: Clutter.ActorAlign.START,
-      });
-
+      // Create a container for the streaming AI response using the new helper
+      const responseContainer = UIComponents.createAIMessageContainer(
+        Clutter.ActorAlign.START
+      );
       this._outputContainer.add_child(responseContainer);
 
       // Call sendMessage with an onData callback
@@ -345,18 +335,8 @@ background-color: ${this._settings.get_string(
             // Parse AI messages for code blocks
             const parts = parseMessageContent(msg.text);
 
-            const messageBox = new St.BoxLayout({
-              vertical: true,
-              style: `
-            background-color: ${this._settings.get_string("aiMessageColor")};
-            color: white;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 10px;
-            max-width: 80%;
-          `,
-              x_align: alignment,
-            });
+            // Create AI message container using the new helper function
+            const messageBox = UIComponents.createAIMessageContainer(alignment);
 
             parts.forEach((part) => {
               if (part.type === "code") {
