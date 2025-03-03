@@ -2,12 +2,12 @@
 <schemalist>
   <schema id="org.gnomelama" path="/org/gnomelama/">
     <key name="panel-width-fraction" type="d">
-      <default>0.15</default>
+      <default>0.17</default>
       <summary>Panel Width Fraction</summary>
       <description>Defines the fraction of screen width occupied by the panel.</description>
     </key>
     <key name="input-field-height-fraction" type="d">
-      <default>0.03</default>
+      <default>0.032</default>
       <summary>Input Field Height Fraction</summary>
       <description>Height of the input field as a fraction of screen height.</description>
     </key>
@@ -27,7 +27,7 @@
       <description>Defines the height of the top bar.</description>
     </key>
     <key name="clear-icon-scale" type="d">
-      <default>0.9</default>
+      <default>1</default>
       <summary>Clear Icon Scale</summary>
       <description>Scale factor for the clear history icon.</description>
     </key>
@@ -37,22 +37,22 @@
       <description>Padding for the clear button as a fraction.</description>
     </key>
     <key name="user-message-color" type="s">
-      <default>"#007BFF"</default>
+      <default>"#276988"</default>
       <summary>User Message Color</summary>
       <description>Color of user messages.</description>
     </key>
     <key name="ai-message-color" type="s">
-      <default>"#FF8800"</default>
+      <default>"##D77C19"</default>
       <summary>AI Message Color</summary>
       <description>Color of AI messages.</description>
     </key>
     <key name="background-color" type="s">
-      <default>"#000000"</default>
+      <default>"#313131"</default>
       <summary>Background Color</summary>
       <description>Background color of the panel.</description>
     </key>
     <key name="top-bar-color" type="s">
-      <default>"#111111"</default>
+      <default>"#626262"</default>
       <summary>Top Bar Color</summary>
       <description>Background color of the top bar.</description>
     </key>
