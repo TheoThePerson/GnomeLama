@@ -6,7 +6,7 @@ import Adw from "gi://Adw";
 import {
   ExtensionPreferences,
   gettext as _,
-} from "resource:///org/gnome/shell/extensions/prefs.js";
+} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
 const Me = ExtensionPreferences.lookupByURL(import.meta.url);
 
