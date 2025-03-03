@@ -12,11 +12,13 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 - Clearing history
 - Chat messgages
 - Chat pannel
+- Running bash commands
+- Settings to change things
 
 ## Features In Progress
 
-- Running commands (to install applications, do updates, figgure out issues, etc)
-- Putting it on the gnome extension page (after getting basic functionality)
+-Adding Open Ai keys
+- Making a bit more polight before putting it on the extention page
 
 ## Installation
 
