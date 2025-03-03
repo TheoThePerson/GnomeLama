@@ -2,9 +2,9 @@ import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
-import * as Main from "resource:///org/gnome/Shell/Extensions/js/ui/main.js";
-import * as PanelMenu from "resource:///org/gnome/Shell/Extensions/js/ui/panelMenu.js";
-import * as PopupMenu from "resource:///org/gnome/Shell/Extensions/js/ui/popupMenu.js";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import Pango from "gi://Pango";
 
 // Import our modular components
