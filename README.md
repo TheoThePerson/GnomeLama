@@ -4,19 +4,18 @@
 
 GnomeLama is an integration between ollama (the open source local ai project) and gnome. Trying to bring windows copilot to linux with more functionality.
 
-> [!Important]
-> This extension is now functional, but still needs a couple of tweaks and improvements before making a full release and putting it up on the Gnome extension website.
-
 ## Features
 - Model selection (changing models)
 - Clearing history
 - Chat messgages
 - Chat pannel
+- Running bash commands
+- Settings to change things
 
 ## Features In Progress
 
-- Running commands (to install applications, do updates, figgure out issues, etc)
-- Putting it on the gnome extension page (after getting basic functionality)
+-Adding Open Ai keys
+- Making a bit more polight before putting it on the extention page
 
 ## Installation
 
@@ -33,9 +32,10 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 	```
 3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
 
-## Concept Art
+## Screenshots
 
-<img src="https://github.com/user-attachments/assets/548157d2-ae6c-4b46-9247-52a05bdcb6c8" width="200" />
+<img src="https://github.com/user-attachments/assets/6649b93a-eefb-480b-a376-791b809f1dd0" width="25%">
+
  
 ## Contributing
 
