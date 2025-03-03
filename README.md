@@ -33,9 +33,9 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 	```
 3. (Optional) Restart GNOME Shell (Alt + F2, then type `r` and press Enter).
 
-## Concept Art
+## Screenshots
 
-<img src="https://github.com/user-attachments/assets/548157d2-ae6c-4b46-9247-52a05bdcb6c8" width="200" />
+![Screenshot From 2025-03-02 18-28-44](https://github.com/user-attachments/assets/6649b93a-eefb-480b-a376-791b809f1dd0)
  
 ## Contributing
 
