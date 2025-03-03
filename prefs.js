@@ -15,7 +15,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     // Get settings
     const settings = this.getSettings("org.gnomelama");
 
-    // Create a preferences page for appearance settings
+    //----------------------------------------
+    // APPEARANCE PAGE
+    //----------------------------------------
     const appearancePage = new Adw.PreferencesPage({
       title: _("Appearance"),
       icon_name: "preferences-desktop-appearance-symbolic",
@@ -94,7 +96,27 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       0.005
     );
 
-    // Create a preferences page for colors
+    // Icon settings group
+    const iconGroup = new Adw.PreferencesGroup({
+      title: _("Icons"),
+    });
+    appearancePage.add(iconGroup);
+
+    // Clear icon scale
+    this._addSpinRow(
+      iconGroup,
+      settings,
+      "clear-icon-scale",
+      _("Clear Icon Scale"),
+      _("Scale factor for the clear history icon"),
+      0.5,
+      1.5,
+      0.1
+    );
+
+    //----------------------------------------
+    // COLORS PAGE
+    //----------------------------------------
     const colorsPage = new Adw.PreferencesPage({
       title: _("Colors"),
       icon_name: "preferences-color-symbolic",
@@ -123,6 +145,84 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       "ai-message-color",
       _("AI Message Color"),
       _("Color of AI assistant messages")
+    );
+
+    // UI colors group
+    const uiColorsGroup = new Adw.PreferencesGroup({
+      title: _("UI Colors"),
+    });
+    colorsPage.add(uiColorsGroup);
+
+    // Background color
+    this._addColorRow(
+      uiColorsGroup,
+      settings,
+      "background-color",
+      _("Background Color"),
+      _("Background color of the panel")
+    );
+
+    // Top bar color
+    this._addColorRow(
+      uiColorsGroup,
+      settings,
+      "top-bar-color",
+      _("Top Bar Color"),
+      _("Background color of the top bar")
+    );
+
+    // Text color
+    this._addColorRow(
+      uiColorsGroup,
+      settings,
+      "text-color",
+      _("Text Color"),
+      _("Default text color for the panel")
+    );
+
+    //----------------------------------------
+    // API SETTINGS PAGE
+    //----------------------------------------
+    const apiPage = new Adw.PreferencesPage({
+      title: _("API Settings"),
+      icon_name: "preferences-system-symbolic",
+    });
+    window.add(apiPage);
+
+    // API Settings group
+    const apiSettingsGroup = new Adw.PreferencesGroup({
+      title: _("API Configuration"),
+    });
+    apiPage.add(apiSettingsGroup);
+
+    // API Endpoint
+    this._addEntryRow(
+      apiSettingsGroup,
+      settings,
+      "api-endpoint",
+      _("API Endpoint"),
+      _("The URL for the Ollama API service")
+    );
+
+    // Default model
+    this._addEntryRow(
+      apiSettingsGroup,
+      settings,
+      "default-model",
+      _("Default Model"),
+      _("The default AI model to use")
+    );
+
+    // Temperature
+    this._addSpinRow(
+      apiSettingsGroup,
+      settings,
+      "temperature",
+      _("Temperature"),
+      _("Controls randomness of responses (0.0-1.0)"),
+      0.0,
+      1.0,
+      0.1
     );
   }
 
@@ -178,6 +278,30 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     });
     row.add_suffix(colorButton);
     row.activatable_widget = colorButton;
+    group.add(row);
+  }
+
+  // Helper function to add a text entry row
+  _addEntryRow(group, settings, key, title, subtitle) {
+    // Create an entry
+    const entry = new Gtk.Entry({
+      text: settings.get_string(key),
+      valign: Gtk.Align.CENTER,
+      width_request: 250,
+    });
+
+    // Connect to changed signal
+    entry.connect("changed", () => {
+      settings.set_string(key, entry.get_text());
+    });
+
+    // Create a preferences row for the entry
+    const row = new Adw.ActionRow({
+      title: title,
+      subtitle: subtitle,
+    });
+    row.add_suffix(entry);
+    row.activatable_widget = entry;
     group.add(row);
   }
 

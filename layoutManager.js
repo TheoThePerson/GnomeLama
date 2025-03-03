@@ -25,8 +25,6 @@ export function calculatePanelDimensions() {
     panelHeight * settings.get_double("input-field-height-fraction");
   const outputHeight =
     panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
-  const inputButtonSpacing =
-    panelWidth * settings.get_double("input-button-spacing-fraction");
   const sendButtonSize = inputFieldHeight;
   const horizontalPadding =
     panelWidth * settings.get_double("padding-fraction-x");
@@ -41,7 +39,6 @@ export function calculatePanelDimensions() {
     topBarHeight,
     inputFieldHeight,
     outputHeight,
-    inputButtonSpacing,
     sendButtonSize,
     horizontalPadding,
     availableInputWidth,
@@ -54,11 +51,16 @@ export function calculatePanelDimensions() {
  */
 export function updatePanelOverlay(panelOverlay) {
   const { panelWidth, panelHeight, monitor } = calculatePanelDimensions();
+  const settings = getSettings();
 
   panelOverlay.set_size(panelWidth, panelHeight);
   panelOverlay.set_position(
     monitor.width - panelWidth,
     Main.panel.actor.height
+  );
+
+  panelOverlay.set_style(
+    `background-color: ${settings.get_string("background-color")};`
   );
 }
 
@@ -70,7 +72,12 @@ export function updatePanelOverlay(panelOverlay) {
  */
 export function updateTopBar(topBar, modelButton, clearButton) {
   const { panelWidth, topBarHeight } = calculatePanelDimensions();
+  const settings = getSettings();
 
+  // Set the top bar color
+  topBar.set_style(
+    `background-color: ${settings.get_string("top-bar-color")};`
+  );
   topBar.set_size(panelWidth, topBarHeight);
   topBar.remove_all_children();
 
@@ -84,9 +91,29 @@ export function updateTopBar(topBar, modelButton, clearButton) {
   modelButton.set_width(modelButtonWidth);
   modelButton.set_height(topBarHeight);
 
-  let clearButtonWidth = 50;
-  clearButton.set_width(clearButtonWidth);
-  clearButton.set_height(topBarHeight);
+  // Calculate clear button size based on clear-icon-scale
+  const clearIconScale = settings.get_double("clear-icon-scale");
+  const baseSize = 24; // Base size for the icon
+  const iconSize = baseSize * clearIconScale;
+
+  // Update the clear button icon size
+  if (clearButton.get_child()) {
+    const clearIcon = clearButton.get_child();
+    clearIcon.set_size(iconSize, iconSize);
+
+    // Ensure the icon stays centered
+    clearIcon.set_style("margin: 0 auto;");
+    clearIcon.set_x_align(Clutter.ActorAlign.CENTER);
+    clearIcon.set_y_align(Clutter.ActorAlign.CENTER);
+  }
+
+  // Keep a fixed button size but center the icon
+  const clearButtonSize = Math.max(topBarHeight * 0.9, 32); // Fixed size for button
+  clearButton.set_width(clearButtonSize);
+  clearButton.set_height(clearButtonSize);
+  clearButton.set_style("padding: 0; margin: 0;");
+  clearButton.set_x_align(Clutter.ActorAlign.CENTER);
+  clearButton.set_y_align(Clutter.ActorAlign.CENTER);
 }
 
 /**
@@ -133,12 +160,15 @@ export function updateInputArea(
     availableInputWidth,
   } = calculatePanelDimensions();
 
+  // Position and size the container
   inputFieldBox.set_size(panelWidth, inputFieldHeight);
   inputFieldBox.set_position(0, outputHeight + topBarHeight + paddingY);
   inputFieldBox.set_style(
     `padding-left: ${horizontalPadding}px; padding-right: ${horizontalPadding}px;`
   );
-  inputFieldBox.spacing = horizontalPadding;
+
+  // Use a fixed value for spacing instead of the setting
+  inputFieldBox.spacing = 8; // Fixed spacing of 8px
 
   // Update input field
   inputField.set_style(

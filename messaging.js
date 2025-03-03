@@ -1,12 +1,16 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import { getSettings } from "./settings.js";
 
 // Global conversation history array and context
 let conversationHistory = [];
 let currentContext = null;
 
-// Global variable to hold the selected model
-let selectedModel = "llama3.2:1b"; // Default model
+// Get settings
+const settings = getSettings();
+
+// Global variable to hold the selected model - default from settings
+let selectedModel = settings.get_string("default-model");
 
 /**
  * Sets the model to be used for sending messages.
@@ -33,7 +37,7 @@ export async function sendMessage(userMessage, context, onData) {
     stream: true, // Explicitly request streaming
     options: {
       num_ctx: 4096, // Set context window
-      temperature: 0.7, // Add temperature control
+      temperature: settings.get_double("temperature"), // Use temperature from settings
     },
   };
 
@@ -54,7 +58,7 @@ export async function sendMessage(userMessage, context, onData) {
       "curl",
       "-X",
       "POST",
-      "http://localhost:11434/api/generate",
+      settings.get_string("api-endpoint"), // Use API endpoint from settings
       "-H",
       "Content-Type: application/json",
       "--no-buffer", // Disable output buffering

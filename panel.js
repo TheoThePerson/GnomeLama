@@ -111,7 +111,7 @@ export const Indicator = GObject.registerClass(
       this._modelButton = new St.Button({
         child: this._modelButtonLabel,
         style: `
-          background-color: rgba(255, 255, 255, 0.1);
+          background-color: transparent;
           border-radius: 0px;
           margin: 0;
         `,
@@ -136,19 +136,49 @@ export const Indicator = GObject.registerClass(
     async _addModelMenuItems() {
       const modelNames = await fetchModelNames();
       if (modelNames.length > 0) {
-        // Set the first model as the default selection
-        this._modelButtonLabel.set_text(modelNames[0]);
-        setModel(modelNames[0]);
+        // Get the default model from settings
+        const defaultModel = this._settings.get_string("default-model");
 
-        modelNames.forEach((modelName) => {
-          const item = new PopupMenu.PopupMenuItem(modelName);
-          item.connect("activate", () => {
-            this._modelButtonLabel.set_text(modelName);
-            setModel(modelName);
+        // Set the default model as the current selection if it exists in the list
+        // Otherwise fallback to the first model
+        const selectedModel = modelNames.includes(defaultModel)
+          ? defaultModel
+          : modelNames[0];
+
+        // Update button label and set the model
+        this._modelButtonLabel.set_text(selectedModel);
+        setModel(selectedModel);
+
+        // Create menu items for each model
+        modelNames.forEach((name) => {
+          let modelItem = new PopupMenu.PopupMenuItem(name);
+
+          // Mark the current model as active
+          if (name === selectedModel) {
+            modelItem.setOrnament(PopupMenu.Ornament.DOT);
+          }
+
+          modelItem.connect("activate", () => {
+            // Update all menu items
+            this._modelMenu.box.get_children().forEach((child) => {
+              if (child.setOrnament) {
+                child.setOrnament(PopupMenu.Ornament.NONE);
+              }
+            });
+
+            // Set the ornament on the selected item
+            modelItem.setOrnament(PopupMenu.Ornament.DOT);
+
+            // Update the button label and set the selected model
+            this._modelButtonLabel.set_text(name);
+            setModel(name);
+
+            // Close the menu and reset history
             this._modelMenu.close();
-            this._clearHistory(); // Reset history when a new model is selected
+            this._clearHistory();
           });
-          this._modelMenu.addMenuItem(item);
+
+          this._modelMenu.addMenuItem(modelItem);
         });
       }
     }
@@ -161,19 +191,20 @@ export const Indicator = GObject.registerClass(
           `${this._extensionPath}/icons/trash-icon.svg`
         ),
         style_class: "system-status-icon",
+        style: "margin: 0 auto;", // Center the icon
         x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
         width: iconSize,
         height: iconSize,
       });
 
+      // Create a fixed-size button with centered icon
       this._clearButton = new St.Button({
         child: this._clearIcon,
         style_class: "clear-button",
+        style: "padding: 0; margin: 0;", // Remove padding to prevent sizing issues
         x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
-        width: iconSize + 10, // Add some extra padding for centering
-        height: iconSize + 10,
       });
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
@@ -264,11 +295,8 @@ export const Indicator = GObject.registerClass(
       // Append the user's message to the output area.
       this._appendUserMessage(userMessage);
 
-      // Create a container for the streaming AI response using the new helper
-      const responseContainer = UIComponents.createAIMessageContainer(
-        Clutter.ActorAlign.START
-      );
-      this._outputContainer.add_child(responseContainer);
+      // Create a placeholder for the AI response
+      let responseContainer = null;
 
       // Call sendMessage with an onData callback
       let fullResponse = "";
@@ -279,27 +307,51 @@ export const Indicator = GObject.registerClass(
         // Parse the current full response for code blocks
         const parts = parseMessageContent(fullResponse);
 
-        // Clear the container and add each part with appropriate styling
-        responseContainer.remove_all_children();
+        // Remove old container if it exists
+        if (responseContainer) {
+          responseContainer.destroy();
+        }
 
-        parts.forEach((part) => {
-          if (part.type === "code") {
-            const codeBox = UIComponents.createCodeContainer(
-              part.content,
-              part.language
-            );
-            responseContainer.add_child(codeBox);
-          } else if (part.type === "formatted") {
-            const formattedLabel = UIComponents.createFormattedTextLabel(
-              part.content,
-              part.format
-            );
-            responseContainer.add_child(formattedLabel);
-          } else {
-            const textLabel = UIComponents.createTextLabel(part.content);
-            responseContainer.add_child(textLabel);
-          }
-        });
+        // Use different container types depending on content
+        if (
+          parts.length === 1 &&
+          parts[0].type !== "code" &&
+          parts[0].type !== "formatted"
+        ) {
+          // Simple text response - use standard message container
+          responseContainer = UIComponents.createMessageContainer(
+            parts[0].content,
+            false,
+            Clutter.ActorAlign.START
+          );
+          this._outputContainer.add_child(responseContainer);
+        } else {
+          // Complex response with code or formatting - use AI container
+          responseContainer = UIComponents.createAIMessageContainer(
+            Clutter.ActorAlign.START
+          );
+          this._outputContainer.add_child(responseContainer);
+
+          // Add each part to the container
+          parts.forEach((part) => {
+            if (part.type === "code") {
+              const codeBox = UIComponents.createCodeContainer(
+                part.content,
+                part.language
+              );
+              responseContainer.add_child(codeBox);
+            } else if (part.type === "formatted") {
+              const formattedLabel = UIComponents.createFormattedTextLabel(
+                part.content,
+                part.format
+              );
+              responseContainer.add_child(formattedLabel);
+            } else {
+              const textLabel = UIComponents.createTextLabel(part.content);
+              responseContainer.add_child(textLabel);
+            }
+          });
+        }
       });
     }
 
@@ -335,29 +387,44 @@ export const Indicator = GObject.registerClass(
             // Parse AI messages for code blocks
             const parts = parseMessageContent(msg.text);
 
-            // Create AI message container using the new helper function
-            const messageBox = UIComponents.createAIMessageContainer(alignment);
+            // For single plain text messages, use the simpler container
+            if (
+              parts.length === 1 &&
+              parts[0].type !== "code" &&
+              parts[0].type !== "formatted"
+            ) {
+              const messageBox = UIComponents.createMessageContainer(
+                parts[0].content,
+                false,
+                alignment
+              );
+              this._outputContainer.add_child(messageBox);
+            } else {
+              // For complex messages with code blocks or formatting, use the AI container
+              const messageBox =
+                UIComponents.createAIMessageContainer(alignment);
 
-            parts.forEach((part) => {
-              if (part.type === "code") {
-                const codeBox = UIComponents.createCodeContainer(
-                  part.content,
-                  part.language
-                );
-                messageBox.add_child(codeBox);
-              } else if (part.type === "formatted") {
-                const formattedLabel = UIComponents.createFormattedTextLabel(
-                  part.content,
-                  part.format
-                );
-                messageBox.add_child(formattedLabel);
-              } else {
-                const textLabel = UIComponents.createTextLabel(part.content);
-                messageBox.add_child(textLabel);
-              }
-            });
+              parts.forEach((part) => {
+                if (part.type === "code") {
+                  const codeBox = UIComponents.createCodeContainer(
+                    part.content,
+                    part.language
+                  );
+                  messageBox.add_child(codeBox);
+                } else if (part.type === "formatted") {
+                  const formattedLabel = UIComponents.createFormattedTextLabel(
+                    part.content,
+                    part.format
+                  );
+                  messageBox.add_child(formattedLabel);
+                } else {
+                  const textLabel = UIComponents.createTextLabel(part.content);
+                  messageBox.add_child(textLabel);
+                }
+              });
 
-            this._outputContainer.add_child(messageBox);
+              this._outputContainer.add_child(messageBox);
+            }
           }
         });
       }

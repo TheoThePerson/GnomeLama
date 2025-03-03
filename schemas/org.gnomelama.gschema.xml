@@ -26,11 +26,6 @@
       <summary>Top Bar Height Fraction</summary>
       <description>Defines the height of the top bar.</description>
     </key>
-    <key name="input-button-spacing-fraction" type="d">
-      <default>0.01</default>
-      <summary>Input Button Spacing Fraction</summary>
-      <description>Spacing between input field and buttons as a fraction of panel width.</description>
-    </key>
     <key name="clear-icon-scale" type="d">
       <default>0.9</default>
       <summary>Clear Icon Scale</summary>
@@ -50,6 +45,36 @@
       <default>"#FF8800"</default>
       <summary>AI Message Color</summary>
       <description>Color of AI messages.</description>
+    </key>
+    <key name="background-color" type="s">
+      <default>"#000000"</default>
+      <summary>Background Color</summary>
+      <description>Background color of the panel.</description>
+    </key>
+    <key name="top-bar-color" type="s">
+      <default>"#111111"</default>
+      <summary>Top Bar Color</summary>
+      <description>Background color of the top bar.</description>
+    </key>
+    <key name="text-color" type="s">
+      <default>"#FFFFFF"</default>
+      <summary>Text Color</summary>
+      <description>Default text color for the panel.</description>
+    </key>
+    <key name="default-model" type="s">
+      <default>"llama3.2:1b"</default>
+      <summary>Default AI Model</summary>
+      <description>The default AI model to use for conversations.</description>
+    </key>
+    <key name="api-endpoint" type="s">
+      <default>"http://localhost:11434/api/generate"</default>
+      <summary>API Endpoint</summary>
+      <description>The API endpoint for the Ollama service.</description>
+    </key>
+    <key name="temperature" type="d">
+      <default>0.7</default>
+      <summary>Temperature</summary>
+      <description>Temperature parameter for model response randomness (0.0-1.0).</description>
     </key>
   </schema>
 </schemalist>
