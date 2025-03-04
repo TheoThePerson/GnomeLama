@@ -24,7 +24,7 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 
 1. Clone this repository to your GNOME extensions directory:
 	```
-	git clone https://github.com/TheoThePerson/GnomeLama.git ~/.local/share/gnome-shell/extensions/GnomeLama
+	git clone https://github.com/TheoThePerson/GnomeLama.git ~/.local/share/gnome-shell/extensions/linux-copilot@TheoThePerson
 	```
 2. Enable the extension:
 	```
