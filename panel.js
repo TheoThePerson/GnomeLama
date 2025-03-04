@@ -5,7 +5,6 @@ import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
-import Pango from "gi://Pango";
 
 // Import our modular components
 import { getSettings } from "./settings.js";

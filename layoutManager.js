@@ -5,7 +5,6 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import St from "gi://St";
 import { getSettings } from "./settings.js";
-import GObject from "gi://GObject";
 import Clutter from "gi://Clutter";
 
 /**

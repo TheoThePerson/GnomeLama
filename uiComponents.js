@@ -5,12 +5,8 @@
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Pango from "gi://Pango";
-import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import { getSettings } from "./settings.js";
-import GObject from "gi://GObject";
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import Graphene from "gi://Graphene";
 
 /**
  * Creates a message container (user or AI)

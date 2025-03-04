@@ -1,4 +1,3 @@
-import Gio from "gi://Gio";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 // Legacy configuration values as fallbacks
