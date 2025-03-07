@@ -25,15 +25,21 @@ export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init(extensionPath) {
       super._init(0.0, "AI Chat Panel");
+
+      // Initialize properties
       this._context = null;
       this._extensionPath = extensionPath;
       this._settings = getSettings();
 
-      // Connect to settings changes to update the UI when preferences change
-      this._settingsChangedId = this._settings.connect("changed", () => {
-        this._updateLayout();
-      });
+      // Set up UI components
+      this._initUI();
 
+      // Event handlers
+      this._connectEventHandlers();
+    }
+
+    // Initialize all UI components
+    _initUI() {
       this._createIcon();
       this._setupPanelOverlay();
       this._setupTopBar();
@@ -41,14 +47,22 @@ export const Indicator = GObject.registerClass(
       this._setupClearButton();
       this._setupOutputArea();
       this._setupInputArea();
+      this._updateLayout();
+    }
 
-      // Listen for monitor changes and update the layout dynamically.
+    // Connect all event handlers
+    _connectEventHandlers() {
+      // Settings change handler
+      this._settingsChangedId = this._settings.connect("changed", () => {
+        this._updateLayout();
+      });
+
+      // Monitor changes handler
       Main.layoutManager.connect("monitors-changed", () => {
         this._updateLayout();
       });
-      // Do an initial layout update.
-      this._updateLayout();
 
+      // Panel click handler
       this.connect("button-press-event", this._togglePanelOverlay.bind(this));
     }
 
@@ -93,6 +107,7 @@ export const Indicator = GObject.registerClass(
     }
 
     async _setupModelMenu() {
+      // Create model button with label
       this._modelButtonLabel = new St.Label({
         text: "Models ▼",
         style_class: "model-button-label",
@@ -101,78 +116,114 @@ export const Indicator = GObject.registerClass(
         x_expand: true,
       });
 
+      // Create a container for the label with padding
+      const buttonContentBox = new St.BoxLayout({
+        style: "padding-left: 12px;",
+        x_expand: true,
+      });
+      buttonContentBox.add_child(this._modelButtonLabel);
+
       this._modelButton = new St.Button({
-        child: this._modelButtonLabel,
+        child: buttonContentBox,
         style_class: "model-button",
         x_align: Clutter.ActorAlign.FILL,
       });
 
+      // Create the popup menu
       this._modelMenu = new PopupMenu.PopupMenu(
         this._modelButton,
         0.0,
         St.Side.TOP
       );
+
       Main.uiGroup.add_child(this._modelMenu.actor);
       this._modelMenu.actor.hide();
 
+      // Configure the menu position
+      this._configureModelMenuPosition();
+
+      // Add menu items
       await this._addModelMenuItems();
 
+      // Connect button event
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
         return Clutter.EVENT_STOP;
       });
     }
 
+    _configureModelMenuPosition() {
+      this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
+        if (isOpen) {
+          // Get the panel position
+          const [panelX, _] = this._panelOverlay.get_transformed_position();
+
+          // Get the BoxPointer from the menu (contains positioning logic)
+          const boxPointer = this._modelMenu._boxPointer;
+
+          // Set the menu position to align with left edge of panel
+          boxPointer._xOffset =
+            panelX - this._modelButton.get_transformed_position()[0];
+          boxPointer._xPosition = panelX;
+          boxPointer._shiftActor();
+        }
+      });
+    }
+
     async _addModelMenuItems() {
       const modelNames = await fetchModelNames();
-      if (modelNames.length > 0) {
-        // Get the default model from settings
-        const defaultModel = this._settings.get_string("default-model");
+      if (modelNames.length === 0) return;
 
-        // Set the default model as the current selection if it exists in the list
-        // Otherwise fallback to the first model
-        const selectedModel = modelNames.includes(defaultModel)
-          ? defaultModel
-          : modelNames[0];
+      // Get the default model from settings
+      const defaultModel = this._settings.get_string("default-model");
 
-        // Update button label and set the model
-        this._modelButtonLabel.set_text(selectedModel);
-        this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
-        setModel(selectedModel);
+      // Set the default model as the current selection if it exists in the list
+      // Otherwise fallback to the first model
+      const selectedModel = modelNames.includes(defaultModel)
+        ? defaultModel
+        : modelNames[0];
 
-        // Create menu items for each model
-        modelNames.forEach((name) => {
-          let modelItem = new PopupMenu.PopupMenuItem(name);
+      // Update button label and set the model
+      this._modelButtonLabel.set_text(selectedModel);
+      this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
+      setModel(selectedModel);
 
-          // Mark the current model as active
-          if (name === selectedModel) {
-            modelItem.setOrnament(PopupMenu.Ornament.DOT);
-          }
+      // Create menu items for each model
+      modelNames.forEach((name) => {
+        let modelItem = new PopupMenu.PopupMenuItem(name);
 
-          modelItem.connect("activate", () => {
-            // Update all menu items
-            this._modelMenu.box.get_children().forEach((child) => {
-              if (child.setOrnament) {
-                child.setOrnament(PopupMenu.Ornament.NONE);
-              }
-            });
+        // Mark the current model as active
+        if (name === selectedModel) {
+          modelItem.setOrnament(PopupMenu.Ornament.DOT);
+        }
 
-            // Set the ornament on the selected item
-            modelItem.setOrnament(PopupMenu.Ornament.DOT);
-
-            // Update the button label and set the selected model
-            this._modelButtonLabel.set_text(name);
-            this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
-            setModel(name);
-
-            // Close the menu and reset history
-            this._modelMenu.close();
-            this._clearHistory();
-          });
-
-          this._modelMenu.addMenuItem(modelItem);
+        modelItem.connect("activate", () => {
+          this._selectModel(name, modelItem);
         });
-      }
+
+        this._modelMenu.addMenuItem(modelItem);
+      });
+    }
+
+    _selectModel(name, modelItem) {
+      // Update all menu items
+      this._modelMenu.box.get_children().forEach((child) => {
+        if (child.setOrnament) {
+          child.setOrnament(PopupMenu.Ornament.NONE);
+        }
+      });
+
+      // Set the ornament on the selected item
+      modelItem.setOrnament(PopupMenu.Ornament.DOT);
+
+      // Update the button label and set the selected model
+      this._modelButtonLabel.set_text(name);
+      this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
+      setModel(name);
+
+      // Close the menu and reset history
+      this._modelMenu.close();
+      this._clearHistory();
     }
 
     _setupClearButton() {
@@ -225,6 +276,7 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupInputArea() {
+      // Create input container
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
         vertical: false,
@@ -232,12 +284,14 @@ export const Indicator = GObject.registerClass(
 
       this._panelOverlay.add_child(this._inputFieldBox);
 
+      // Create input field
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
         style_class: "input-field",
       });
 
+      // Handle Enter key press
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
           this._sendMessage();
@@ -248,7 +302,7 @@ export const Indicator = GObject.registerClass(
 
       this._inputFieldBox.add_child(this._inputField);
 
-      // Create a scalable send icon.
+      // Create send button
       this._sendIcon = new St.Icon({
         gicon: Gio.icon_new_for_string(
           `${this._extensionPath}/icons/send-icon.svg`
@@ -280,70 +334,72 @@ export const Indicator = GObject.registerClass(
       }
       this._inputField.set_text("");
 
-      // Append the user's message to the output area.
+      // Append user message
       this._appendUserMessage(userMessage);
 
-      // Create a placeholder for the AI response
-      let responseContainer = null;
+      // Process AI response
+      await this._processAIResponse(userMessage);
+    }
 
-      // Call sendMessage with an onData callback
+    async _processAIResponse(userMessage) {
+      let responseContainer = null;
       let fullResponse = "";
 
       await sendMessage(userMessage, this._context, (chunk) => {
         fullResponse += chunk;
-
-        // Parse the current full response for code blocks
-        const parts = parseMessageContent(fullResponse);
 
         // Remove old container if it exists
         if (responseContainer) {
           responseContainer.destroy();
         }
 
-        // Use different container types depending on content
-        if (
-          parts.length === 1 &&
-          parts[0].type !== "code" &&
-          parts[0].type !== "formatted"
-        ) {
-          // Simple text response - use standard message container
-          responseContainer = UIComponents.createMessageContainer(
-            parts[0].content,
-            false,
-            Clutter.ActorAlign.START
-          );
-          this._outputContainer.add_child(responseContainer);
-        } else {
-          // Complex response with code or formatting - use AI container
-          responseContainer = UIComponents.createAIMessageContainer(
-            Clutter.ActorAlign.START
-          );
-          this._outputContainer.add_child(responseContainer);
-
-          // Add each part to the container
-          parts.forEach((part) => {
-            if (part.type === "code") {
-              const codeBox = UIComponents.createCodeContainer(
-                part.content,
-                part.language
-              );
-              responseContainer.add_child(codeBox);
-            } else if (part.type === "formatted") {
-              const formattedLabel = UIComponents.createFormattedTextLabel(
-                part.content,
-                part.format
-              );
-              responseContainer.add_child(formattedLabel);
-            } else {
-              const textLabel = UIComponents.createTextLabel(part.content);
-              responseContainer.add_child(textLabel);
-            }
-          });
-        }
+        // Generate response UI
+        responseContainer = this._createResponseUI(fullResponse);
       });
     }
 
-    // Helper method to append the user message.
+    _createResponseUI(responseText) {
+      // Parse the response content
+      const parts = parseMessageContent(responseText);
+      let container = null;
+
+      // Simple text response
+      if (
+        parts.length === 1 &&
+        !["code", "formatted"].includes(parts[0].type)
+      ) {
+        container = UIComponents.createMessageContainer(
+          parts[0].content,
+          false,
+          Clutter.ActorAlign.START
+        );
+      }
+      // Complex response with code/formatting
+      else {
+        container = UIComponents.createAIMessageContainer(
+          Clutter.ActorAlign.START
+        );
+
+        // Add each content part
+        parts.forEach((part) => {
+          if (part.type === "code") {
+            container.add_child(
+              UIComponents.createCodeContainer(part.content, part.language)
+            );
+          } else if (part.type === "formatted") {
+            container.add_child(
+              UIComponents.createFormattedTextLabel(part.content, part.format)
+            );
+          } else {
+            container.add_child(UIComponents.createTextLabel(part.content));
+          }
+        });
+      }
+
+      this._outputContainer.add_child(container);
+      return container;
+    }
+
     _appendUserMessage(message) {
       const userContainer = UIComponents.createMessageContainer(
         message,
@@ -356,66 +412,16 @@ export const Indicator = GObject.registerClass(
     _updateHistory() {
       this._clearOutput();
       const history = getConversationHistory();
-      if (history.length > 0) {
-        history.forEach((msg) => {
-          const isUser = msg.type === "user";
-          const alignment = isUser
-            ? Clutter.ActorAlign.END
-            : Clutter.ActorAlign.START;
 
-          if (isUser) {
-            // User messages remain unchanged
-            const messageBox = UIComponents.createMessageContainer(
-              msg.text,
-              isUser,
-              alignment
-            );
-            this._outputContainer.add_child(messageBox);
-          } else {
-            // Parse AI messages for code blocks
-            const parts = parseMessageContent(msg.text);
+      if (history.length === 0) return;
 
-            // For single plain text messages, use the simpler container
-            if (
-              parts.length === 1 &&
-              parts[0].type !== "code" &&
-              parts[0].type !== "formatted"
-            ) {
-              const messageBox = UIComponents.createMessageContainer(
-                parts[0].content,
-                false,
-                alignment
-              );
-              this._outputContainer.add_child(messageBox);
-            } else {
-              // For complex messages with code blocks or formatting, use the AI container
-              const messageBox =
-                UIComponents.createAIMessageContainer(alignment);
-
-              parts.forEach((part) => {
-                if (part.type === "code") {
-                  const codeBox = UIComponents.createCodeContainer(
-                    part.content,
-                    part.language
-                  );
-                  messageBox.add_child(codeBox);
-                } else if (part.type === "formatted") {
-                  const formattedLabel = UIComponents.createFormattedTextLabel(
-                    part.content,
-                    part.format
-                  );
-                  messageBox.add_child(formattedLabel);
-                } else {
-                  const textLabel = UIComponents.createTextLabel(part.content);
-                  messageBox.add_child(textLabel);
-                }
-              });
-
-              this._outputContainer.add_child(messageBox);
-            }
-          }
-        });
-      }
+      history.forEach((msg) => {
+        if (msg.type === "user") {
+          this._appendUserMessage(msg.text);
+        } else {
+          this._createResponseUI(msg.text);
+        }
+      });
     }
 
     _clearOutput() {
@@ -428,23 +434,16 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateLayout() {
-      // Update panel overlay
       LayoutManager.updatePanelOverlay(this._panelOverlay);
-
-      // Update top bar
       LayoutManager.updateTopBar(
         this._topBar,
         this._modelButton,
         this._clearButton
       );
-
-      // Update output area
       LayoutManager.updateOutputArea(
         this._outputScrollView,
         this._outputContainer
       );
-
-      // Update input area
       LayoutManager.updateInputArea(
         this._inputFieldBox,
         this._inputField,
@@ -454,7 +453,7 @@ export const Indicator = GObject.registerClass(
     }
 
     destroy() {
-      // Disconnect settings signal
+      // Clean up resources
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
         this._settingsChangedId = null;

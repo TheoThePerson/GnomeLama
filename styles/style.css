@@ -25,7 +25,6 @@
   color: white;
   font-size: 14px;
   text-align: left;
-  margin-left: 16px;
 }
 
 .clear-button {
@@ -45,13 +44,13 @@
 }
 
 .user-message {
-  background-color: #2c5d85 !important;
-  border-radius: 16px 16px 6px 16px !important; /* More even rounding with slight asymmetry */
+  background-color: #2c5d85  ;
+  border-radius: 16px 16px 6px 16px  ; /* More even rounding with slight asymmetry */
 }
 
 .ai-message {
-  background-color: #4a4a4a !important;
-  border-radius: 16px 16px 16px 6px !important; /* More even rounding with slight asymmetry */
+  background-color: #4a4a4a  ;
+  border-radius: 16px 16px 16px 6px  ; /* More even rounding with slight asymmetry */
 }
 
 /* Input field styles */
@@ -76,7 +75,7 @@
 
 /* Code block styles */
 .code-container {
-  background-color: #222 !important;
+  background-color: #222  ;
   color: #f8f8f8;
   padding: 0;
   margin: 10px 0;
@@ -90,7 +89,7 @@
 .code-header {
   padding: 6px 8px;
   border-bottom: 1px solid #444;
-  background-color: #333 !important;
+  background-color: #333  ;
   border-radius: 8px 8px 0 0;
   display: flex;
 }
@@ -103,8 +102,8 @@
 }
 
 .code-button {
-  background-color: #555 !important;
-  color: white !important;
+  background-color: #555  ;
+  color: white  ;
   border-radius: 3px;
   padding: 2px 8px;
   font-size: 10px;
@@ -113,12 +112,12 @@
 }
 
 .code-button:hover {
-  background-color: #666 !important;
+  background-color: #666  ;
 }
 
 .execute-button {
-  background-color: #2e7d32 !important;
-  color: white !important;
+  background-color: #2e7d32  ;
+  color: white  ;
   border-radius: 3px;
   padding: 2px 8px;
   font-size: 10px;
@@ -126,7 +125,7 @@
 }
 
 .execute-button:hover {
-  background-color: #388e3c !important;
+  background-color: #388e3c  ;
 }
 
 .code-content {
@@ -137,7 +136,7 @@
   white-space: pre-wrap;
   overflow-x: auto;
   color: #eee;
-  background-color: #222 !important;
+  background-color: #222  ;
   border-radius: 0 0 8px 8px;
 }
 
