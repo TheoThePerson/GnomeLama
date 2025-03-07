@@ -5,9 +5,15 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 
-// Conversation history
+// ========================================
+// State Management
+// ========================================
 let conversationHistory = [];
 let currentModel = null;
+
+// ========================================
+// Model Management
+// ========================================
 
 /**
  * Sets the current AI model
@@ -19,6 +25,37 @@ export function setModel(modelName) {
   const settings = getSettings();
   settings.set_string("default-model", modelName);
 }
+
+/**
+ * Fetches model names from the API and outputs them in a sorted list format.
+ * @returns {Promise<string[]>} Array of available model names
+ */
+export async function fetchModelNames() {
+  try {
+    const jsonData = await _executeCommand([
+      "curl",
+      "-s",
+      "http://localhost:11434/api/tags",
+    ]);
+
+    // Parse JSON and extract model names
+    const data = JSON.parse(jsonData);
+    const modelNames = data.models
+      .map((model) => model.name)
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort();
+
+    console.log("Available Models:", modelNames);
+    return modelNames;
+  } catch (e) {
+    console.error("Error fetching model names:", e);
+    return [];
+  }
+}
+
+// ========================================
+// History Management
+// ========================================
 
 /**
  * Gets the current conversation history
@@ -44,50 +81,9 @@ function addMessageToHistory(text, type) {
   conversationHistory.push({ text, type });
 }
 
-/**
- * Fetches model names from the API and outputs them in a sorted list format.
- * @returns {Promise<string[]>} Array of available model names
- */
-export async function fetchModelNames() {
-  const curlCommand = ["curl", "-s", "http://localhost:11434/api/tags"];
-  try {
-    let process = new Gio.Subprocess({
-      argv: curlCommand,
-      flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-    });
-    process.init(null);
-
-    const outputStream = process.get_stdout_pipe();
-    const stream = new Gio.DataInputStream({
-      base_stream: outputStream,
-    });
-
-    // Read the entire response as a single string
-    let jsonData = "";
-    while (true) {
-      const [readLine] = await stream.read_line_async(
-        GLib.PRIORITY_DEFAULT,
-        null
-      );
-      if (!readLine) break;
-      jsonData += new TextDecoder().decode(readLine) + "\n";
-    }
-    stream.close(null);
-
-    // Parse JSON and extract model names
-    const data = JSON.parse(jsonData);
-    const modelNames = data.models
-      .map((model) => model.name)
-      .filter((value, index, self) => self.indexOf(value) === index)
-      .sort();
-
-    console.log("Available Models:", modelNames);
-    return modelNames;
-  } catch (e) {
-    console.error("Error fetching model names:", e);
-    return [];
-  }
-}
+// ========================================
+// Message Processing
+// ========================================
 
 /**
  * Send a message to the AI and process the response
@@ -97,14 +93,40 @@ export async function fetchModelNames() {
  * @returns {Promise<string>} The complete response
  */
 export async function sendMessage(message, context, onData) {
+  _ensureModelIsSet();
+  addMessageToHistory(message, "user");
+
+  try {
+    const response = await _sendMessageToAPI(message, onData);
+    addMessageToHistory(response, "assistant");
+    return response;
+  } catch (e) {
+    console.error("Error sending message to API:", e);
+    return "Error communicating with AI service. Please check if Ollama is running.";
+  }
+}
+
+// ========================================
+// Helper Functions
+// ========================================
+
+/**
+ * Make sure a model is selected
+ */
+function _ensureModelIsSet() {
   if (!currentModel) {
     const settings = getSettings();
     currentModel = settings.get_string("default-model");
   }
+}
 
-  // Add user message to history
-  addMessageToHistory(message, "user");
-
+/**
+ * Send message to the API and process streaming response
+ * @param {string} message - Message to send
+ * @param {Function} onData - Callback for streaming data
+ * @returns {Promise<string>} Complete response
+ */
+async function _sendMessageToAPI(message, onData) {
   const settings = getSettings();
   const temperature = settings.get_double("temperature");
   const apiEndpoint = settings.get_string("api-endpoint");
@@ -128,47 +150,65 @@ export async function sendMessage(message, context, onData) {
     "Content-Type: application/json",
   ];
 
+  let fullResponse = "";
+
+  // Execute the API request and process the streaming response
+  await _executeCommand(command, (lineText) => {
+    try {
+      const json = JSON.parse(lineText);
+      if (json.response) {
+        fullResponse += json.response;
+        if (onData) {
+          onData(json.response);
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing JSON from API:", e);
+    }
+  });
+
+  return fullResponse;
+}
+
+/**
+ * Execute a command and process its output
+ * @param {string[]} command - Command and arguments to execute
+ * @param {Function} lineProcessor - Optional callback to process each line
+ * @returns {Promise<string>} Command output as string
+ */
+async function _executeCommand(command, lineProcessor) {
+  const process = new Gio.Subprocess({
+    argv: command,
+    flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+  });
+  process.init(null);
+
+  const outputStream = process.get_stdout_pipe();
+  const stream = new Gio.DataInputStream({
+    base_stream: outputStream,
+  });
+
+  let output = "";
+
   try {
-    let process = new Gio.Subprocess({
-      argv: command,
-      flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-    });
-    process.init(null);
-
-    let fullResponse = "";
-    const outputStream = process.get_stdout_pipe();
-    const stream = new Gio.DataInputStream({
-      base_stream: outputStream,
-    });
-
     // Process the streaming response
     while (true) {
       const [line] = await stream.read_line_async(GLib.PRIORITY_DEFAULT, null);
       if (!line) break;
 
-      try {
-        const lineText = new TextDecoder().decode(line);
-        const json = JSON.parse(lineText);
-        if (json.response) {
-          fullResponse += json.response;
-          if (onData) {
-            onData(json.response);
-          }
-        }
-      } catch (e) {
-        console.error("Error parsing JSON from API:", e);
+      const lineText = new TextDecoder().decode(line);
+
+      if (lineProcessor) {
+        lineProcessor(lineText);
+      } else {
+        output += lineText + "\n";
       }
     }
 
     // Wait for process to finish
     await process.wait_check_async(null);
+    return output;
+  } finally {
     stream.close(null);
-
-    // Add the AI response to history
-    addMessageToHistory(fullResponse, "assistant");
-    return fullResponse;
-  } catch (e) {
-    console.error("Error sending message to API:", e);
-    return "Error communicating with AI service. Please check if Ollama is running.";
   }
 }
