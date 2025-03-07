@@ -1,9 +1,10 @@
 {
     "uuid": "linux-copilot@TheoThePerson",
     "name": "GnomeLama",
-    "description": "A GNOME extension integrating Ollama for local AI chat functionalities. You must have Ollama installed to use this extension, and have a model installed. You can install ollama https://ollama.com/",
-    "version": 1,
+    "description": "A GNOME extension integrating Ollama for local AI chat functionalities. You must have Ollama installed to use this extension, and have a model installed. You can install ollama at https://ollama.com/",
+    "version": 2,
     "shell-version": ["47"],
     "settings-schema": "org.gnomelama",
-    "url": "https://github.com/yourusername/GnomeLama"
+    "url": "https://github.com/TheoThePerson/GnomeLama",
+    "gettext-domain": "gnome-lama"
 }

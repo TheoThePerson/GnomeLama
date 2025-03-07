@@ -6,10 +6,10 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
-// Import our modular components
-import { getSettings } from "./settings.js";
-import { parseMessageContent } from "./messageParser.js";
-import * as UIComponents from "./uiComponents.js";
+// Import from reorganized modules
+import { getSettings } from "../lib/settings.js";
+import { parseMessageContent } from "../lib/messageParser.js";
+import * as UIComponents from "./components.js";
 import * as LayoutManager from "./layoutManager.js";
 
 // Import messaging functionality
@@ -19,7 +19,7 @@ import {
   clearConversationHistory,
   fetchModelNames,
   setModel,
-} from "./messaging.js";
+} from "../services/messaging.js";
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -74,7 +74,6 @@ export const Indicator = GObject.registerClass(
         height: dimensions.panelHeight,
         x: dimensions.monitor.width - dimensions.panelWidth,
         y: Main.panel.actor.height,
-        style: "background-color: #333; border-radius: 0px;",
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
@@ -88,12 +87,6 @@ export const Indicator = GObject.registerClass(
         width: dimensions.panelWidth,
         height: dimensions.topBarHeight,
         reactive: true,
-        style: `
-          background-color: rgba(255, 255, 255, 0.2);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-          padding: 0;
-          margin: 0;
-        `,
       });
 
       this._panelOverlay.add_child(this._topBar);
@@ -102,18 +95,14 @@ export const Indicator = GObject.registerClass(
     async _setupModelMenu() {
       this._modelButtonLabel = new St.Label({
         text: "Models ▼",
-        style: "color: white; padding: 5px;",
+        style_class: "model-button-label",
         x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
       });
 
       this._modelButton = new St.Button({
         child: this._modelButtonLabel,
-        style: `
-          background-color: transparent;
-          border-radius: 0px;
-          margin: 0;
-        `,
+        style_class: "model-button",
       });
 
       this._modelMenu = new PopupMenu.PopupMenu(
@@ -183,7 +172,7 @@ export const Indicator = GObject.registerClass(
     }
 
     _setupClearButton() {
-      const iconSize = 24 * this._settings.get_double("clear-icon-scale"); // Adjust base size dynamically
+      const iconSize = 24 * this._settings.get_double("clear-icon-scale");
 
       this._clearIcon = new St.Icon({
         gicon: Gio.icon_new_for_string(
@@ -201,9 +190,6 @@ export const Indicator = GObject.registerClass(
       this._clearButton = new St.Button({
         child: this._clearIcon,
         style_class: "clear-button",
-        style: "padding: 0; margin: 0;", // Remove padding to prevent sizing issues
-        x_align: Clutter.ActorAlign.CENTER,
-        y_align: Clutter.ActorAlign.CENTER,
       });
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
@@ -238,7 +224,6 @@ export const Indicator = GObject.registerClass(
       this._inputFieldBox = new St.BoxLayout({
         style_class: "input-field-box",
         vertical: false,
-        style: `padding: 0;`,
       });
 
       this._panelOverlay.add_child(this._inputFieldBox);
@@ -246,7 +231,7 @@ export const Indicator = GObject.registerClass(
       this._inputField = new St.Entry({
         hint_text: "Type your message here...",
         can_focus: true,
-        style: `border-radius: 9999px;`,
+        style_class: "input-field",
       });
 
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {

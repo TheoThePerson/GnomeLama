@@ -6,7 +6,7 @@ import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Pango from "gi://Pango";
 import GLib from "gi://GLib";
-import { getSettings } from "./settings.js";
+import { getSettings } from "../lib/settings.js";
 
 /**
  * Creates a message container (user or AI)
@@ -21,21 +21,21 @@ export function createMessageContainer(text, isUser, alignment) {
     ? settings.get_string("user-message-color")
     : settings.get_string("ai-message-color");
 
+  // Create the outer container with specific styling class and explicit style
   const messageBox = new St.BoxLayout({
-    style: `
-      background-color: ${bgColor};
-      color: white;
-      padding: 10px;
-      margin-bottom: 5px;
-      border-radius: 10px;
-      max-width: 80%;
-    `,
+    style_class: isUser ? "message-box user-message" : "message-box ai-message",
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
+      isUser ? "16px 16px 6px 16px" : "16px 16px 16px 6px"
+    };`,
     x_align: alignment,
+    vertical: true,
   });
 
+  // Create label with text content
   const label = new St.Label({
     text: text,
-    style: "padding: 5px; white-space: normal;",
+    style_class: "text-label",
+    style: "padding: 0; margin: 0;",
     x_expand: true,
   });
 
@@ -53,8 +53,17 @@ export function createMessageContainer(text, isUser, alignment) {
  * @returns {St.BoxLayout} The created message container
  */
 export function createAIMessageContainer(alignment) {
-  const container = createMessageContainer("", false, alignment);
-  container.vertical = true;
+  const settings = getSettings();
+  const bgColor = settings.get_string("ai-message-color");
+
+  // Create a container with explicit styling
+  const container = new St.BoxLayout({
+    style_class: "message-box ai-message",
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 16px 16px 16px 6px;`,
+    x_align: alignment,
+    vertical: true,
+  });
+
   return container;
 }
 
@@ -79,14 +88,9 @@ function executeBashScript(script) {
   }
 
   try {
-    // Properly format the script for execution
     // Escape single quotes in the script
     const escapedScript = script.replace(/'/g, "'\\''");
-
-    // Create the full command
     const fullCommand = `gnome-terminal -- bash -c '${escapedScript}; exec bash'`;
-
-    // Use GLib.spawn_command_line_async which is better suited for launching processes
     GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
     logError(e, "Error launching terminal");
@@ -100,62 +104,44 @@ function executeBashScript(script) {
  * @returns {St.BoxLayout} The created code container
  */
 export function createCodeContainer(code, language = "code") {
+  // Main container with dark grey background
   const codeBox = new St.BoxLayout({
     vertical: true,
-    style: `
-      background-color: #333;
-      color: #f8f8f8;
-      padding: 10px;
-      margin: 5px 0;
-      border-radius: 5px;
-      font-family: monospace;
-    `,
+    style_class: "code-container",
+    style:
+      "background-color: #222; border: 1px solid #444; border-radius: 8px;",
     x_expand: true,
   });
 
-  // Create a header box to contain language label and buttons
+  // Create a header box with darker background
   const headerBox = new St.BoxLayout({
-    style: `
-      padding-bottom: 5px;
-      border-bottom: 1px solid #555;
-      margin-bottom: 5px;
-    `,
+    style_class: "code-header",
+    style:
+      "background-color: #333; padding: 6px 8px; border-radius: 8px 8px 0 0;",
     x_expand: true,
   });
 
-  // Add language label at the top
+  // Add language label
   const languageLabel = new St.Label({
     text: language,
-    style: `
-      color: #aaa;
-      font-size: 12px;
-      font-weight: bold;
-      padding: 0 5px;
-    `,
+    style_class: "code-language",
+    style: "color: #ddd; font-size: 12px; font-weight: bold;",
     x_expand: true,
   });
 
   languageLabel.clutter_text.set_selectable(true);
   headerBox.add_child(languageLabel);
 
-  // Add copy button
+  // Add copy button with grey styling - more compact
   const copyButton = new St.Button({
     style_class: "code-button",
-    style: `
-      background-color: #555;
-      color: white;
-      border-radius: 3px;
-      padding: 2px 8px;
-      font-size: 10px;
-      margin-right: 5px;
-    `,
+    style:
+      "background-color: #555; color: white; border-radius: 3px; padding: 2px 8px; font-size: 10px;",
     label: "Copy",
   });
 
   copyButton.connect("clicked", () => {
     copyToClipboard(code);
-
-    // Provide visual feedback
     copyButton.set_label("Copied!");
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
       copyButton.set_label("Copy");
@@ -165,25 +151,18 @@ export function createCodeContainer(code, language = "code") {
 
   headerBox.add_child(copyButton);
 
-  // Add execute button for bash scripts
+  // Add execute button for bash scripts with green styling - more compact
   const isBashScript = language === "bash" || language === "sh";
   if (isBashScript) {
     const executeButton = new St.Button({
       style_class: "execute-button",
-      style: `
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 3px;
-        padding: 2px 8px;
-        font-size: 10px;
-      `,
+      style:
+        "background-color: #2e7d32; color: white; border-radius: 3px; padding: 2px 8px; font-size: 10px;",
       label: "Execute",
     });
 
     executeButton.connect("clicked", () => {
       executeBashScript(code);
-
-      // Provide visual feedback
       executeButton.set_label("Executing...");
       GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
         executeButton.set_label("Execute");
@@ -196,17 +175,20 @@ export function createCodeContainer(code, language = "code") {
 
   codeBox.add_child(headerBox);
 
-  const codeLabel = new St.Label({
+  // Create a container for the code content with specific styling
+  const codeContent = new St.Label({
     text: code,
-    style: "padding: 5px; white-space: pre-wrap;",
+    style_class: "code-content",
+    style:
+      "background-color: #222; color: #eee; padding: 12px; font-family: monospace;",
     x_expand: true,
   });
 
-  codeLabel.clutter_text.set_line_wrap(true);
-  codeLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
-  codeLabel.clutter_text.set_selectable(true);
+  codeContent.clutter_text.set_line_wrap(true);
+  codeContent.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+  codeContent.clutter_text.set_selectable(true);
 
-  codeBox.add_child(codeLabel);
+  codeBox.add_child(codeContent);
 
   return codeBox;
 }
@@ -219,7 +201,7 @@ export function createCodeContainer(code, language = "code") {
 export function createTextLabel(text) {
   const textLabel = new St.Label({
     text: text,
-    style: "padding: 5px; white-space: normal;",
+    style_class: "text-label",
     x_expand: true,
   });
 
@@ -247,7 +229,8 @@ export function createFormattedTextLabel(text, format) {
 
   const formattedLabel = new St.Label({
     text: text,
-    style: `padding: 5px; white-space: normal; ${styleAttribute}`,
+    style_class: "text-label formatted-text",
+    style: styleAttribute,
     x_expand: true,
   });
 
@@ -266,8 +249,8 @@ export function createFormattedTextLabel(text, format) {
 export function createTemporaryMessageLabel(text) {
   const tempLabel = new St.Label({
     text,
+    style_class: "temporary-message",
     x_align: Clutter.ActorAlign.START,
-    style: "padding: 5px; margin-bottom: 5px;",
   });
 
   tempLabel.clutter_text.set_selectable(true);

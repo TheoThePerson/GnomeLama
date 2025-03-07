@@ -1,0 +1,178 @@
+/* Main panel styles */
+.panel-overlay {
+  background-color: #1a1a1a;
+  border-radius: 0px;
+}
+
+.top-bar {
+  background-color: rgba(50, 50, 50, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0;
+  margin: 0;
+}
+
+/* Button styles */
+.model-button {
+  background-color: transparent;
+  border-radius: 4px;
+  margin: 0;
+  padding: 2px 8px;
+}
+
+.model-button-label {
+  color: white;
+  font-size: 14px;
+}
+
+.clear-button {
+  padding: 0;
+  margin: 0;
+}
+
+/* Message container styles */
+.message-box {
+  min-width: 60px;
+  min-height: 40px;
+  padding: 14px 18px;
+  margin: 8px 4px;
+  border-radius: 16px;
+  color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.user-message {
+  background-color: #2c5d85 !important;
+  border-radius: 16px 16px 6px 16px !important; /* More even rounding with slight asymmetry */
+}
+
+.ai-message {
+  background-color: #4a4a4a !important;
+  border-radius: 16px 16px 16px 6px !important; /* More even rounding with slight asymmetry */
+}
+
+/* Input field styles */
+.input-field-box {
+  padding: 8px;
+  background-color: rgba(30, 30, 30, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-field {
+  border-radius: 20px;
+  padding: 8px 16px;
+  caret-color: white;
+  background-color: #333;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-field:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Code block styles */
+.code-container {
+  background-color: #222 !important;
+  color: #f8f8f8;
+  padding: 0;
+  margin: 10px 0;
+  border-radius: 8px;
+  font-family: monospace;
+  border: 1px solid #444;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 100%;
+}
+
+.code-header {
+  padding: 6px 8px;
+  border-bottom: 1px solid #444;
+  background-color: #333 !important;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+}
+
+.code-language {
+  color: #ddd;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 0 5px;
+}
+
+.code-button {
+  background-color: #555 !important;
+  color: white !important;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+  margin-right: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.code-button:hover {
+  background-color: #666 !important;
+}
+
+.execute-button {
+  background-color: #2e7d32 !important;
+  color: white !important;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.execute-button:hover {
+  background-color: #388e3c !important;
+}
+
+.code-content {
+  font-family: monospace;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  color: #eee;
+  background-color: #222 !important;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Text styles */
+.text-label {
+  padding: 0;
+  margin: 0;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.formatted-text {
+  margin: 5px 0;
+}
+
+.temporary-message {
+  padding: 8px 12px;
+  margin: 5px 0;
+  font-style: italic;
+  color: #aaa;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+/* Scrollbar styling */
+.output-scrollview StScrollBar {
+  width: 8px;
+}
+
+.output-scrollview StScrollBar StBin#trough {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.output-scrollview StScrollBar StBin#vhandle {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+}
+
+.output-scrollview StScrollBar StBin#vhandle:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+} 

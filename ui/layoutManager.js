@@ -4,8 +4,8 @@
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import St from "gi://St";
-import { getSettings } from "./settings.js";
 import Clutter from "gi://Clutter";
+import { getSettings } from "../lib/settings.js";
 
 /**
  * Calculates dimensions for the panel layout
@@ -166,7 +166,7 @@ export function updateInputArea(
     `padding-left: ${horizontalPadding}px; padding-right: ${horizontalPadding}px;`
   );
 
-  // Use a fixed value for spacing instead of the setting
+  // Use a fixed value for spacing
   inputFieldBox.spacing = 8; // Fixed spacing of 8px
 
   // Update input field
