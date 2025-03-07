@@ -129,9 +129,9 @@ export const Indicator = GObject.registerClass(
         x_align: Clutter.ActorAlign.FILL,
       });
 
-      // Create the popup menu
+      // Create a standalone popup menu not anchored to the button
       this._modelMenu = new PopupMenu.PopupMenu(
-        this._modelButton,
+        new St.Button(),
         0.0,
         St.Side.TOP
       );
@@ -155,17 +155,21 @@ export const Indicator = GObject.registerClass(
     _configureModelMenuPosition() {
       this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
         if (isOpen) {
-          // Get the panel position
-          const [panelX, _] = this._panelOverlay.get_transformed_position();
+          // Get panel dimensions and position
+          const dimensions = LayoutManager.calculatePanelDimensions();
+          const panelLeft = dimensions.monitor.width - dimensions.panelWidth;
 
-          // Get the BoxPointer from the menu (contains positioning logic)
-          const boxPointer = this._modelMenu._boxPointer;
+          // Get the top bar height for vertical positioning
+          const topBarHeight = dimensions.topBarHeight;
 
-          // Set the menu position to align with left edge of panel
-          boxPointer._xOffset =
-            panelX - this._modelButton.get_transformed_position()[0];
-          boxPointer._xPosition = panelX;
-          boxPointer._shiftActor();
+          // Access the popup menu actor
+          let menuActor = this._modelMenu.actor || this._modelMenu;
+
+          // Position the menu at the left edge of the panel, just below the top bar
+          menuActor.set_position(
+            panelLeft,
+            Main.panel.actor.height + topBarHeight
+          );
         }
       });
     }

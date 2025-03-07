@@ -5,15 +5,8 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 
-// ========================================
-// State Management
-// ========================================
 let conversationHistory = [];
 let currentModel = null;
-
-// ========================================
-// Model Management
-// ========================================
 
 /**
  * Sets the current AI model
@@ -53,10 +46,6 @@ export async function fetchModelNames() {
   }
 }
 
-// ========================================
-// History Management
-// ========================================
-
 /**
  * Gets the current conversation history
  * @returns {Array} The conversation history
@@ -81,10 +70,6 @@ function addMessageToHistory(text, type) {
   conversationHistory.push({ text, type });
 }
 
-// ========================================
-// Message Processing
-// ========================================
-
 /**
  * Send a message to the AI and process the response
  * @param {string} message - The message to send
@@ -105,10 +90,6 @@ export async function sendMessage(message, context, onData) {
     return "Error communicating with AI service. Please check if Ollama is running.";
   }
 }
-
-// ========================================
-// Helper Functions
-// ========================================
 
 /**
  * Make sure a model is selected
