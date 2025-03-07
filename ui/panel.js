@@ -96,13 +96,15 @@ export const Indicator = GObject.registerClass(
       this._modelButtonLabel = new St.Label({
         text: "Models ▼",
         style_class: "model-button-label",
-        x_align: Clutter.ActorAlign.CENTER,
+        x_align: Clutter.ActorAlign.START,
         y_align: Clutter.ActorAlign.CENTER,
+        x_expand: true,
       });
 
       this._modelButton = new St.Button({
         child: this._modelButtonLabel,
         style_class: "model-button",
+        x_align: Clutter.ActorAlign.FILL,
       });
 
       this._modelMenu = new PopupMenu.PopupMenu(
@@ -135,6 +137,7 @@ export const Indicator = GObject.registerClass(
 
         // Update button label and set the model
         this._modelButtonLabel.set_text(selectedModel);
+        this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
         setModel(selectedModel);
 
         // Create menu items for each model
@@ -159,6 +162,7 @@ export const Indicator = GObject.registerClass(
 
             // Update the button label and set the selected model
             this._modelButtonLabel.set_text(name);
+            this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
             setModel(name);
 
             // Close the menu and reset history
