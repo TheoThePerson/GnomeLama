@@ -90,7 +90,7 @@ export async function sendMessage(message, context, onData) {
     return response;
   } catch (e) {
     console.error("Error sending message to API:", e);
-    return "Error communicating with AI service. Please check if Ollama is running.";
+    return ErrorResponse();
   }
 }
 
@@ -160,8 +160,7 @@ async function _sendMessageToAPI(message, context, onData) {
       console.error("Error parsing JSON from API:", e);
       // Only show error message if no valid response has been received yet
       if (!fullResponse.trim()) {
-        const errorMsg =
-          "Error: failed to process API response. Please try again later.";
+        const errorMsg = ErrorResponse();
         fullResponse = errorMsg;
         if (onData) {
           onData(errorMsg);
@@ -172,8 +171,7 @@ async function _sendMessageToAPI(message, context, onData) {
 
   // Check if we received any response from the API
   if (!fullResponse.trim()) {
-    fullResponse =
-      "Error: failed to reach API. Please check your connection and try again.";
+    fullResponse = ErrorResponse();
     if (onData) {
       onData(fullResponse);
     }
@@ -227,5 +225,9 @@ async function _executeCommand(command, lineProcessor) {
     return output;
   } finally {
     stream.close(null);
+  }
+
+  function ErrorResponse() {
+    return "Error communicating with Ollama. Please check if Ollama is installed and running.";
   }
 }
