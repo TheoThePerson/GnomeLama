@@ -126,6 +126,7 @@ async function _sendMessageToAPI(message, context, onData) {
 
   const command = [
     "curl",
+    "--no-buffer",
     "-s",
     "-X",
     "POST",
