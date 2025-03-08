@@ -26,11 +26,10 @@ export function setModel(modelName) {
  */
 export async function fetchModelNames() {
   try {
-    const jsonData = await _executeCommand([
-      "curl",
-      "-s",
-      "http://localhost:11434/api/tags",
-    ]);
+    const settings = getSettings();
+    const modelsApiEndpoint = settings.modelsApiEndpoint;
+
+    const jsonData = await _executeCommand(["curl", "-s", modelsApiEndpoint]);
 
     // Parse JSON and extract model names
     const data = JSON.parse(jsonData);

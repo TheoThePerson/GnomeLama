@@ -71,6 +71,11 @@
       <summary>API Endpoint</summary>
       <description>The API endpoint for the Ollama service.</description>
     </key>
+    <key name="models-api-endpoint" type="s">
+      <default>"http://localhost:11434/api/tags"</default>
+      <summary>Models API Endpoint</summary>
+      <description>The API endpoint for fetching available models.</description>
+    </key>
     <key name="temperature" type="d">
       <default>0.7</default>
       <summary>Temperature</summary>

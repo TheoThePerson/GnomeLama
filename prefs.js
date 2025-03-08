@@ -264,6 +264,15 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       _("The URL for the Ollama API service")
     );
 
+    // Models API Endpoint
+    this._addEntryRow(
+      apiSettingsGroup,
+      settings,
+      "models-api-endpoint",
+      _("Models API Endpoint"),
+      _("The URL for fetching available models")
+    );
+
     // Default model
     this._addEntryRow(
       apiSettingsGroup,
