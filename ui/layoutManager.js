@@ -132,7 +132,18 @@ export function updateOutputArea(outputScrollView, outputContainer) {
   outputScrollView.set_size(panelWidth, outputHeight);
   outputScrollView.set_position(0, topBarHeight + paddingY);
 
-  outputContainer.set_style(`padding: 0 ${horizontalPadding}px;`);
+  // Configure scroll policy to always show vertical scrollbar
+  outputScrollView.set_policy(
+    St.PolicyType.NEVER, // horizontal scrollbar policy
+    St.PolicyType.AUTOMATIC // vertical scrollbar policy
+  );
+
+  // Set a fixed width for the container to ensure content is properly constrained
+  const contentWidth = panelWidth - 2 * horizontalPadding;
+  outputContainer.set_style(
+    `padding: 0 ${horizontalPadding}px; width: ${contentWidth}px;`
+  );
+  outputContainer.set_width(contentWidth);
 }
 
 /**

@@ -273,7 +273,17 @@ export const Indicator = GObject.registerClass(
         vertical: true,
         reactive: true,
         style: `padding: 0 ${dimensions.horizontalPadding}px;`,
+        x_expand: true,
+        y_expand: true,
       });
+
+      // Set up a vertical layout for messages
+      this._outputContainer.set_layout_manager(
+        new Clutter.BoxLayout({
+          orientation: Clutter.Orientation.VERTICAL,
+          spacing: 8,
+        })
+      );
 
       this._outputScrollView.set_child(this._outputContainer);
       this._panelOverlay.add_child(this._outputScrollView);
@@ -352,55 +362,93 @@ export const Indicator = GObject.registerClass(
       await sendMessage(userMessage, this._context, (chunk) => {
         fullResponse += chunk;
 
-        // Remove old container if it exists
-        if (responseContainer) {
-          responseContainer.destroy();
+        // Create or update the response container
+        if (!responseContainer) {
+          // First chunk, create a new container
+          responseContainer = this._createInitialResponseContainer();
+          this._outputContainer.add_child(responseContainer);
         }
 
-        // Generate response UI
-        responseContainer = this._createResponseUI(fullResponse);
+        // Update the container content with the accumulated response
+        this._updateResponseContainer(responseContainer, fullResponse);
+
+        // Scroll to show the latest content after each update
+        this._scrollToBottom();
+
+        // Ensure the UI is updated immediately
+        global.window_manager.ensure_redraw();
       });
     }
 
-    _createResponseUI(responseText) {
-      // Parse the response content
+    _createInitialResponseContainer() {
+      const settings = getSettings();
+      const bgColor = settings.get_string("ai-message-color");
+
+      // Create a container with explicit styling
+      const container = new St.BoxLayout({
+        style_class: "message-box ai-message",
+        style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 16px 16px 16px 6px;`,
+        x_align: Clutter.ActorAlign.START,
+        vertical: true,
+        x_expand: true,
+      });
+
+      return container;
+    }
+
+    _updateResponseContainer(container, responseText) {
+      // Remove previous content
+      container.get_children().forEach((child) => child.destroy());
+
+      // Parse and add new content
       const parts = parseMessageContent(responseText);
-      let container = null;
 
-      // Simple text response
-      if (
-        parts.length === 1 &&
-        !["code", "formatted"].includes(parts[0].type)
-      ) {
-        container = UIComponents.createMessageContainer(
-          parts[0].content,
-          false,
-          Clutter.ActorAlign.START
-        );
+      // We need to respect the order of content parts exactly as they appear
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+
+        if (part.type === "code") {
+          // Use the existing component but with proper positioning
+          const codeBlock = UIComponents.createCodeContainer(
+            part.content,
+            part.language
+          );
+          container.add_child(codeBlock);
+        } else if (part.type === "formatted") {
+          const formattedText = UIComponents.createFormattedTextLabel(
+            part.content,
+            part.format
+          );
+          container.add_child(formattedText);
+        } else if (part.type === "text") {
+          const textLabel = UIComponents.createTextLabel(part.content);
+          container.add_child(textLabel);
+        }
+        // Skip placeholders - they're just for internal use by the parser
       }
-      // Complex response with code/formatting
-      else {
-        container = UIComponents.createAIMessageContainer(
-          Clutter.ActorAlign.START
+    }
+
+    _scrollToBottom() {
+      // Scroll to show the latest content
+      this._outputScrollView
+        .get_vscroll_bar()
+        .set_value(
+          this._outputScrollView.get_vscroll_bar().get_adjustment().get_upper()
         );
+    }
 
-        // Add each content part
-        parts.forEach((part) => {
-          if (part.type === "code") {
-            container.add_child(
-              UIComponents.createCodeContainer(part.content, part.language)
-            );
-          } else if (part.type === "formatted") {
-            container.add_child(
-              UIComponents.createFormattedTextLabel(part.content, part.format)
-            );
-          } else {
-            container.add_child(UIComponents.createTextLabel(part.content));
-          }
-        });
-      }
+    _createResponseUI(responseText) {
+      // This method is kept for backwards compatibility
+      // Create a new container
+      const container = this._createInitialResponseContainer();
 
+      // Add content to it
+      this._updateResponseContainer(container, responseText);
+
+      // Add to output and scroll
       this._outputContainer.add_child(container);
+      this._scrollToBottom();
+
       return container;
     }
 
@@ -423,9 +471,14 @@ export const Indicator = GObject.registerClass(
         if (msg.type === "user") {
           this._appendUserMessage(msg.text);
         } else {
-          this._createResponseUI(msg.text);
+          const container = this._createInitialResponseContainer();
+          this._outputContainer.add_child(container);
+          this._updateResponseContainer(container, msg.text);
         }
       });
+
+      // Scroll to the bottom after loading history
+      this._scrollToBottom();
     }
 
     _clearOutput() {

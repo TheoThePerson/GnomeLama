@@ -62,6 +62,7 @@ export function createAIMessageContainer(alignment) {
     style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 16px 16px 16px 6px;`,
     x_align: alignment,
     vertical: true,
+    x_expand: true,
   });
 
   return container;
@@ -109,7 +110,7 @@ export function createCodeContainer(code, language = "code") {
     vertical: true,
     style_class: "code-container",
     style:
-      "background-color: #222; border: 1px solid #444; border-radius: 8px;",
+      "background-color: #222; border: 1px solid #444; border-radius: 8px; margin: 8px 0;",
     x_expand: true,
   });
 
