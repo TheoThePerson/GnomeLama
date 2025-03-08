@@ -7,6 +7,7 @@ import { getSettings } from "../lib/settings.js";
 
 let conversationHistory = [];
 let currentModel = null;
+let currentContext = null; // Store the context from previous interactions
 
 /**
  * Sets the current AI model
@@ -82,7 +83,9 @@ export async function sendMessage(message, context, onData) {
   addMessageToHistory(message, "user");
 
   try {
-    const response = await _sendMessageToAPI(message, onData);
+    // Use provided context or the stored context from previous interactions
+    const contextToUse = context || currentContext;
+    const response = await _sendMessageToAPI(message, contextToUse, onData);
     addMessageToHistory(response, "assistant");
     return response;
   } catch (e) {
@@ -104,10 +107,11 @@ function _ensureModelIsSet() {
 /**
  * Send message to the API and process streaming response
  * @param {string} message - Message to send
+ * @param {string} context - Optional context from previous interactions
  * @param {Function} onData - Callback for streaming data
  * @returns {Promise<string>} Complete response
  */
-async function _sendMessageToAPI(message, onData) {
+async function _sendMessageToAPI(message, context, onData) {
   const settings = getSettings();
   const temperature = settings.get_double("temperature");
   const apiEndpoint = settings.get_string("api-endpoint");
@@ -117,6 +121,7 @@ async function _sendMessageToAPI(message, onData) {
     prompt: message,
     stream: true,
     temperature: temperature,
+    context: context || null, // Include context if available
   });
 
   const command = [
@@ -132,12 +137,20 @@ async function _sendMessageToAPI(message, onData) {
   ];
 
   let fullResponse = "";
+  currentContext = null; // Reset context before receiving new one
 
   // Execute the API request and process the streaming response
   await _executeCommand(command, (lineText) => {
     try {
       const json = JSON.parse(lineText);
+
+      // Save context if it exists in the response
+      if (json.context) {
+        currentContext = json.context;
+      }
+
       if (json.response) {
+        // Instantly send each token to the UI as it arrives
         fullResponse += json.response;
         if (onData) {
           onData(json.response);
@@ -185,6 +198,7 @@ async function _executeCommand(command, lineProcessor) {
   const outputStream = process.get_stdout_pipe();
   const stream = new Gio.DataInputStream({
     base_stream: outputStream,
+    close_base_stream: true,
   });
 
   let output = "";
@@ -198,7 +212,11 @@ async function _executeCommand(command, lineProcessor) {
       const lineText = new TextDecoder().decode(line);
 
       if (lineProcessor) {
-        lineProcessor(lineText);
+        // Immediately process each line as it comes in
+        await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          lineProcessor(lineText);
+          return GLib.SOURCE_REMOVE;
+        });
       } else {
         output += lineText + "\n";
       }
