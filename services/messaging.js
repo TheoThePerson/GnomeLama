@@ -145,8 +145,26 @@ async function _sendMessageToAPI(message, onData) {
       }
     } catch (e) {
       console.error("Error parsing JSON from API:", e);
+      // Only show error message if no valid response has been received yet
+      if (!fullResponse.trim()) {
+        const errorMsg =
+          "Error: failed to process API response. Please try again later.";
+        fullResponse = errorMsg;
+        if (onData) {
+          onData(errorMsg);
+        }
+      }
     }
   });
+
+  // Check if we received any response from the API
+  if (!fullResponse.trim()) {
+    fullResponse =
+      "Error: failed to reach API. Please check your connection and try again.";
+    if (onData) {
+      onData(fullResponse);
+    }
+  }
 
   return fullResponse;
 }
