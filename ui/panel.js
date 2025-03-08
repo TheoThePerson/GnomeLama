@@ -83,11 +83,23 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay = new St.Widget({
         style_class: "panel-overlay",
         reactive: true,
+        can_focus: true,
+        track_hover: true,
         visible: false,
         width: dimensions.panelWidth,
         height: dimensions.panelHeight,
         x: dimensions.monitor.width - dimensions.panelWidth,
         y: Main.panel.actor.height,
+      });
+
+      // Ensure the entire overlay captures scroll events
+      this._panelOverlay.connect("scroll-event", (actor, event) => {
+        // Forward scroll events to the scrollview if it exists
+        if (this._outputScrollView) {
+          this._outputScrollView.emit("scroll-event", event);
+          return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
       });
 
       Main.layoutManager.uiGroup.add_child(this._panelOverlay);
@@ -267,11 +279,17 @@ export const Indicator = GObject.registerClass(
         height: dimensions.outputHeight,
         style_class: "output-scrollview",
         y: dimensions.topBarHeight + dimensions.paddingY,
+        reactive: true,
+        can_focus: true,
+        overlay_scrollbars: true,
+        hscrollbar_policy: St.PolicyType.NEVER,
+        vscrollbar_policy: St.PolicyType.AUTOMATIC,
       });
 
       this._outputContainer = new St.BoxLayout({
         vertical: true,
         reactive: true,
+        can_focus: true,
         style: `padding: 0 ${dimensions.horizontalPadding}px;`,
         x_expand: true,
         y_expand: true,
