@@ -59,6 +59,7 @@ export function getConversationHistory() {
  */
 export function clearConversationHistory() {
   conversationHistory = [];
+  currentContext = null;
 }
 
 /**
