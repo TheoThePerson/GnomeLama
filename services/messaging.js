@@ -21,25 +21,24 @@ export function setModel(modelName) {
 }
 
 /**
- * Fetches model names from the API and outputs them in a sorted list format.
+ * Fetches model names from the API
  * @returns {Promise<string[]>} Array of available model names
  */
 export async function fetchModelNames() {
   try {
     const settings = getSettings();
-    const modelsApiEndpoint = settings.modelsApiEndpoint;
+    const jsonData = await _executeCommand([
+      "curl",
+      "-s",
+      settings.get_string("models-api-endpoint"),
+    ]);
 
-    const jsonData = await _executeCommand(["curl", "-s", modelsApiEndpoint]);
-
-    // Parse JSON and extract model names
+    // Parse and extract model names
     const data = JSON.parse(jsonData);
-    const modelNames = data.models
+    return data.models
       .map((model) => model.name)
       .filter((value, index, self) => self.indexOf(value) === index)
       .sort();
-
-    console.log("Available Models:", modelNames);
-    return modelNames;
   } catch (e) {
     console.error("Error fetching model names:", e);
     return [];
@@ -79,28 +78,29 @@ function addMessageToHistory(text, type) {
  * @returns {Promise<string>} The complete response
  */
 export async function sendMessage(message, context, onData) {
-  _ensureModelIsSet();
+  // Ensure a model is selected
+  if (!currentModel) {
+    currentModel = getSettings().get_string("default-model");
+  }
+
+  // Add user message to history
   addMessageToHistory(message, "user");
 
   try {
-    // Use provided context or the stored context from previous interactions
-    const contextToUse = context || currentContext;
-    const response = await _sendMessageToAPI(message, contextToUse, onData);
+    // Send message to API with context
+    const response = await _sendMessageToAPI(
+      message,
+      context || currentContext,
+      onData
+    );
     addMessageToHistory(response, "assistant");
     return response;
   } catch (e) {
     console.error("Error sending message to API:", e);
-    return ErrorResponse();
-  }
-}
-
-/**
- * Make sure a model is selected
- */
-function _ensureModelIsSet() {
-  if (!currentModel) {
-    const settings = getSettings();
-    currentModel = settings.get_string("default-model");
+    const errorMsg =
+      "Error communicating with Ollama. Please check if Ollama is installed and running.";
+    if (onData) onData(errorMsg);
+    return errorMsg;
   }
 }
 
@@ -113,24 +113,24 @@ function _ensureModelIsSet() {
  */
 async function _sendMessageToAPI(message, context, onData) {
   const settings = getSettings();
-  const temperature = settings.get_double("temperature");
-  const apiEndpoint = settings.get_string("api-endpoint");
 
+  // Prepare payload
   const payload = JSON.stringify({
     model: currentModel,
     prompt: message,
     stream: true,
-    temperature: temperature,
-    context: context || null, // Include context if available
+    temperature: settings.get_double("temperature"),
+    context: context || null,
   });
 
+  // Setup curl command
   const command = [
     "curl",
     "--no-buffer",
     "-s",
     "-X",
     "POST",
-    apiEndpoint,
+    settings.get_string("api-endpoint"),
     "-d",
     payload,
     "-H",
@@ -138,44 +138,33 @@ async function _sendMessageToAPI(message, context, onData) {
   ];
 
   let fullResponse = "";
-  currentContext = null; // Reset context before receiving new one
+  // Don't reset context before processing response
 
-  // Execute the API request and process the streaming response
-  await _executeCommand(command, (lineText) => {
+  // Execute request and process streaming response
+  await _executeCommand(command, (chunk) => {
     try {
-      const json = JSON.parse(lineText);
+      const json = JSON.parse(chunk);
 
-      // Save context if it exists in the response
+      // Save context if provided
       if (json.context) {
         currentContext = json.context;
       }
 
+      // Process response text
       if (json.response) {
-        // Instantly send each token to the UI as it arrives
         fullResponse += json.response;
-        if (onData) {
-          onData(json.response);
-        }
+        if (onData) onData(json.response);
       }
     } catch (e) {
       console.error("Error parsing JSON from API:", e);
-      // Only show error message if no valid response has been received yet
-      if (!fullResponse.trim()) {
-        const errorMsg = ErrorResponse();
-        fullResponse = errorMsg;
-        if (onData) {
-          onData(errorMsg);
-        }
-      }
     }
   });
 
-  // Check if we received any response from the API
+  // Return error message if no response received
   if (!fullResponse.trim()) {
-    fullResponse = ErrorResponse();
-    if (onData) {
-      onData(fullResponse);
-    }
+    fullResponse =
+      "Error communicating with Ollama. Please check if Ollama is installed and running.";
+    if (onData) onData(fullResponse);
   }
 
   return fullResponse;
@@ -188,15 +177,16 @@ async function _sendMessageToAPI(message, context, onData) {
  * @returns {Promise<string>} Command output as string
  */
 async function _executeCommand(command, lineProcessor) {
+  // Create subprocess with pipes
   const process = new Gio.Subprocess({
     argv: command,
     flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
   });
   process.init(null);
 
-  const outputStream = process.get_stdout_pipe();
+  // Setup data stream
   const stream = new Gio.DataInputStream({
-    base_stream: outputStream,
+    base_stream: process.get_stdout_pipe(),
     close_base_stream: true,
   });
 
@@ -211,7 +201,7 @@ async function _executeCommand(command, lineProcessor) {
       const lineText = new TextDecoder().decode(line);
 
       if (lineProcessor) {
-        // Immediately process each line as it comes in
+        // Process line immediately
         await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
           lineProcessor(lineText);
           return GLib.SOURCE_REMOVE;
@@ -226,9 +216,5 @@ async function _executeCommand(command, lineProcessor) {
     return output;
   } finally {
     stream.close(null);
-  }
-
-  function ErrorResponse() {
-    return "Error communicating with Ollama. Please check if Ollama is installed and running.";
   }
 }

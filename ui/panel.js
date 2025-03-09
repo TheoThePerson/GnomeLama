@@ -25,44 +25,64 @@ export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init(extensionPath) {
       super._init(0.0, "AI Chat Panel");
-
-      this._context = null;
       this._extensionPath = extensionPath;
       this._settings = getSettings();
+      this._context = null;
 
+      // Initialize UI components
       this._initUI();
-      this._connectEventHandlers();
+
+      // Connect event handlers
+      this._settingsChangedId = this._settings.connect("changed", () =>
+        this._updateLayout()
+      );
+      Main.layoutManager.connect("monitors-changed", () =>
+        this._updateLayout()
+      );
+      this.connect("button-press-event", this._togglePanelOverlay.bind(this));
     }
 
     // UI INITIALIZATION METHODS
 
     _initUI() {
-      this._createIcon();
-      this._setupPanelOverlay();
-      this._setupTopBar();
-      this._setupModelMenu();
-      this._setupClearButton();
-      this._setupOutputArea();
-      this._setupInputArea();
-      this._updateLayout();
-    }
+      // Create a properly aligned AI text label for the panel button
+      this.add_child(
+        new St.Label({
+          text: "AI",
+          y_align: Clutter.ActorAlign.CENTER,
+          style: "font-weight: bold; padding: 0 4px;",
+        })
+      );
 
-    _createIcon() {
-      // Create a properly aligned AI text label
-      const aiLabel = new St.Label({
-        text: "AI",
-        y_align: Clutter.ActorAlign.CENTER,
-        style: "font-weight: bold; padding: 0 4px;",
-      });
-
-      this.add_child(aiLabel);
-    }
-
-    _setupPanelOverlay() {
+      // Create main panel components
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
+      this._topBar = PanelElements.createTopBar(dimensions);
 
-      // Capture scroll events and forward to scrollview if needed
+      // Setup scrollable content area
+      const { outputScrollView, outputContainer } =
+        PanelElements.createOutputArea(dimensions);
+      this._outputScrollView = outputScrollView;
+      this._outputContainer = outputContainer;
+
+      // Setup input components
+      const { inputFieldBox, inputField, sendButton, sendIcon } =
+        PanelElements.createInputArea(this._extensionPath);
+      this._inputFieldBox = inputFieldBox;
+      this._inputField = inputField;
+      this._sendButton = sendButton;
+      this._sendIcon = sendIcon;
+
+      // Setup model selector and clear button
+      this._setupModelMenu();
+      this._setupClearButton();
+
+      // Assemble the UI
+      this._panelOverlay.add_child(this._topBar);
+      this._panelOverlay.add_child(this._outputScrollView);
+      this._panelOverlay.add_child(this._inputFieldBox);
+
+      // Handle scroll events in the overlay
       this._panelOverlay.connect("scroll-event", (_, event) => {
         if (this._outputScrollView) {
           this._outputScrollView.emit("scroll-event", event);
@@ -70,55 +90,60 @@ export const Indicator = GObject.registerClass(
         }
         return Clutter.EVENT_PROPAGATE;
       });
-    }
 
-    _setupTopBar() {
-      const dimensions = LayoutManager.calculatePanelDimensions();
-      this._topBar = PanelElements.createTopBar(dimensions);
-      this._panelOverlay.add_child(this._topBar);
+      // Handle Enter key press in input field
+      this._inputField.clutter_text.connect("key-press-event", (_, event) => {
+        if (event.get_key_symbol() === Clutter.KEY_Return) {
+          this._sendMessage();
+          return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
+      });
+
+      // Connect send button click
+      this._sendButton.connect("clicked", this._sendMessage.bind(this));
+
+      // Update the layout
+      this._updateLayout();
     }
 
     async _setupModelMenu() {
-      // Create model button and label
+      // Create model button and popup menu
       const { modelButton, modelButtonLabel } =
         PanelElements.createModelButton();
       this._modelButton = modelButton;
       this._modelButtonLabel = modelButtonLabel;
 
-      // Create standalone popup menu
+      // Create model selection popup menu
       this._modelMenu = new PopupMenu.PopupMenu(
         new St.Button(),
         0.0,
         St.Side.TOP
       );
-
       Main.uiGroup.add_child(this._modelMenu.actor);
       this._modelMenu.actor.hide();
 
-      this._configureModelMenuPosition();
-      await this._addModelMenuItems();
+      // Configure menu position when opened
+      this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
+        if (isOpen) {
+          const dimensions = LayoutManager.calculatePanelDimensions();
+          const panelLeft = dimensions.monitor.width - dimensions.panelWidth;
+          let menuActor = this._modelMenu.actor || this._modelMenu;
+          menuActor.set_position(
+            panelLeft,
+            Main.panel.actor.height + dimensions.topBarHeight
+          );
+        }
+      });
 
       // Toggle menu on button press
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
         return Clutter.EVENT_STOP;
       });
-    }
 
-    _configureModelMenuPosition() {
-      this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
-        if (isOpen) {
-          const dimensions = LayoutManager.calculatePanelDimensions();
-          const panelLeft = dimensions.monitor.width - dimensions.panelWidth;
-          const topBarHeight = dimensions.topBarHeight;
-
-          let menuActor = this._modelMenu.actor || this._modelMenu;
-          menuActor.set_position(
-            panelLeft,
-            Main.panel.actor.height + topBarHeight
-          );
-        }
-      });
+      // Populate model menu items
+      await this._addModelMenuItems();
     }
 
     async _addModelMenuItems() {
@@ -186,56 +211,6 @@ export const Indicator = GObject.registerClass(
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
     }
 
-    _setupOutputArea() {
-      const dimensions = LayoutManager.calculatePanelDimensions();
-      const { outputScrollView, outputContainer } =
-        PanelElements.createOutputArea(dimensions);
-
-      this._outputScrollView = outputScrollView;
-      this._outputContainer = outputContainer;
-
-      this._panelOverlay.add_child(this._outputScrollView);
-    }
-
-    _setupInputArea() {
-      const { inputFieldBox, inputField, sendButton, sendIcon } =
-        PanelElements.createInputArea(this._extensionPath);
-
-      this._inputFieldBox = inputFieldBox;
-      this._inputField = inputField;
-      this._sendButton = sendButton;
-      this._sendIcon = sendIcon;
-
-      // Handle Enter key press
-      this._inputField.clutter_text.connect("key-press-event", (_, event) => {
-        if (event.get_key_symbol() === Clutter.KEY_Return) {
-          this._sendMessage();
-          return Clutter.EVENT_STOP;
-        }
-        return Clutter.EVENT_PROPAGATE;
-      });
-
-      this._sendButton.connect("clicked", this._sendMessage.bind(this));
-      this._panelOverlay.add_child(this._inputFieldBox);
-    }
-
-    // EVENT HANDLERS AND CONNECTIVITY
-
-    _connectEventHandlers() {
-      // Settings change handler
-      this._settingsChangedId = this._settings.connect("changed", () => {
-        this._updateLayout();
-      });
-
-      // Monitor changes handler
-      Main.layoutManager.connect("monitors-changed", () => {
-        this._updateLayout();
-      });
-
-      // Panel click handler
-      this.connect("button-press-event", this._togglePanelOverlay.bind(this));
-    }
-
     _togglePanelOverlay() {
       this._panelOverlay.visible = !this._panelOverlay.visible;
       if (this._panelOverlay.visible) {
@@ -248,57 +223,95 @@ export const Indicator = GObject.registerClass(
 
     async _sendMessage() {
       const userMessage = this._inputField.get_text().trim();
-      if (!userMessage) {
-        MessageProcessor.addTemporaryMessage(
-          this._outputContainer,
-          "Please enter a message."
-        );
-        return;
-      }
+      if (!userMessage) return;
+
+      // Clear input field immediately
       this._inputField.set_text("");
 
-      // Process the message
-      await MessageProcessor.processUserMessage({
-        userMessage,
-        context: this._context,
-        outputContainer: this._outputContainer,
-        scrollView: this._outputScrollView,
-        aiMessageColor: this._settings.get_string("ai-message-color"),
-      });
+      try {
+        // Process the user message
+        await MessageProcessor.processUserMessage({
+          userMessage: userMessage,
+          context: this._context,
+          outputContainer: this._outputContainer,
+          scrollView: this._outputScrollView,
+          onResponseStart: () => {},
+          onResponseEnd: () => {
+            // Context is now managed by the messaging service
+            // No need to update it here
+          },
+        });
+      } catch (error) {
+        console.error("Error processing message:", error);
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          "Error processing your message. Please try again."
+        );
+      }
+
+      // Give focus back to input field
+      global.stage.set_key_focus(this._inputField.clutter_text);
     }
 
     // HISTORY MANAGEMENT
 
     _updateHistory() {
+      // Clear existing messages
       MessageProcessor.clearOutput(this._outputContainer);
+
+      // Get conversation history
       const history = getConversationHistory();
+      if (!history || history.length === 0) {
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          "Start a new conversation with the AI!"
+        );
+        return;
+      }
 
-      if (history.length === 0) return;
-
-      const aiMessageColor = this._settings.get_string("ai-message-color");
-
-      history.forEach((msg) => {
-        if (msg.type === "user") {
-          MessageProcessor.appendUserMessage(this._outputContainer, msg.text);
-        } else {
-          const container =
-            PanelElements.createResponseContainer(aiMessageColor);
-          this._outputContainer.add_child(container);
-          MessageProcessor.updateResponseContainer(container, msg.text);
+      // Add messages from history
+      history.forEach((message) => {
+        if (message.type === "user") {
+          MessageProcessor.appendUserMessage(
+            this._outputContainer,
+            message.text
+          );
+        } else if (message.type === "assistant") {
+          const responseContainer = PanelElements.createResponseContainer(
+            this._settings.get_string("ai-message-color")
+          );
+          this._outputContainer.add_child(responseContainer);
+          MessageProcessor.updateResponseContainer(
+            responseContainer,
+            message.text
+          );
         }
       });
 
+      // Scroll to the bottom to show latest messages
       PanelElements.scrollToBottom(this._outputScrollView);
     }
 
     _clearHistory() {
+      // Clear conversation history and context
       clearConversationHistory();
+      this._context = null;
+
+      // Clear UI
       MessageProcessor.clearOutput(this._outputContainer);
+      MessageProcessor.addTemporaryMessage(
+        this._outputContainer,
+        "Conversation history cleared! Start a new conversation."
+      );
     }
 
     // LAYOUT UPDATES
 
     _updateLayout() {
+      // Get the updated panel dimensions
+      const dimensions = LayoutManager.calculatePanelDimensions();
+
+      // Update each component's layout
       LayoutManager.updatePanelOverlay(this._panelOverlay);
       LayoutManager.updateTopBar(
         this._topBar,
@@ -315,21 +328,34 @@ export const Indicator = GObject.registerClass(
         this._sendButton,
         this._sendIcon
       );
+
+      // Scroll to bottom to ensure content is visible after layout change
+      PanelElements.scrollToBottom(this._outputScrollView);
     }
 
     // CLEANUP
 
     destroy() {
+      // Disconnect signals
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
         this._settingsChangedId = null;
       }
 
+      // Clean up model menu
       if (this._modelMenu) {
         this._modelMenu.destroy();
+        this._modelMenu = null;
       }
 
-      this._panelOverlay.destroy();
+      // Remove panel overlay from UI
+      if (this._panelOverlay) {
+        Main.layoutManager.uiGroup.remove_child(this._panelOverlay);
+        this._panelOverlay.destroy();
+        this._panelOverlay = null;
+      }
+
+      // Call parent destroy method
       super.destroy();
     }
   }

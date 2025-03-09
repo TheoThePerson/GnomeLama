@@ -18,7 +18,6 @@ import { getSettings } from "../lib/settings.js";
  * @param {St.ScrollView} options.scrollView - Scroll view for output
  * @param {Function} options.onResponseStart - Called when response starts
  * @param {Function} options.onResponseEnd - Called when response ends
- * @param {string} options.aiMessageColor - Background color for AI messages
  * @returns {Promise<void>}
  */
 export async function processUserMessage({
@@ -28,7 +27,6 @@ export async function processUserMessage({
   scrollView,
   onResponseStart,
   onResponseEnd,
-  aiMessageColor,
 }) {
   if (!userMessage || !userMessage.trim()) {
     return;
@@ -37,62 +35,33 @@ export async function processUserMessage({
   // Add user message to UI
   appendUserMessage(outputContainer, userMessage);
 
-  // Process AI response
-  await processAIResponse({
-    userMessage,
-    context,
-    outputContainer,
-    scrollView,
-    onResponseStart,
-    onResponseEnd,
-    aiMessageColor,
-  });
-}
+  // Get color from settings
+  const settings = getSettings();
+  const bgColor = settings.get_string("ai-message-color");
 
-/**
- * Process AI response to user message
- * @param {object} options - Processing options
- * @returns {Promise<void>}
- */
-async function processAIResponse({
-  userMessage,
-  context,
-  outputContainer,
-  scrollView,
-  onResponseStart,
-  onResponseEnd,
-  aiMessageColor,
-}) {
+  // Create response container
   let responseContainer = null;
   let fullResponse = "";
 
-  // Use provided color or get from settings as fallback
-  const bgColor =
-    aiMessageColor || getSettings().get_string("ai-message-color");
-
   try {
+    // Process AI response with streaming
     await sendMessage(userMessage, context, (chunk) => {
       fullResponse += chunk;
 
-      // Create or update response container
+      // Create response container if not exists
       if (!responseContainer) {
-        if (onResponseStart) {
-          onResponseStart();
-        }
+        if (onResponseStart) onResponseStart();
         responseContainer = PanelElements.createResponseContainer(bgColor);
         outputContainer.add_child(responseContainer);
       }
 
+      // Update response content
       updateResponseContainer(responseContainer, fullResponse);
       PanelElements.scrollToBottom(scrollView);
-
-      // Ensure UI updates immediately
-      global.window_manager.ensure_redraw();
     });
 
-    if (onResponseEnd) {
-      onResponseEnd(fullResponse);
-    }
+    // Notify that response is complete without passing the response
+    if (onResponseEnd) onResponseEnd();
   } catch (error) {
     console.error("Error processing AI response:", error);
 
@@ -102,8 +71,10 @@ async function processAIResponse({
       outputContainer.add_child(responseContainer);
     }
 
-    const errorMessage = "An error occurred while processing your request.";
-    updateResponseContainer(responseContainer, errorMessage);
+    updateResponseContainer(
+      responseContainer,
+      "An error occurred while processing your request."
+    );
     PanelElements.scrollToBottom(scrollView);
   }
 }

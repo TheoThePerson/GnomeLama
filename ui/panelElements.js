@@ -190,7 +190,14 @@ export function createResponseContainer(bgColor) {
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
-  scrollView
-    .get_vscroll_bar()
-    .set_value(scrollView.get_vscroll_bar().get_adjustment().get_upper());
+  const vscroll = scrollView.get_vscroll_bar();
+  const adjustment = vscroll.get_adjustment();
+
+  if (adjustment && adjustment.upper) {
+    // In newer GNOME Shell versions, upper is a property not a method
+    vscroll.set_value(adjustment.upper - adjustment.page_size);
+  } else if (adjustment && typeof adjustment.get_upper === "function") {
+    // For older GNOME Shell versions that use methods
+    vscroll.set_value(adjustment.get_upper() - adjustment.get_page_size());
+  }
 }

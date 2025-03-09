@@ -1,12 +1,12 @@
 /**
- * GnomeLama - Linux Copilot
+ * Linux Copilot - GNOME Shell Extension
  * Main extension entry point
  */
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import { Indicator } from "./ui/panel.js";
 
-export default class GnomeLamaExtension extends Extension {
+export default class LinuxCopilotExtension extends Extension {
   /**
    * Enable the extension
    */
