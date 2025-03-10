@@ -34,9 +34,8 @@ GnomeLama is an integration between Ollama (the open source local ai project) an
 
 ## Screenshots
 
-<img src="https://github.com/user-attachments/assets/6649b93a-eefb-480b-a376-791b809f1dd0" width="25%">
+ ![Screenshot From 2025-03-07 18-15-15](https://github.com/user-attachments/assets/cb026fee-d933-4fe5-838a-e11dbc2b8fd8)
 
- 
 ## Contributing
 
 1. Fork this repository.
