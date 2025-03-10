@@ -261,13 +261,6 @@ export const Indicator = GObject.registerClass(
 
       // Get conversation history
       const history = getConversationHistory();
-      if (!history || history.length === 0) {
-        MessageProcessor.addTemporaryMessage(
-          this._outputContainer,
-          "Start a new conversation with the AI!"
-        );
-        return;
-      }
 
       // Add messages from history
       history.forEach((message) => {
@@ -299,10 +292,6 @@ export const Indicator = GObject.registerClass(
 
       // Clear UI
       MessageProcessor.clearOutput(this._outputContainer);
-      MessageProcessor.addTemporaryMessage(
-        this._outputContainer,
-        "Conversation history cleared! Start a new conversation."
-      );
     }
 
     // LAYOUT UPDATES

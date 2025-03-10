@@ -1,21 +1,21 @@
 ![GnomeLama4](https://github.com/user-attachments/assets/64b8c9e7-cd14-4adf-92d4-e92d7aac13d9)
 
-# GnomeLama (Linux Copiolot)
+# GnomeLama (Linux Copilot
 
-GnomeLama is an integration between ollama (the open source local ai project) and gnome. Trying to bring windows copilot to linux with more functionality.
+GnomeLama is an integration between Ollama (the open source local ai project) and gnome. Trying to bring windows copilot to linux with more functionality.
 
 ## Features
 - Model selection (changing models)
 - Clearing history
-- Chat messgages
-- Chat pannel
+- Chat messaging
+- Chat panel
 - Running bash commands
 - Settings to change things
 
 ## Features In Progress
 
 -Adding Open Ai keys
-- Making a bit more polight before putting it on the extention page
+- Making a bit more polish before putting it on the gnome website
 
 ## Installation
 
@@ -44,8 +44,6 @@ GnomeLama is an integration between ollama (the open source local ai project) an
 3. Commit your changes (`git commit -am 'Add new feature'`).
 4. Push to the branch (`git push origin feature-branch`).
 5. Create a new Pull Request.
-
-This is my first extention and I would much appritiate some help esspecialy with the visuals.
 
 ## Star History
 
