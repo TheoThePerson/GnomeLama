@@ -94,9 +94,6 @@ function executeBashScript(script) {
     // Use double quotes instead of single quotes
     const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
 
-    // Log the final command for debugging
-    console.log("Executing command:", fullCommand);
-
     GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
     logError(e, "Error launching terminal");
