@@ -42,7 +42,7 @@
       <description>Color of user messages.</description>
     </key>
     <key name="ai-message-color" type="s">
-      <default>"##D77C19"</default>
+      <default>"#D77C19"</default>
       <summary>AI Message Color</summary>
       <description>Color of AI messages.</description>
     </key>
