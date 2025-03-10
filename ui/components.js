@@ -82,16 +82,21 @@ function copyToClipboard(text) {
  * @param {string} script - The bash script to execute
  */
 function executeBashScript(script) {
-  // Safety check
   if (!script || script.trim() === "") {
     logError(new Error("Empty script"), "Cannot execute empty script");
     return;
   }
 
   try {
-    // Escape single quotes in the script
-    const escapedScript = script.replace(/'/g, "'\\''");
-    const fullCommand = `gnome-terminal -- bash -c '${escapedScript}; exec bash'`;
+    // Trim script to remove unwanted spaces and newlines
+    const trimmedScript = script.trim().replace(/(["`$])/g, "\\$1"); // Escape special characters
+
+    // Use double quotes instead of single quotes
+    const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
+
+    // Log the final command for debugging
+    console.log("Executing command:", fullCommand);
+
     GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
     logError(e, "Error launching terminal");
