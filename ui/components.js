@@ -143,12 +143,28 @@ export function createCodeContainer(code, language = "code") {
     label: "Copy",
   });
 
+  let copyTimeoutId = null;
   copyButton.connect("clicked", () => {
     copyToClipboard(code);
     copyButton.set_label("Copied!");
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-      copyButton.set_label("Copy");
+
+    if (copyTimeoutId) {
+      GLib.Source.remove(copyTimeoutId);
+    }
+
+    copyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+      if (!copyButton.destroyed) {
+        copyButton.set_label("Copy");
+      }
+      copyTimeoutId = null;
       return GLib.SOURCE_REMOVE;
+    });
+
+    copyButton.connect("destroy", () => {
+      if (copyTimeoutId) {
+        GLib.Source.remove(copyTimeoutId);
+        copyTimeoutId = null;
+      }
     });
   });
 
@@ -164,12 +180,28 @@ export function createCodeContainer(code, language = "code") {
       label: "Execute",
     });
 
+    let executeTimeoutId = null;
     executeButton.connect("clicked", () => {
       executeBashScript(code);
       executeButton.set_label("Executing...");
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-        executeButton.set_label("Execute");
+
+      if (executeTimeoutId) {
+        GLib.Source.remove(executeTimeoutId);
+      }
+
+      executeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+        if (!executeButton.destroyed) {
+          executeButton.set_label("Execute");
+        }
+        executeTimeoutId = null;
         return GLib.SOURCE_REMOVE;
+      });
+
+      executeButton.connect("destroy", () => {
+        if (executeTimeoutId) {
+          GLib.Source.remove(executeTimeoutId);
+          executeTimeoutId = null;
+        }
       });
     });
 
