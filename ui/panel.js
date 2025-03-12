@@ -7,7 +7,6 @@ import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 // Import from reorganized modules
-import { getSettings } from "../lib/settings.js";
 import * as UIComponents from "./components.js";
 import * as PanelElements from "./panelElements.js";
 import * as MessageProcessor from "./messageProcessor.js";
@@ -23,10 +22,10 @@ import {
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
-    _init(extensionPath) {
+    _init(extensionPath, settings) {
       super._init(0.0, "AI Chat Panel");
       this._extensionPath = extensionPath;
-      this._settings = getSettings();
+      this._settings = settings;
       this._context = null;
 
       // Initialize UI components
@@ -328,7 +327,7 @@ export const Indicator = GObject.registerClass(
       // Disconnect signals
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
-        this._settingsChangedId = null;
+        this._settingsChangedId = 0;
       }
 
       // Clean up model menu
@@ -337,9 +336,12 @@ export const Indicator = GObject.registerClass(
         this._modelMenu = null;
       }
 
-      // Remove panel overlay from UI
+      // Remove the panel overlay
+      if (this._panelOverlay && this._panelOverlay.get_parent()) {
+        Main.layoutManager.removeChrome(this._panelOverlay);
+      }
+
       if (this._panelOverlay) {
-        Main.layoutManager.uiGroup.remove_child(this._panelOverlay);
         this._panelOverlay.destroy();
         this._panelOverlay = null;
       }

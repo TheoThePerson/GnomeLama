@@ -3,6 +3,7 @@
  */
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import Soup from "gi://Soup";
 import { getSettings } from "../lib/settings.js";
 
 let conversationHistory = [];
@@ -27,18 +28,48 @@ export function setModel(modelName) {
 export async function fetchModelNames() {
   try {
     const settings = getSettings();
-    const jsonData = await _executeCommand([
-      "curl",
-      "-s",
-      settings.get_string("models-api-endpoint"),
-    ]);
+    const endpoint = settings.get_string("models-api-endpoint");
 
-    // Parse and extract model names
-    const data = JSON.parse(jsonData);
-    return data.models
-      .map((model) => model.name)
-      .filter((value, index, self) => self.indexOf(value) === index)
-      .sort();
+    // Create Soup session and message
+    const session = new Soup.Session();
+    const message = Soup.Message.new("GET", endpoint);
+
+    // Send the request asynchronously
+    return new Promise((resolve, reject) => {
+      session.send_and_read_async(
+        message,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (session, result) => {
+          try {
+            // Check the HTTP status code
+            if (message.get_status() !== Soup.Status.OK) {
+              throw new Error(`HTTP error: ${message.get_status()}`);
+            }
+
+            // Get response data
+            const bytes = session.send_and_read_finish(result);
+            if (!bytes) {
+              throw new Error("No response data received");
+            }
+
+            const response = new TextDecoder().decode(bytes.get_data());
+            const data = JSON.parse(response);
+
+            // Parse and extract model names
+            resolve(
+              data.models
+                .map((model) => model.name)
+                .filter((value, index, self) => self.indexOf(value) === index)
+                .sort()
+            );
+          } catch (e) {
+            console.error("Error processing model names response:", e);
+            resolve([]);
+          }
+        }
+      );
+    });
   } catch (e) {
     console.error("Error fetching model names:", e);
     return [];
@@ -105,7 +136,7 @@ export async function sendMessage(message, context, onData) {
 }
 
 /**
- * Send message to the API and process streaming response
+ * Sends a message to the API endpoint
  * @param {string} message - Message to send
  * @param {string} context - Optional context from previous interactions
  * @param {Function} onData - Callback for streaming data
@@ -123,98 +154,95 @@ async function _sendMessageToAPI(message, context, onData) {
     context: context || null,
   });
 
-  // Setup curl command
-  const command = [
-    "curl",
-    "--no-buffer",
-    "-s",
-    "-X",
-    "POST",
-    settings.get_string("api-endpoint"),
-    "-d",
-    payload,
-    "-H",
-    "Content-Type: application/json",
-  ];
+  // Get the API endpoint
+  const endpoint = settings.get_string("api-endpoint");
 
   let fullResponse = "";
-  // Don't reset context before processing response
-
-  // Execute request and process streaming response
-  await _executeCommand(command, (chunk) => {
-    try {
-      const json = JSON.parse(chunk);
-
-      // Save context if provided
-      if (json.context) {
-        currentContext = json.context;
-      }
-
-      // Process response text
-      if (json.response) {
-        fullResponse += json.response;
-        if (onData) onData(json.response);
-      }
-    } catch (e) {
-      console.error("Error parsing JSON from API:", e);
-    }
-  });
-
-  // Return error message if no response received
-  if (!fullResponse.trim()) {
-    fullResponse =
-      "Error communicating with Ollama. Please check if Ollama is installed and running.";
-    if (onData) onData(fullResponse);
-  }
-
-  return fullResponse;
-}
-
-/**
- * Execute a command and process its output
- * @param {string[]} command - Command and arguments to execute
- * @param {Function} lineProcessor - Optional callback to process each line
- * @returns {Promise<string>} Command output as string
- */
-async function _executeCommand(command, lineProcessor) {
-  // Create subprocess with pipes
-  const process = new Gio.Subprocess({
-    argv: command,
-    flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-  });
-  process.init(null);
-
-  // Setup data stream
-  const stream = new Gio.DataInputStream({
-    base_stream: process.get_stdout_pipe(),
-    close_base_stream: true,
-  });
-
-  let output = "";
 
   try {
+    // Create Soup session and message
+    const session = new Soup.Session();
+    const message = Soup.Message.new("POST", endpoint);
+
+    // Set headers and body
+    message.set_request_body_from_bytes(
+      "application/json",
+      new GLib.Bytes(new TextEncoder().encode(payload))
+    );
+
+    // Handle streaming response
+    const inputStream = await new Promise((resolve, reject) => {
+      session.send_async(
+        message,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (session, result) => {
+          try {
+            // Check the HTTP status code
+            if (message.get_status() !== Soup.Status.OK) {
+              throw new Error(`HTTP error: ${message.get_status()}`);
+            }
+
+            // Get the response input stream
+            const inputStream = session.send_finish(result);
+            if (!inputStream) {
+              throw new Error("No response stream available");
+            }
+
+            resolve(inputStream);
+          } catch (e) {
+            console.error("Error sending message:", e);
+            reject(e);
+          }
+        }
+      );
+    });
+
+    // Read from the stream
+    const dataInputStream = new Gio.DataInputStream({
+      base_stream: inputStream,
+      close_base_stream: true,
+    });
+
     // Process the streaming response
     while (true) {
-      const [line] = await stream.read_line_async(GLib.PRIORITY_DEFAULT, null);
+      const [line] = await dataInputStream.read_line_async(
+        GLib.PRIORITY_DEFAULT,
+        null
+      );
       if (!line) break;
 
       const lineText = new TextDecoder().decode(line);
 
-      if (lineProcessor) {
-        // Process line immediately
-        await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-          lineProcessor(lineText);
-          return GLib.SOURCE_REMOVE;
-        });
-      } else {
-        output += lineText + "\n";
+      try {
+        const json = JSON.parse(lineText);
+
+        // Save context if provided
+        if (json.context) {
+          currentContext = json.context;
+        }
+
+        // Handle response content
+        if (json.response) {
+          const chunk = json.response;
+          fullResponse += chunk;
+
+          if (onData) {
+            await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+              onData(chunk);
+              return GLib.SOURCE_REMOVE;
+            });
+          }
+        }
+      } catch (parseError) {
+        console.error("Error parsing JSON chunk:", parseError);
       }
     }
 
-    // Wait for process to finish
-    await process.wait_check_async(null);
-    return output;
-  } finally {
-    stream.close(null);
+    dataInputStream.close(null);
+    return fullResponse;
+  } catch (error) {
+    console.error("API request error:", error);
+    throw error;
   }
 }

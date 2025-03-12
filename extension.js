@@ -11,7 +11,11 @@ export default class LinuxCopilotExtension extends Extension {
    * Enable the extension
    */
   enable() {
-    this._indicator = new Indicator(this.path);
+    // Get settings
+    this._settings = this.getSettings("org.gnome.shell.extensions.gnomelama");
+
+    // Create indicator and pass settings to it
+    this._indicator = new Indicator(this.path, this._settings);
     Main.panel.addToStatusArea(this.metadata.uuid, this._indicator);
   }
 
@@ -21,5 +25,6 @@ export default class LinuxCopilotExtension extends Extension {
   disable() {
     this._indicator.destroy();
     this._indicator = null;
+    this._settings = null;
   }
 }
