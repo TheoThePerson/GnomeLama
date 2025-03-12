@@ -11,7 +11,7 @@ const Me = ExtensionPreferences.lookupByURL(import.meta.url);
 export default class GnomeLamaPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
     // Get settings
-    const settings = this.getSettings("org.gnomelama");
+    const settings = this.getSettings("org.gnome.shell.extensions.gnomelama");
 
     // Create preference pages
     this._createAppearancePage(window, settings);

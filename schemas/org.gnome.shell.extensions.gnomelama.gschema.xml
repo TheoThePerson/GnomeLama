@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnomelama" path="/org/gnomelama/">
+  <schema id="org.gnome.shell.extensions.gnomelama" path="/org/gnome/shell/extensions/gnomelama/">
     <key name="panel-width-fraction" type="d">
       <default>0.17</default>
       <summary>Panel Width Fraction</summary>
