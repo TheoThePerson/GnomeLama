@@ -93,6 +93,16 @@ export function clearConversationHistory() {
 }
 
 /**
+ * Clean up all module state when the extension is disabled
+ * Resets all variables to their initial state
+ */
+export function cleanupOnDisable() {
+  conversationHistory = [];
+  currentModel = null;
+  currentContext = null;
+}
+
+/**
  * Add a message to the conversation history
  * @param {string} text - Message text
  * @param {string} type - Message type (user or assistant)
