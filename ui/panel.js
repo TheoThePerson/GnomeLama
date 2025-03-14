@@ -7,7 +7,6 @@ import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 // Import from reorganized modules
-import * as UIComponents from "./components.js";
 import * as PanelElements from "./panelElements.js";
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";

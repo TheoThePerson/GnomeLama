@@ -144,7 +144,6 @@ export async function sendMessage(message, context, onData) {
     return errorMsg;
   }
 }
-
 /**
  * Sends a message to the API endpoint
  * @param {string} message - Message to send
