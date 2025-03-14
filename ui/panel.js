@@ -82,19 +82,11 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay.add_child(this._inputFieldBox);
 
       // Ensure the overlay is properly added to Chrome
-      if (!this._panelOverlay.get_parent()) {
-        Main.layoutManager.addChrome(this._panelOverlay, {
-          trackFullscreen: true,
-          affectsInputRegion: true,
-        });
-      }
-
       Main.layoutManager.addChrome(this._panelOverlay, {
-        trackFullscreen: true,
         affectsInputRegion: true,
       });
 
-      //  messageFormater Ensure the panel is collapsed by default
+      // messageFormater Ensure the panel is collapsed by default
       this._panelOverlay.visible = false;
 
       // Handle scroll events in the overlay
@@ -170,9 +162,7 @@ export const Indicator = GObject.registerClass(
       const selectedModel = modelNames.includes(defaultModel)
         ? defaultModel
         : modelNames[0];
-
-      // Update button label and set model
-      this._updateModelLabel(selectedModel);
+      trackFullscreen: true, this._updateModelLabel(selectedModel);
       setModel(selectedModel);
 
       // Create menu items
