@@ -81,6 +81,15 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay.add_child(this._outputScrollView);
       this._panelOverlay.add_child(this._inputFieldBox);
 
+      // Ensure the overlay is properly added to Chrome
+      if (this._panelOverlay.get_parent()) {
+        this._panelOverlay.get_parent().remove_child(this._panelOverlay);
+      }
+      Main.layoutManager.addChrome(this._panelOverlay, {
+        trackFullscreen: true,
+        affectsInputRegion: true,
+      });
+
       // Handle scroll events in the overlay
       this._panelOverlay.connect("scroll-event", (_, event) => {
         if (this._outputScrollView) {
