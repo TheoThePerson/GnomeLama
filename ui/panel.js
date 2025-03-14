@@ -94,7 +94,7 @@ export const Indicator = GObject.registerClass(
         affectsInputRegion: true,
       });
 
-      // ✅ Ensure the panel is collapsed by default
+      //  messageFormater Ensure the panel is collapsed by default
       this._panelOverlay.visible = false;
 
       // Handle scroll events in the overlay
@@ -118,7 +118,7 @@ export const Indicator = GObject.registerClass(
       // Connect send button click
       this._sendButton.connect("clicked", this._sendMessage.bind(this));
 
-      // ✅ Prevents `_updateLayout()` from forcing it open
+      //  messageFormater Prevents `_updateLayout()` from forcing it open
       this._updateLayout();
     }
 
