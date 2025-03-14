@@ -27,6 +27,7 @@ export const Indicator = GObject.registerClass(
       this._extensionPath = extensionPath;
       this._settings = settings;
       this._context = null;
+      this._isProcessingMessage = false;
 
       // Initialize UI components
       this._initUI();
@@ -101,7 +102,10 @@ export const Indicator = GObject.registerClass(
       // Handle Enter key press in input field
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
-          this._sendMessage();
+          // Only send message if we're not already processing one
+          if (!this._isProcessingMessage) {
+            this._sendMessage();
+          }
           return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;
@@ -230,10 +234,14 @@ export const Indicator = GObject.registerClass(
 
     async _sendMessage() {
       const userMessage = this._inputField.get_text().trim();
-      if (!userMessage) return;
+      if (!userMessage || this._isProcessingMessage) return;
 
       // Clear input field immediately
       this._inputField.set_text("");
+
+      // Set processing flag and disable send button
+      this._isProcessingMessage = true;
+      this._updateSendButtonState(false);
 
       try {
         // Process the user message
@@ -244,8 +252,9 @@ export const Indicator = GObject.registerClass(
           scrollView: this._outputScrollView,
           onResponseStart: () => {},
           onResponseEnd: () => {
-            // Context is now managed by the messaging service
-            // No need to update it here
+            // Reset processing flag when response is complete
+            this._isProcessingMessage = false;
+            this._updateSendButtonState(true);
           },
         });
       } catch (error) {
@@ -254,10 +263,24 @@ export const Indicator = GObject.registerClass(
           this._outputContainer,
           "Error processing your message. Please try again."
         );
+
+        // Reset processing flag on error
+        this._isProcessingMessage = false;
+        this._updateSendButtonState(true);
       }
 
       // Give focus back to input field
       global.stage.set_key_focus(this._inputField.clutter_text);
+    }
+
+    /**
+     * Update the send button state based on whether message processing is active
+     * @param {boolean} enabled - Whether the button should be enabled
+     */
+    _updateSendButtonState(enabled) {
+      // Only update the internal state without visual changes
+      this._sendButton.reactive = enabled;
+      this._sendButton.can_focus = enabled;
     }
 
     // HISTORY MANAGEMENT

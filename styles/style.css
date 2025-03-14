@@ -128,18 +128,6 @@
   background-color: #388e3c  ;
 }
 
-.code-content {
-  font-family: monospace;
-  padding: 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  color: #eee;
-  background-color: #222  ;
-  border-radius: 0 0 8px 8px;
-}
-
 /* Text styles */
 .text-label {
   padding: 0;
@@ -178,4 +166,16 @@
 
 .output-scrollview StScrollBar StBin#vhandle:hover {
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+.code-content {
+  font-family: monospace;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  color: #eee;
+  background-color: #222  ;
+  border-radius: 0 0 8px 8px;
 } 
