@@ -3,7 +3,7 @@
  */
 
 import Clutter from "gi://Clutter";
-import { parseMessageContent } from "../lib/messageParser.js";
+import { parseMessageContent } from "../lib/messageFormater.js";
 import * as UIComponents from "./components.js";
 import * as PanelElements from "./panelElements.js";
 import { sendMessage } from "../services/messaging.js";
