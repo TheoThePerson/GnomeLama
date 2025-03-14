@@ -83,8 +83,8 @@ export async function sendMessage(message, context, onData) {
   try {
     let result;
 
-    // Determine which provider to use based on the model name
-    if (currentModel === "gpt-3.5-turbo") {
+    // Determine which provider to use based on whether it's an OpenAI model
+    if (openaiProvider.isOpenAIModel(currentModel)) {
       result = await openaiProvider.sendMessageToAPI(
         message,
         currentModel,
@@ -107,10 +107,9 @@ export async function sendMessage(message, context, onData) {
     return result.response;
   } catch (e) {
     console.error("Error sending message to API:", e);
-    const errorMsg =
-      currentModel === "gpt-3.5-turbo"
-        ? "Error communicating with OpenAI. Please check your API key in settings."
-        : "Error communicating with Ollama. Please check if Ollama is installed and running.";
+    const errorMsg = openaiProvider.isOpenAIModel(currentModel)
+      ? "Error communicating with OpenAI. Please check your API key in settings."
+      : "Error communicating with Ollama. Please check if Ollama is installed and running.";
     if (onData) onData(errorMsg);
     return errorMsg;
   }

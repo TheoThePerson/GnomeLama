@@ -7,14 +7,77 @@ import Soup from "gi://Soup";
 import { getSettings } from "../../lib/settings.js";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const AVAILABLE_MODELS = ["gpt-3.5-turbo"];
+const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
+
+let availableModels = [];
+
+/**
+ * Checks if a model is an OpenAI model
+ * @param {string} modelName - Name of the model to check
+ * @returns {boolean} True if the model is an OpenAI model
+ */
+export function isOpenAIModel(modelName) {
+  return availableModels.includes(modelName);
+}
 
 /**
  * Fetches model names from the OpenAI API
  * @returns {Promise<string[]>} Array of available model names
  */
 export async function fetchModelNames() {
-  return AVAILABLE_MODELS;
+  const settings = getSettings();
+  const apiKey = settings.get_string("openai-api-key");
+
+  if (!apiKey) {
+    console.warn("OpenAI API key not configured");
+    return [];
+  }
+
+  try {
+    // Create Soup session and message
+    const session = new Soup.Session();
+    const message = Soup.Message.new("GET", OPENAI_MODELS_URL);
+
+    // Set headers
+    message.request_headers.append("Authorization", `Bearer ${apiKey}`);
+
+    return new Promise((resolve, reject) => {
+      session.send_and_read_async(
+        message,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (session, result) => {
+          try {
+            if (message.get_status() !== Soup.Status.OK) {
+              throw new Error(`HTTP error: ${message.get_status()}`);
+            }
+
+            const bytes = session.send_and_read_finish(result);
+            if (!bytes) {
+              throw new Error("No response data received");
+            }
+
+            const response = new TextDecoder().decode(bytes.get_data());
+            const data = JSON.parse(response);
+
+            // Filter for chat models only and store them
+            availableModels = data.data
+              .filter((model) => model.id.includes("gpt"))
+              .map((model) => model.id)
+              .sort();
+
+            resolve(availableModels);
+          } catch (e) {
+            console.error("Error processing OpenAI models response:", e);
+            resolve([]);
+          }
+        }
+      );
+    });
+  } catch (e) {
+    console.error("Error fetching OpenAI models:", e);
+    return [];
+  }
 }
 
 /**
