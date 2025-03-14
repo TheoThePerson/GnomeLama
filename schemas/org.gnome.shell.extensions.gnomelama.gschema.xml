@@ -81,5 +81,10 @@
       <summary>Temperature</summary>
       <description>Temperature parameter for model response randomness (0.0-1.0).</description>
     </key>
+    <key name="openai-api-key" type="s">
+      <default>""</default>
+      <summary>OpenAI API Key</summary>
+      <description>Your OpenAI API key for using GPT models.</description>
+    </key>
   </schema>
 </schemalist>

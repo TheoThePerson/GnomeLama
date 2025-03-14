@@ -273,6 +273,15 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       _("The URL for fetching available models")
     );
 
+    // OpenAI API Key
+    this._addEntryRow(
+      apiSettingsGroup,
+      settings,
+      "openai-api-key",
+      _("OpenAI API Key"),
+      _("Your OpenAI API key for using GPT models")
+    );
+
     // Default model
     this._addEntryRow(
       apiSettingsGroup,

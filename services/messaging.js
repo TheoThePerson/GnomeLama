@@ -24,7 +24,9 @@ export function setModel(modelName) {
  * @returns {Promise<string[]>} Array of available model names
  */
 export async function fetchModelNames() {
-  return ollamaProvider.fetchModelNames();
+  const ollamaModels = await ollamaProvider.fetchModelNames();
+  const openaiModels = await openaiProvider.fetchModelNames();
+  return [...ollamaModels, ...openaiModels];
 }
 
 /**
@@ -79,16 +81,26 @@ export async function sendMessage(message, context, onData) {
   addMessageToHistory(message, "user");
 
   try {
-    // Get current context if not provided
-    const currentContext = context || ollamaProvider.getCurrentContext();
+    let result;
 
-    // Send message to API with context
-    const result = await ollamaProvider.sendMessageToAPI(
-      message,
-      currentModel,
-      currentContext,
-      onData
-    );
+    // Determine which provider to use based on the model name
+    if (currentModel === "gpt-3.5-turbo") {
+      result = await openaiProvider.sendMessageToAPI(
+        message,
+        currentModel,
+        context,
+        onData
+      );
+    } else {
+      // Get current context if not provided
+      const currentContext = context || ollamaProvider.getCurrentContext();
+      result = await ollamaProvider.sendMessageToAPI(
+        message,
+        currentModel,
+        currentContext,
+        onData
+      );
+    }
 
     // Add assistant response to history
     addMessageToHistory(result.response, "assistant");
@@ -96,7 +108,9 @@ export async function sendMessage(message, context, onData) {
   } catch (e) {
     console.error("Error sending message to API:", e);
     const errorMsg =
-      "Error communicating with Ollama. Please check if Ollama is installed and running.";
+      currentModel === "gpt-3.5-turbo"
+        ? "Error communicating with OpenAI. Please check your API key in settings."
+        : "Error communicating with Ollama. Please check if Ollama is installed and running.";
     if (onData) onData(errorMsg);
     return errorMsg;
   }
