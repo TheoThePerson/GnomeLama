@@ -182,6 +182,7 @@ export function createResponseContainer(bgColor) {
     x_align: Clutter.ActorAlign.START,
     vertical: true,
     x_expand: true,
+    pack_start: false,
   });
 }
 

@@ -105,7 +105,8 @@ export function updateResponseContainer(container, responseText) {
   // Parse and add new content
   const parts = parseMessageContent(responseText);
 
-  parts.forEach((part) => {
+  // Add each part to the container in the correct order
+  parts.forEach((part, index) => {
     let contentElement;
 
     if (part.type === "code") {
@@ -113,6 +114,9 @@ export function updateResponseContainer(container, responseText) {
         part.content,
         part.language
       );
+
+      // Add special class to ensure code blocks behave correctly
+      contentElement.add_style_class_name("code-block-part");
     } else if (part.type === "formatted") {
       contentElement = UIComponents.createFormattedTextLabel(
         part.content,
@@ -123,7 +127,8 @@ export function updateResponseContainer(container, responseText) {
     }
 
     if (contentElement) {
-      container.add_child(contentElement);
+      // Ensure each part is added in sequence
+      container.insert_child_at_index(contentElement, index);
     }
   });
 }

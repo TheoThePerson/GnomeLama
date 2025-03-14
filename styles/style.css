@@ -75,7 +75,7 @@
 
 /* Code block styles */
 .code-container {
-  background-color: #222  ;
+  background-color: #222;
   color: #f8f8f8;
   padding: 0;
   margin: 10px 0;
@@ -84,6 +84,14 @@
   border: 1px solid #444;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   width: 100%;
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.code-block-part {
+  display: block !important;
+  margin: 8px 0 !important;
 }
 
 .code-header {
