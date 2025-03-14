@@ -89,6 +89,11 @@ export const Indicator = GObject.registerClass(
         });
       }
 
+      Main.layoutManager.addChrome(this._panelOverlay, {
+        trackFullscreen: true,
+        affectsInputRegion: true,
+      });
+
       // ✅ Ensure the panel is collapsed by default
       this._panelOverlay.visible = false;
 
