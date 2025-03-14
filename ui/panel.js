@@ -82,13 +82,15 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay.add_child(this._inputFieldBox);
 
       // Ensure the overlay is properly added to Chrome
-      if (this._panelOverlay.get_parent()) {
-        this._panelOverlay.get_parent().remove_child(this._panelOverlay);
+      if (!this._panelOverlay.get_parent()) {
+        Main.layoutManager.addChrome(this._panelOverlay, {
+          trackFullscreen: true,
+          affectsInputRegion: true,
+        });
       }
-      Main.layoutManager.addChrome(this._panelOverlay, {
-        trackFullscreen: true,
-        affectsInputRegion: true,
-      });
+
+      // ✅ Ensure the panel is collapsed by default
+      this._panelOverlay.visible = false;
 
       // Handle scroll events in the overlay
       this._panelOverlay.connect("scroll-event", (_, event) => {
@@ -111,7 +113,7 @@ export const Indicator = GObject.registerClass(
       // Connect send button click
       this._sendButton.connect("clicked", this._sendMessage.bind(this));
 
-      // Update the layout
+      // ✅ Prevents `_updateLayout()` from forcing it open
       this._updateLayout();
     }
 
@@ -220,8 +222,10 @@ export const Indicator = GObject.registerClass(
     }
 
     _togglePanelOverlay() {
-      this._panelOverlay.visible = !this._panelOverlay.visible;
       if (this._panelOverlay.visible) {
+        this._panelOverlay.visible = false;
+      } else {
+        this._panelOverlay.visible = true;
         this._updateHistory();
         global.stage.set_key_focus(this._inputField.clutter_text);
       }
