@@ -88,7 +88,7 @@ export async function sendMessage(message, context, onData) {
       result = await openaiProvider.sendMessageToAPI(
         message,
         currentModel,
-        context,
+        conversationHistory,
         onData
       );
     } else {

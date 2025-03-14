@@ -133,14 +133,14 @@ export async function fetchModelNames() {
  * Sends a message to the OpenAI API endpoint
  * @param {string} messageText - Message to send
  * @param {string} modelName - Model to use
- * @param {string} context - Optional context from previous interactions
+ * @param {Array<{text: string, type: string}>} context - Array of previous messages
  * @param {Function} onData - Callback for streaming data
  * @returns {Promise<{response: string}>} Complete response
  */
 export async function sendMessageToAPI(
   messageText,
   modelName,
-  context,
+  context = [],
   onData
 ) {
   const settings = getSettings();
@@ -152,10 +152,19 @@ export async function sendMessageToAPI(
     );
   }
 
+  // Convert conversation history to OpenAI format
+  const messages = context.map((msg) => ({
+    role: msg.type === "user" ? "user" : "assistant",
+    content: msg.text,
+  }));
+
+  // Add the current message
+  messages.push({ role: "user", content: messageText });
+
   // Prepare payload
   const payload = JSON.stringify({
     model: modelName,
-    messages: [{ role: "user", content: messageText }],
+    messages: messages,
     stream: true,
     temperature: settings.get_double("temperature"),
   });
