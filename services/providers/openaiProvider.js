@@ -1,146 +1,94 @@
-import Gio from "gi://Gio";
-import GLib from "gi://GLib";
-import Soup from "gi://Soup";
-import { getSettings } from "../../lib/settings.js";
+#!/usr/bin/env gjs
 
-let currentContext = null; // Store the context from previous interactions
+const Soup = imports.gi.Soup;
+const GLib = imports.gi.GLib;
+const Gio = imports.gi.Gio; // Import Gio
 
-export function getCurrentContext() {
-  return currentContext;
-}
+// Replace with your OpenAI API key
+const OPENAI_API_KEY = "";
 
-export function resetContext() {
-  currentContext = null;
-}
+function sendMessage(userMessage) {
+  return new Promise((resolve, reject) => {
+    let session = new Soup.Session();
+    let url = "https://api.openai.com/v1/chat/completions";
 
-export async function fetchModelNames() {
-  try {
-    const settings = getSettings();
-    const endpoint = "https://api.openai.com/v1/models";
-    const apiKey = settings.get_string("api-key");
-
-    const session = new Soup.Session();
-    const message = Soup.Message.new("GET", endpoint);
-    message.request_headers.append("Authorization", `Bearer ${apiKey}`);
-
-    return new Promise((resolve, reject) => {
-      session.send_and_read_async(
-        message,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (session, result) => {
-          try {
-            if (message.get_status() !== Soup.Status.OK) {
-              throw new Error(`HTTP error: ${message.get_status()}`);
-            }
-
-            const bytes = session.send_and_read_finish(result);
-            if (!bytes) throw new Error("No response data received");
-
-            const response = new TextDecoder().decode(bytes.get_data());
-            const data = JSON.parse(response);
-            resolve(data.data.map((model) => model.id).sort());
-          } catch (e) {
-            console.error("Error fetching model names:", e);
-            resolve([]);
-          }
-        }
-      );
+    let message_data = JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: userMessage }],
+      stream: true, // Enable streaming
     });
-  } catch (e) {
-    console.error("Error fetching model names:", e);
-    return [];
-  }
-}
 
-export async function sendMessageToAPI(
-  messageText,
-  modelName,
-  context,
-  onData
-) {
-  const settings = getSettings();
-  const endpoint = "https://api.openai.com/v1/chat/completions";
-  const apiKey = settings.get_string("api-key");
-  const temperature = settings.get_double("temperature");
-
-  const payload = JSON.stringify({
-    model: modelName,
-    messages: [
-      { role: "system", content: context || "" },
-      { role: "user", content: messageText },
-    ],
-    stream: true,
-    temperature,
-  });
-
-  let fullResponse = "";
-
-  try {
-    const session = new Soup.Session();
-    const message = Soup.Message.new("POST", endpoint);
-    message.set_request_body_from_bytes(
+    let request = Soup.Message.new("POST", url);
+    request.set_request_body_from_bytes(
       "application/json",
-      new GLib.Bytes(new TextEncoder().encode(payload))
+      new GLib.Bytes(message_data)
     );
-    message.request_headers.append("Authorization", `Bearer ${apiKey}`);
-    message.request_headers.append("Content-Type", "application/json");
+    request.request_headers.append("Authorization", `Bearer ${OPENAI_API_KEY}`);
 
-    const inputStream = await new Promise((resolve, reject) => {
-      session.send_async(
-        message,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (session, result) => {
-          try {
-            if (message.get_status() !== Soup.Status.OK) {
-              throw new Error(`HTTP error: ${message.get_status()}`);
-            }
-            const inputStream = session.send_finish(result);
-            if (!inputStream) throw new Error("No response stream available");
-            resolve(inputStream);
-          } catch (e) {
-            console.error("Error sending message:", e);
-            reject(e);
+    session.send_async(
+      request,
+      GLib.PRIORITY_DEFAULT,
+      null,
+      (session, result) => {
+        try {
+          let stream = session.send_finish(result);
+          let dataStream = new Gio.DataInputStream({ base_stream: stream });
+
+          function readChunk() {
+            dataStream.read_line_async(
+              GLib.PRIORITY_DEFAULT,
+              null,
+              (stream, res) => {
+                try {
+                  let [line, length] = stream.read_line_finish_utf8(res);
+                  if (line !== null) {
+                    line = line.trim();
+
+                    // Ignore empty lines and [DONE] signal
+                    if (line.startsWith("data:") && !line.includes("[DONE]")) {
+                      let jsonString = line.replace("data: ", ""); // Remove "data: " prefix
+                      let jsonData = JSON.parse(jsonString);
+
+                      // Extract the text content
+                      let delta = jsonData.choices[0].delta;
+                      if (delta && delta.content) {
+                        print(delta.content); // Print only the actual content
+                      }
+                    }
+
+                    readChunk(); // Continue reading next chunk
+                  } else {
+                    resolve(); // End of stream
+                  }
+                } catch (e) {
+                  reject(`Streaming error: ${e}`);
+                }
+              }
+            );
           }
+
+          readChunk(); // Start reading chunks
+        } catch (e) {
+          reject(`Streaming error: ${e}`);
         }
-      );
-    });
-
-    const dataInputStream = new Gio.DataInputStream({
-      base_stream: inputStream,
-      close_base_stream: true,
-    });
-
-    while (true) {
-      const [line] = await dataInputStream.read_line_async(
-        GLib.PRIORITY_DEFAULT,
-        null
-      );
-      if (!line) break;
-
-      const lineText = new TextDecoder().decode(line);
-      try {
-        const json = JSON.parse(lineText);
-        if (json.choices) {
-          const chunk = json.choices[0].delta?.content || "";
-          fullResponse += chunk;
-          if (onData) {
-            await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-              onData(chunk);
-              return GLib.SOURCE_REMOVE;
-            });
-          }
-        }
-      } catch (parseError) {
-        console.error("Error parsing JSON chunk:", parseError);
       }
-    }
+    );
+  });
+}
 
-    dataInputStream.close(null);
-    return { response: fullResponse, context: currentContext };
-  } catch (error) {
-    console.error("API request error:", error);
-    throw error;
-  }
+// Main function
+function main() {
+  let loop = GLib.MainLoop.new(null, false);
+
+  sendMessage("Tell me 10 facts about spoons")
+    .then(() => {
+      print("\nStreaming complete.");
+      loop.quit();
+    })
+    .catch((error) => {
+      print(`Error: ${error}`);
+      loop.quit();
+    });
+
+  loop.run();
 }
