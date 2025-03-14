@@ -60,12 +60,61 @@ export async function fetchModelNames() {
             const response = new TextDecoder().decode(bytes.get_data());
             const data = JSON.parse(response);
 
-            // Filter for chat models only and store them
-            availableModels = data.data
+            // Filter out unwanted models first
+            const filteredModels = data.data
               .filter((model) => model.id.includes("gpt"))
-              .map((model) => model.id)
-              .sort();
+              .filter((model) => {
+                const id = model.id.toLowerCase();
+                // Filter out models with specific keywords
+                if (id.includes("instruct")) return false;
+                if (id.includes("audio")) return false;
+                if (id.includes("search")) return false;
+                if (id.includes("realtime")) return false;
+                // Filter out models with dates (like -0125 or -2024-01-25)
+                if (/-\d{4}/.test(id)) return false; // matches yyyy in dates
+                if (/-\d{3,4}$/.test(id)) return false; // matches models ending in numbers like 0125
+                return true;
+              });
 
+            // Group models by their base name
+            const modelGroups = new Map();
+            filteredModels.forEach((model) => {
+              // Extract base name (remove -preview and date if present)
+              const baseName = model.id.replace(
+                /-preview(-\d{4}-\d{2}-\d{2})?$/,
+                ""
+              );
+              if (!modelGroups.has(baseName)) {
+                modelGroups.set(baseName, []);
+              }
+              modelGroups.get(baseName).push(model.id);
+            });
+
+            // Process each group to select the appropriate model
+            const selectedModels = [];
+            for (const [baseName, variants] of modelGroups) {
+              // First, separate preview and non-preview variants
+              const previewVariants = variants.filter((v) =>
+                v.includes("-preview")
+              );
+              const nonPreviewVariants = variants.filter(
+                (v) => !v.includes("-preview")
+              );
+
+              if (nonPreviewVariants.length > 0) {
+                // If non-preview version exists, use it
+                selectedModels.push(nonPreviewVariants[0]);
+              } else if (previewVariants.length > 0) {
+                // If only preview versions exist, prefer the one without a date
+                const simplePreview = previewVariants.find(
+                  (v) => !v.match(/-preview-\d{4}-\d{2}-\d{2}$/)
+                );
+                selectedModels.push(simplePreview || previewVariants[0]);
+              }
+            }
+
+            // Sort and store the filtered models
+            availableModels = selectedModels.sort();
             resolve(availableModels);
           } catch (e) {
             console.error("Error processing OpenAI models response:", e);
