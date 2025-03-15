@@ -4,6 +4,7 @@
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
+import * as MessageProcessor from "../ui/messageProcessor.js";
 
 let conversationHistory = [];
 let currentModel = null;
@@ -21,12 +22,21 @@ export function setModel(modelName) {
 
 /**
  * Fetches model names from the API
- * @returns {Promise<string[]>} Array of available model names
+ * @returns {Promise<{models: string[], error: string|null}>} Object containing array of available model names and optional error
  */
 export async function fetchModelNames() {
   const ollamaModels = await ollamaProvider.fetchModelNames();
   const openaiModels = await openaiProvider.fetchModelNames();
-  return [...ollamaModels, ...openaiModels];
+
+  const models = [...ollamaModels, ...openaiModels];
+  let error = null;
+
+  if (models.length === 0) {
+    error =
+      "No models found. Please check if you have an API key in settings, or if Ollama is installed and running.";
+  }
+
+  return { models, error };
 }
 
 /**

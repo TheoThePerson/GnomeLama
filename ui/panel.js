@@ -199,22 +199,29 @@ export const Indicator = GObject.registerClass(
     }
 
     async _addModelMenuItems() {
-      const modelNames = await fetchModelNames();
-      if (modelNames.length === 0) return;
+      const { models, error } = await fetchModelNames();
+
+      // Show error message if no models found
+      if (error) {
+        MessageProcessor.addTemporaryMessage(this._outputContainer, error);
+        return;
+      }
+
+      if (models.length === 0) return;
 
       // Clear existing menu items first
       this._modelMenu.removeAll();
 
       // Get default model or use first available
       const defaultModel = this._settings.get_string("default-model");
-      const selectedModel = modelNames.includes(defaultModel)
+      const selectedModel = models.includes(defaultModel)
         ? defaultModel
-        : modelNames[0];
+        : models[0];
       this._updateModelLabel(selectedModel);
       setModel(selectedModel);
 
       // Create menu items
-      modelNames.forEach((name) => {
+      models.forEach((name) => {
         let modelItem = new PopupMenu.PopupMenuItem(name);
 
         // Mark current model as active
