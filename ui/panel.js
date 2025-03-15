@@ -72,6 +72,14 @@ export const Indicator = GObject.registerClass(
       this._sendButton = sendButton;
       this._sendIcon = sendIcon;
 
+      // Add click handler to input field to close model menu
+      this._inputField.connect("button-press-event", () => {
+        if (this._modelMenu && this._modelMenu.isOpen) {
+          this._modelMenu.close();
+        }
+        return Clutter.EVENT_PROPAGATE;
+      });
+
       // Setup model selector and clear button
       this._setupModelMenu();
       this._setupClearButton();
@@ -146,6 +154,37 @@ export const Indicator = GObject.registerClass(
         }
       });
 
+      // Add click outside handler to close menu
+      global.stage.connect("button-press-event", (actor, event) => {
+        if (this._modelMenu && this._modelMenu.isOpen) {
+          let [x, y] = event.get_coords();
+          let menuActor = this._modelMenu.actor || this._modelMenu;
+          let [menuX, menuY] = menuActor.get_transformed_position();
+          let [menuWidth, menuHeight] = menuActor.get_size();
+          let [buttonX, buttonY] = this._modelButton.get_transformed_position();
+          let [buttonWidth, buttonHeight] = this._modelButton.get_size();
+
+          // Check if click is outside both menu and button
+          if (
+            !(
+              x >= menuX &&
+              x <= menuX + menuWidth &&
+              y >= menuY &&
+              y <= menuY + menuHeight
+            ) &&
+            !(
+              x >= buttonX &&
+              x <= buttonX + buttonWidth &&
+              y >= buttonY &&
+              y <= buttonY + buttonHeight
+            )
+          ) {
+            this._modelMenu.close();
+          }
+        }
+        return Clutter.EVENT_PROPAGATE;
+      });
+
       // Toggle menu on button press
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
@@ -160,12 +199,15 @@ export const Indicator = GObject.registerClass(
       const modelNames = await fetchModelNames();
       if (modelNames.length === 0) return;
 
+      // Clear existing menu items first
+      this._modelMenu.removeAll();
+
       // Get default model or use first available
       const defaultModel = this._settings.get_string("default-model");
       const selectedModel = modelNames.includes(defaultModel)
         ? defaultModel
         : modelNames[0];
-      trackFullscreen: true, this._updateModelLabel(selectedModel);
+      this._updateModelLabel(selectedModel);
       setModel(selectedModel);
 
       // Create menu items
@@ -219,11 +261,21 @@ export const Indicator = GObject.registerClass(
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
     }
 
-    _togglePanelOverlay() {
+    async _togglePanelOverlay() {
       if (this._panelOverlay.visible) {
         this._panelOverlay.visible = false;
+        // Close model menu when panel is closed
+        if (this._modelMenu && this._modelMenu.isOpen) {
+          this._modelMenu.close();
+        }
       } else {
         this._panelOverlay.visible = true;
+        // Clear existing menu items
+        if (this._modelMenu) {
+          this._modelMenu.removeAll();
+          // Repopulate model menu items
+          await this._addModelMenuItems();
+        }
         this._updateHistory();
         global.stage.set_key_focus(this._inputField.clutter_text);
       }
