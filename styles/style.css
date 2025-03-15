@@ -2,6 +2,7 @@
 .panel-overlay {
   background-color: #1a1a1a;
   border-radius: 0px;
+  clip-to-allocation: true;
 }
 
 .top-bar {
@@ -160,20 +161,39 @@
 /* Scrollbar styling */
 .output-scrollview StScrollBar {
   width: 8px;
+  min-width: 8px;
+  max-width: 8px;
+  padding: 0;
+  margin: 0;
 }
 
 .output-scrollview StScrollBar StBin#trough {
+  width: 8px;
+  min-width: 8px;
+  max-width: 8px;
   background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .output-scrollview StScrollBar StBin#vhandle {
+  width: 8px;
+  min-width: 8px;
+  max-width: 8px;
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .output-scrollview StScrollBar StBin#vhandle:hover {
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+.output-scrollview {
+  padding: 0;
+  margin: 0;
 }
 
 .code-content {
@@ -186,4 +206,8 @@
   color: #eee;
   background-color: #222  ;
   border-radius: 0 0 8px 8px;
+}
+
+.scroll-view-clip {
+  clip-to-allocation: true;
 } 

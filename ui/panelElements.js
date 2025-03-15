@@ -24,7 +24,11 @@ export function createPanelOverlay(dimensions) {
     height: dimensions.panelHeight,
     x: dimensions.monitor.width - dimensions.panelWidth,
     y: Main.panel.actor.height,
+    clip_to_allocation: true,
   });
+
+  // Force hardware acceleration
+  panelOverlay.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
 
   Main.layoutManager.uiGroup.add_child(panelOverlay);
   return panelOverlay;
@@ -113,9 +117,36 @@ export function createOutputArea(dimensions) {
     y: dimensions.topBarHeight + dimensions.paddingY,
     reactive: true,
     can_focus: true,
-    overlay_scrollbars: true,
+    overlay_scrollbars: false,
+    enable_mouse_scrolling: true,
     hscrollbar_policy: St.PolicyType.NEVER,
     vscrollbar_policy: St.PolicyType.AUTOMATIC,
+    x_expand: true,
+    y_expand: true,
+    style: "padding: 0; margin: 0;",
+  });
+
+  // Ensure scrollbar is properly sized
+  const vscroll = outputScrollView.get_vscroll_bar();
+  if (vscroll) {
+    vscroll.set_width(8);
+
+    // Connect to scroll events to force updates
+    const adjustment = vscroll.adjustment;
+    if (adjustment) {
+      adjustment.connect("notify::value", () => {
+        outputScrollView.queue_redraw();
+        vscroll.queue_redraw();
+      });
+    }
+  }
+
+  // Connect to scroll events
+  outputScrollView.connect("scroll-event", () => {
+    outputScrollView.queue_redraw();
+    if (vscroll) {
+      vscroll.queue_redraw();
+    }
   });
 
   const outputContainer = new St.BoxLayout({
@@ -131,8 +162,12 @@ export function createOutputArea(dimensions) {
     new Clutter.BoxLayout({
       orientation: Clutter.Orientation.VERTICAL,
       spacing: 8,
+      homogeneous: false,
     })
   );
+
+  // Set scroll policy
+  outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
   outputScrollView.set_child(outputContainer);
   return { outputScrollView, outputContainer };
@@ -191,14 +226,9 @@ export function createResponseContainer(bgColor) {
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
-  const vscroll = scrollView.get_vscroll_bar();
-  const adjustment = vscroll.get_adjustment();
-
-  if (adjustment && adjustment.upper) {
-    // In newer GNOME Shell versions, upper is a property not a method
-    vscroll.set_value(adjustment.upper - adjustment.page_size);
-  } else if (adjustment && typeof adjustment.get_upper === "function") {
-    // For older GNOME Shell versions that use methods
-    vscroll.set_value(adjustment.get_upper() - adjustment.get_page_size());
+  const adjustment = scrollView.vscroll.adjustment;
+  if (adjustment) {
+    const targetValue = adjustment.upper - adjustment.page_size;
+    adjustment.set_value(targetValue);
   }
 }
