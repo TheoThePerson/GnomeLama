@@ -6,11 +6,9 @@ import {
   gettext as _,
 } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-const Me = ExtensionPreferences.lookupByURL(import.meta.url);
-
 export default class GnomeLamaPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
-    // Get settings
+    // Get settings directly from the extension instance
     const settings = this.getSettings("org.gnome.shell.extensions.gnomelama");
 
     // Create preference pages
@@ -208,6 +206,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       "background-color",
       _("Background Color"),
       _("Background color of the panel")
+    );
+
+    // Background opacity
+    this._addSpinRow(
+      uiColorsGroup,
+      settings,
+      "background-opacity",
+      _("Background Opacity"),
+      _("Opacity of the panel background (0.0 is transparent, 1.0 is opaque)"),
+      0.0,
+      1.0,
+      0.05
     );
 
     // Top bar color

@@ -21,10 +21,13 @@ import {
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
-    _init(extensionPath, settings) {
+    _init(extension) {
       super._init(0.0, "AI Chat Panel");
-      this._extensionPath = extensionPath;
-      this._settings = settings;
+      this._extension = extension;
+      this._extensionPath = extension.path;
+      this._settings = extension.getSettings(
+        "org.gnome.shell.extensions.gnomelama"
+      );
       this._context = null;
       this._isProcessingMessage = false;
 

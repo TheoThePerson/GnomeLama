@@ -63,9 +63,16 @@ export function updatePanelOverlay(panelOverlay) {
     Main.panel.actor.height
   );
 
-  // Update style
+  // Get background color and opacity
+  const bgColor = settings.get_string("background-color");
+  const opacity = settings.get_double("background-opacity");
+  const r = parseInt(bgColor.substring(1, 3), 16);
+  const g = parseInt(bgColor.substring(3, 5), 16);
+  const b = parseInt(bgColor.substring(5, 7), 16);
+
+  // Update style with configurable opacity
   panelOverlay.set_style(
-    `background-color: ${settings.get_string("background-color")};`
+    `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); border-left: 1px solid rgba(255, 255, 255, 0.1);`
   );
 }
 

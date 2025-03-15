@@ -86,5 +86,10 @@
       <summary>OpenAI API Key</summary>
       <description>Your OpenAI API key for using GPT models.</description>
     </key>
+    <key name="background-opacity" type="d">
+      <default>1.0</default>
+      <summary>Background Opacity</summary>
+      <description>Background opacity of the panel (0.0-1.0, where 1.0 is fully opaque).</description>
+    </key>
   </schema>
 </schemalist>
