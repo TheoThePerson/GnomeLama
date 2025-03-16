@@ -163,12 +163,13 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     paddingY,
   } = calculatePanelDimensions();
 
-  // The container should be placed at the bottom with padding
+  // The container should go all the way to the bottom of the screen
   const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
 
+  // Position at the bottom with only horizontal padding
   inputButtonsContainer.set_position(
     horizontalPadding,
-    panelHeight - containerHeight - horizontalPadding
+    panelHeight - containerHeight
   );
 
   // Set the width to span most of the panel with padding on both sides
@@ -180,7 +181,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   // Apply rounded lighter grey container styling to the entire input+buttons area
   inputButtonsContainer.set_style(`
     background-color: rgba(80, 80, 80, 0.5);
-    border-radius: 16px;
+    border-radius: 16px 16px 0 0; /* Rounded only at the top */
     padding: 12px;
   `);
 }
