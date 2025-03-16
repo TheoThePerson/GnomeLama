@@ -126,7 +126,7 @@ export async function sendMessage(message, context, onData) {
 
 export function stopAiMessage() {
   if (openaiProvider.isOpenAIModel(currentModel)) {
-    openaiProvider.stopMessage(); //something like this not implemented yet
+    openaiProvider.stopMessage(); //something like this
   } else {
     // ollamaProvider.stopMessage(); something like this not implemented yet
   }

@@ -15,6 +15,7 @@ let activeSession = null;
 let activeInputStream = null;
 let activeDataInputStream = null;
 let isCancelled = false;
+let accumulatedResponse = ""; // Store the response even if canceled
 
 /**
  * Checks if a model is an OpenAI model
@@ -157,8 +158,9 @@ export async function sendMessageToAPI(
     );
   }
 
-  // Reset cancellation flag at the start of a new request
+  // Reset cancellation flag and accumulated response at the start of a new request
   isCancelled = false;
+  accumulatedResponse = "";
 
   // Convert conversation history to OpenAI format
   const messages = context.map((msg) => ({
@@ -237,6 +239,7 @@ export async function sendMessageToAPI(
     while (true) {
       // Check if cancelled before reading more data
       if (isCancelled) {
+        // When cancelled, we'll break out but still return the data we've collected
         break;
       }
 
@@ -256,6 +259,7 @@ export async function sendMessageToAPI(
           if (json.choices && json.choices[0].delta.content) {
             const chunk = json.choices[0].delta.content;
             fullResponse += chunk;
+            accumulatedResponse += chunk; // Also update global accumulated response
 
             if (onData) {
               await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
@@ -276,7 +280,8 @@ export async function sendMessageToAPI(
     activeInputStream = null;
     activeSession = null;
 
-    return { response: fullResponse };
+    // If cancelled, return the accumulated response
+    return { response: isCancelled ? accumulatedResponse : fullResponse };
   } catch (error) {
     console.error("API request error:", error);
 
@@ -292,6 +297,12 @@ export async function sendMessageToAPI(
 
     activeInputStream = null;
     activeSession = null;
+
+    // If we were cancelled and have data, return it despite the "error"
+    if (isCancelled && accumulatedResponse) {
+      console.log("Returning partial response after cancellation");
+      return { response: accumulatedResponse };
+    }
 
     throw error;
   }
@@ -337,5 +348,5 @@ export function stopMessage() {
     }
   }
 
-  console.log("OpenAI API request cancelled");
+  console.log("OpenAI API request cancelled with partial response saved");
 }
