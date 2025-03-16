@@ -177,16 +177,17 @@ export function createOutputArea(dimensions) {
 /**
  * Creates an input area with text field and send button
  * @param {string} extensionPath - Path to the extension
+ * @param {boolean} isNewChat - Whether this is a new chat (no history or last message is from user)
  * @returns {object} - Object containing input elements
  */
-export function createInputArea(extensionPath) {
+export function createInputArea(extensionPath, isNewChat = true) {
   const inputFieldBox = new St.BoxLayout({
     style_class: "input-field-box",
     vertical: false,
   });
 
   const inputField = new St.Entry({
-    hint_text: "Type your message here...",
+    hint_text: isNewChat ? "Start your conversation..." : "Your response...",
     can_focus: true,
     style_class: "input-field",
   });
@@ -204,6 +205,19 @@ export function createInputArea(extensionPath) {
   inputFieldBox.add_child(inputField);
 
   return { inputFieldBox, inputField, sendButton, sendIcon };
+}
+
+/**
+ * Updates the hint text of an input field based on conversation state
+ * @param {St.Entry} inputField - The input field to update
+ * @param {boolean} isNewChat - Whether this is a new chat (no history or last message is from user)
+ */
+export function updateInputFieldHint(inputField, isNewChat) {
+  if (inputField) {
+    inputField.hint_text = isNewChat
+      ? "Start your conversation..."
+      : "Your response...";
+  }
 }
 
 /**

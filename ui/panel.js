@@ -81,9 +81,15 @@ export const Indicator = GObject.registerClass(
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
 
+      // Check if there's any conversation history
+      const history = getConversationHistory();
+      const isNewChat =
+        history.length === 0 ||
+        (history.length > 0 && history[history.length - 1].type === "user");
+
       // Setup input components
       const { inputFieldBox, inputField, sendButton, sendIcon } =
-        PanelElements.createInputArea(this._extensionPath);
+        PanelElements.createInputArea(this._extensionPath, isNewChat);
       this._inputFieldBox = inputFieldBox;
       this._inputField = inputField;
       this._sendButton = sendButton;
@@ -305,6 +311,7 @@ export const Indicator = GObject.registerClass(
       }
 
       this._clearHistory();
+      // Update input field hint for new chat is handled in _clearHistory
     }
 
     _setupClearButton() {
@@ -354,6 +361,9 @@ export const Indicator = GObject.registerClass(
       // Clear input field immediately
       this._inputField.set_text("");
 
+      // Update input field hint to "Your response..." immediately after sending
+      PanelElements.updateInputFieldHint(this._inputField, false);
+
       // Set processing flag and disable send button
       this._isProcessingMessage = true;
       this._updateSendButtonState(false);
@@ -370,6 +380,7 @@ export const Indicator = GObject.registerClass(
             // Reset processing flag when response is complete
             this._isProcessingMessage = false;
             this._updateSendButtonState(true);
+            // No need to update hint here as we already updated it when sending the message
           },
         });
       } catch (error) {
@@ -382,6 +393,12 @@ export const Indicator = GObject.registerClass(
         // Reset processing flag on error
         this._isProcessingMessage = false;
         this._updateSendButtonState(true);
+        // Update input field hint based on conversation history
+        const history = getConversationHistory();
+        const isNewChat =
+          history.length === 0 ||
+          (history.length > 0 && history[history.length - 1].type === "user");
+        PanelElements.updateInputFieldHint(this._inputField, isNewChat);
       }
 
       // Give focus back to input field
@@ -462,6 +479,12 @@ export const Indicator = GObject.registerClass(
         this._outputContainer.add_child(msg);
       });
 
+      // Update input field hint based on conversation state
+      const isNewChat =
+        history.length === 0 ||
+        (history.length > 0 && history[history.length - 1].type === "user");
+      PanelElements.updateInputFieldHint(this._inputField, isNewChat);
+
       // Scroll to the bottom to show latest messages
       PanelElements.scrollToBottom(this._outputScrollView);
     }
@@ -473,6 +496,9 @@ export const Indicator = GObject.registerClass(
 
       // Clear UI
       MessageProcessor.clearOutput(this._outputContainer);
+
+      // Update input field hint for new chat
+      PanelElements.updateInputFieldHint(this._inputField, true);
     }
 
     // LAYOUT UPDATES
