@@ -200,8 +200,8 @@ export function createInputArea(extensionPath) {
     child: sendIcon,
   });
 
+  // Only add the input field to the box, the send button will be in the buttons container
   inputFieldBox.add_child(inputField);
-  inputFieldBox.add_child(sendButton);
 
   return { inputFieldBox, inputField, sendButton, sendIcon };
 }

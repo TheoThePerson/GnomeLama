@@ -33,6 +33,7 @@ export function calculatePanelDimensions() {
   const sendButtonSize = inputFieldHeight;
   const availableInputWidth =
     panelWidth - sendButtonSize - 3 * horizontalPadding;
+  const buttonsHeight = topBarHeight;
 
   return {
     monitor,
@@ -45,6 +46,7 @@ export function calculatePanelDimensions() {
     sendButtonSize,
     horizontalPadding,
     availableInputWidth,
+    buttonsHeight,
   };
 }
 
@@ -77,32 +79,33 @@ export function updatePanelOverlay(panelOverlay) {
 }
 
 /**
- * Updates top bar layout
- * @param {St.BoxLayout} topBar - The top bar container
+ * Updates buttons container layout
+ * @param {St.BoxLayout} buttonsBox - The buttons container
  * @param {St.Button} modelButton - The model selection button
  * @param {St.Button} clearButton - The clear history button
  */
-export function updateTopBar(topBar, modelButton, clearButton) {
-  const { panelWidth, topBarHeight } = calculatePanelDimensions();
-  const settings = getSettings();
+export function updateButtonsContainer(buttonsBox, modelButton, clearButton) {
+  const {
+    panelWidth,
+    buttonsHeight,
+    panelHeight,
+    inputFieldHeight,
+    horizontalPadding,
+  } = calculatePanelDimensions();
 
-  // Set the top bar properties
-  topBar.set_style(
-    `background-color: ${settings.get_string("top-bar-color")};`
+  // Position at the bottom of the panel
+  buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
+  buttonsBox.set_position(
+    horizontalPadding,
+    panelHeight - buttonsHeight - horizontalPadding
   );
-  topBar.set_size(panelWidth, topBarHeight);
-  topBar.remove_all_children();
-
-  // Add components to top bar
-  topBar.add_child(modelButton);
-  topBar.add_child(new St.Widget({ x_expand: true }));
-  topBar.add_child(clearButton);
 
   // Configure model button
   modelButton.set_width(panelWidth * 0.6);
-  modelButton.set_height(topBarHeight);
+  modelButton.set_height(buttonsHeight);
 
   // Configure clear button
+  const settings = getSettings();
   const clearIconScale = settings.get_double("clear-icon-scale");
   const iconSize = 24 * clearIconScale;
 
@@ -116,7 +119,7 @@ export function updateTopBar(topBar, modelButton, clearButton) {
   }
 
   // Size and align the button
-  const clearButtonSize = Math.max(topBarHeight * 0.9, 32);
+  const clearButtonSize = Math.max(buttonsHeight * 0.9, 32);
   clearButton.set_width(clearButtonSize);
   clearButton.set_height(clearButtonSize);
   clearButton.set_style("padding: 0; margin: 0;");
@@ -130,17 +133,12 @@ export function updateTopBar(topBar, modelButton, clearButton) {
  * @param {St.BoxLayout} outputContainer - The output container
  */
 export function updateOutputArea(outputScrollView, outputContainer) {
-  const {
-    panelWidth,
-    outputHeight,
-    topBarHeight,
-    paddingY,
-    horizontalPadding,
-  } = calculatePanelDimensions();
+  const { panelWidth, outputHeight, paddingY, horizontalPadding } =
+    calculatePanelDimensions();
 
-  // Configure scroll view
+  // Configure scroll view - now positioned below padding
   outputScrollView.set_size(panelWidth, outputHeight);
-  outputScrollView.set_position(0, topBarHeight + paddingY);
+  outputScrollView.set_position(0, paddingY);
   outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
   // Configure content container
@@ -149,6 +147,42 @@ export function updateOutputArea(outputScrollView, outputContainer) {
     `padding: 0 ${horizontalPadding}px; width: ${contentWidth}px;`
   );
   outputContainer.set_width(contentWidth);
+}
+
+/**
+ * Updates the input-buttons container position
+ * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
+ */
+export function updateInputButtonsContainer(inputButtonsContainer) {
+  const {
+    panelWidth,
+    panelHeight,
+    inputFieldHeight,
+    horizontalPadding,
+    buttonsHeight,
+    paddingY,
+  } = calculatePanelDimensions();
+
+  // The container should be placed at the bottom with padding
+  const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+
+  inputButtonsContainer.set_position(
+    horizontalPadding,
+    panelHeight - containerHeight - horizontalPadding
+  );
+
+  // Set the width to span most of the panel with padding on both sides
+  inputButtonsContainer.set_size(
+    panelWidth - horizontalPadding * 2,
+    containerHeight
+  );
+
+  // Apply rounded lighter grey container styling to the entire input+buttons area
+  inputButtonsContainer.set_style(`
+    background-color: rgba(80, 80, 80, 0.5);
+    border-radius: 16px;
+    padding: 12px;
+  `);
 }
 
 /**
@@ -164,29 +198,19 @@ export function updateInputArea(
   sendButton,
   sendIcon
 ) {
-  const {
-    panelWidth,
-    inputFieldHeight,
-    outputHeight,
-    topBarHeight,
-    paddingY,
-    horizontalPadding,
-    sendButtonSize,
-    availableInputWidth,
-  } = calculatePanelDimensions();
+  const { availableInputWidth, sendButtonSize, horizontalPadding } =
+    calculatePanelDimensions();
 
-  // Configure container
-  inputFieldBox.set_size(panelWidth, inputFieldHeight);
-  inputFieldBox.set_position(0, outputHeight + topBarHeight + paddingY);
-  inputFieldBox.set_style(
-    `padding-left: ${horizontalPadding}px; padding-right: ${horizontalPadding}px;`
-  );
+  // Remove the container styling from inputFieldBox as it's now on the parent container
+  inputFieldBox.set_style(`padding: 0 0 8px 0;`);
   inputFieldBox.spacing = 8;
 
-  // Configure input field
-  inputField.set_style(
-    `border-radius: 9999px; width: ${availableInputWidth}px;`
-  );
+  // Configure input field - remove background, keep only text
+  inputField.set_style(`
+    background-color: transparent;
+    border: none;
+    width: ${availableInputWidth}px;
+  `);
 
   // Configure send button
   sendButton.set_width(sendButtonSize);

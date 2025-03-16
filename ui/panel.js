@@ -60,7 +60,20 @@ export const Indicator = GObject.registerClass(
       // Create main panel components
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
-      this._topBar = PanelElements.createTopBar(dimensions);
+
+      // Create container for both input field and buttons
+      this._inputButtonsContainer = new St.BoxLayout({
+        style_class: "input-buttons-container",
+        vertical: true,
+        reactive: true,
+      });
+
+      // Create buttons container
+      this._buttonsContainer = new St.BoxLayout({
+        style_class: "buttons-container",
+        vertical: false,
+        reactive: true,
+      });
 
       // Setup scrollable content area
       const { outputScrollView, outputContainer } =
@@ -88,10 +101,19 @@ export const Indicator = GObject.registerClass(
       this._setupModelMenu();
       this._setupClearButton();
 
+      // Configure the buttons container
+      this._buttonsContainer.add_child(this._modelButton);
+      this._buttonsContainer.add_child(new St.Widget({ x_expand: true }));
+      this._buttonsContainer.add_child(this._clearButton);
+      this._buttonsContainer.add_child(this._sendButton);
+
+      // Add input field and buttons to the container
+      this._inputButtonsContainer.add_child(this._inputFieldBox);
+      this._inputButtonsContainer.add_child(this._buttonsContainer);
+
       // Assemble the UI
-      this._panelOverlay.add_child(this._topBar);
       this._panelOverlay.add_child(this._outputScrollView);
-      this._panelOverlay.add_child(this._inputFieldBox);
+      this._panelOverlay.add_child(this._inputButtonsContainer);
 
       // Ensure the overlay is properly added to Chrome
       Main.layoutManager.addChrome(this._panelOverlay, {
@@ -146,7 +168,7 @@ export const Indicator = GObject.registerClass(
       this._modelMenu = new PopupMenu.PopupMenu(
         new St.Button(),
         0.0,
-        St.Side.TOP
+        St.Side.BOTTOM
       );
       Main.uiGroup.add_child(this._modelMenu.actor);
       this._modelMenu.actor.hide();
@@ -157,9 +179,14 @@ export const Indicator = GObject.registerClass(
           const dimensions = LayoutManager.calculatePanelDimensions();
           const panelLeft = dimensions.monitor.width - dimensions.panelWidth;
           let menuActor = this._modelMenu.actor || this._modelMenu;
+
+          // Position menu above the input-buttons container
+          const [containerX, containerY] =
+            this._inputButtonsContainer.get_transformed_position();
+
           menuActor.set_position(
             panelLeft,
-            Main.panel.actor.height + dimensions.topBarHeight
+            containerY - menuActor.get_height()
           );
         }
       });
@@ -456,8 +483,9 @@ export const Indicator = GObject.registerClass(
 
       // Update each component's layout
       LayoutManager.updatePanelOverlay(this._panelOverlay);
-      LayoutManager.updateTopBar(
-        this._topBar,
+      LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+      LayoutManager.updateButtonsContainer(
+        this._buttonsContainer,
         this._modelButton,
         this._clearButton
       );

@@ -57,7 +57,7 @@
 /* Input field styles */
 .input-field-box {
   padding: 8px;
-  background-color: rgba(30, 30, 30, 0.8);
+  background-color: transparent;
 }
 
 .input-field {
@@ -71,6 +71,21 @@
 
 .input-field:focus {
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Input and buttons container */
+.input-buttons-container {
+  background-color: rgba(30, 30, 30, 0.8);
+  border-radius: 16px;
+  margin: 8px;
+  padding: 8px;
+}
+
+/* Buttons container style */
+.buttons-container {
+  background-color: transparent;
+  margin: 4px 0 0 0;
+  padding: 4px 0;
 }
 
 /* Code block styles */
