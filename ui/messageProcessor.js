@@ -9,6 +9,9 @@ import * as PanelElements from "./panelElements.js";
 import { sendMessage } from "../services/messaging.js";
 import { getSettings } from "../lib/settings.js";
 
+// Track temporary messages
+let temporaryMessages = new Set();
+
 /**
  * Process user message and handle AI response
  * @param {object} options - Processing options
@@ -31,6 +34,9 @@ export async function processUserMessage({
   if (!userMessage || !userMessage.trim()) {
     return;
   }
+
+  // Remove any existing temporary messages when user sends a message
+  removeTemporaryMessages(outputContainer);
 
   // Add user message to UI
   appendUserMessage(outputContainer, userMessage);
@@ -139,14 +145,47 @@ export function updateResponseContainer(container, responseText) {
  * @param {string} text - The message text
  */
 export function addTemporaryMessage(outputContainer, text) {
+  // Remove any existing temporary messages first
+  removeTemporaryMessages(outputContainer);
+
   const tempLabel = UIComponents.createTemporaryMessageLabel(text);
   outputContainer.add_child(tempLabel);
+  temporaryMessages.add(tempLabel);
 }
 
 /**
- * Clear all messages from the output container
+ * Remove all temporary messages from the output container
+ * @param {St.BoxLayout} outputContainer - The container to clear temporary messages from
+ */
+function removeTemporaryMessages(outputContainer) {
+  temporaryMessages.forEach((message) => {
+    if (message.get_parent() === outputContainer) {
+      message.destroy();
+    }
+  });
+  temporaryMessages.clear();
+}
+
+/**
+ * Clear all messages from the output container except temporary ones
  * @param {St.BoxLayout} outputContainer - The container to clear
  */
 export function clearOutput(outputContainer) {
-  outputContainer.get_children().forEach((child) => child.destroy());
+  // Save temporary messages
+  const tempMessages = new Set();
+  temporaryMessages.forEach((msg) => {
+    if (msg.get_parent() === outputContainer) {
+      tempMessages.add(msg);
+    }
+  });
+
+  // Clear all messages
+  outputContainer.get_children().forEach((child) => {
+    if (!tempMessages.has(child)) {
+      child.destroy();
+    }
+  });
+
+  // Update our tracking set to only include remaining messages
+  temporaryMessages = tempMessages;
 }

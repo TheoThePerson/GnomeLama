@@ -53,7 +53,8 @@ export function createTopBar(dimensions) {
  * @param {string} label - Initial button label text
  * @returns {object} - Object containing button and label elements
  */
-export function createModelButton(label = "Models ▼") {
+export function createModelButton(label = "No models found") {
+  //will be overwritten by the actual model name if any are found
   const modelButtonLabel = new St.Label({
     text: label,
     style_class: "model-button-label",

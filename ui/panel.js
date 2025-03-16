@@ -17,6 +17,7 @@ import {
   clearConversationHistory,
   fetchModelNames,
   setModel,
+  stopAiMessage,
 } from "../services/messaging.js";
 
 export const Indicator = GObject.registerClass(
@@ -339,14 +340,45 @@ export const Indicator = GObject.registerClass(
      * @param {boolean} enabled - Whether the button should be enabled
      */
     _updateSendButtonState(enabled) {
-      // Only update the internal state without visual changes
-      this._sendButton.reactive = enabled;
-      this._sendButton.can_focus = enabled;
+      // Update button state
+      this._sendButton.reactive = true; // Always keep reactive to allow stopping
+      this._sendButton.can_focus = true;
+
+      // Switch between send and stop icons
+      const iconPath = enabled ? "send-icon.svg" : "stop-icon.svg";
+      this._sendIcon.set_gicon(
+        Gio.icon_new_for_string(`${this._extensionPath}/icons/${iconPath}`)
+      );
+
+      // Update click handler based on state
+      if (this._sendButtonClickId) {
+        this._sendButton.disconnect(this._sendButtonClickId);
+      }
+
+      this._sendButtonClickId = this._sendButton.connect(
+        "clicked",
+        enabled
+          ? this._sendMessage.bind(this)
+          : () => {
+              // Call stopAiMessage and reset the button state
+              stopAiMessage();
+              this._isProcessingMessage = false;
+              this._updateSendButtonState(true);
+            }
+      );
     }
 
     // HISTORY MANAGEMENT
 
     _updateHistory() {
+      // Save any existing temporary messages
+      const tempMessages = this._outputContainer
+        .get_children()
+        .filter(
+          (child) =>
+            child.style_class && child.style_class.includes("temporary-message")
+        );
+
       // Clear existing messages
       MessageProcessor.clearOutput(this._outputContainer);
 
@@ -370,6 +402,11 @@ export const Indicator = GObject.registerClass(
             message.text
           );
         }
+      });
+
+      // Restore temporary messages
+      tempMessages.forEach((msg) => {
+        this._outputContainer.add_child(msg);
       });
 
       // Scroll to the bottom to show latest messages
@@ -416,29 +453,21 @@ export const Indicator = GObject.registerClass(
     // CLEANUP
 
     destroy() {
-      // Disconnect signals
+      // Disconnect settings change signal
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
-        this._settingsChangedId = 0;
       }
 
-      // Clean up model menu
-      if (this._modelMenu) {
-        this._modelMenu.destroy();
-        this._modelMenu = null;
+      // Disconnect send button click handler
+      if (this._sendButtonClickId) {
+        this._sendButton.disconnect(this._sendButtonClickId);
       }
 
-      // Remove the panel overlay
-      if (this._panelOverlay && this._panelOverlay.get_parent()) {
+      // Remove the panel overlay from Chrome
+      if (this._panelOverlay) {
         Main.layoutManager.removeChrome(this._panelOverlay);
       }
 
-      if (this._panelOverlay) {
-        this._panelOverlay.destroy();
-        this._panelOverlay = null;
-      }
-
-      // Call parent destroy method
       super.destroy();
     }
   }

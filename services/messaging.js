@@ -4,7 +4,6 @@
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
-import * as MessageProcessor from "../ui/messageProcessor.js";
 
 let conversationHistory = [];
 let currentModel = null;
@@ -33,7 +32,7 @@ export async function fetchModelNames() {
 
   if (models.length === 0) {
     error =
-      "No models found. Please check if you have an API key in settings, or if Ollama is installed and running.";
+      "No models found. Please check if Ollama is running with models installed,or that you have an API key in settings.";
   }
 
   return { models, error };
@@ -122,5 +121,13 @@ export async function sendMessage(message, context, onData) {
       : "Error communicating with Ollama. Please check if Ollama is installed and running.";
     if (onData) onData(errorMsg);
     return errorMsg;
+  }
+}
+
+export function stopAiMessage() {
+  if (openaiProvider.isOpenAIModel(currentModel)) {
+    // openaiProvider.stopMessage(); something like this not implemented yet
+  } else {
+    // ollamaProvider.stopMessage(); something like this not implemented yet
   }
 }

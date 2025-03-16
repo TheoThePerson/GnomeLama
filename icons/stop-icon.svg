@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- White circle -->
+  <circle cx="12" cy="12" r="10" fill="white"/>
+  <!-- Scaled-down filled square -->
+  <g transform="scale(0.5) translate(12,12)">
+    <rect x="6" y="6" width="12" height="12" fill="black"/>
+  </g>
+</svg>

@@ -288,6 +288,7 @@ export function createTemporaryMessageLabel(text) {
     x_align: Clutter.ActorAlign.START,
   });
 
+  tempLabel.clutter_text.set_line_wrap(true);
   tempLabel.clutter_text.set_selectable(true);
 
   return tempLabel;
