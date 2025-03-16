@@ -113,8 +113,11 @@ export const Indicator = GObject.registerClass(
       // Handle Enter key press in input field
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
-          // Only send message if we're not already processing one
-          if (!this._isProcessingMessage) {
+          if (this._isProcessingMessage) {
+            stopAiMessage();
+            this._isProcessingMessage = false;
+            this._updateSendButtonState(true);
+          } else {
             this._sendMessage();
           }
           return Clutter.EVENT_STOP;

@@ -10,6 +10,11 @@ const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
 
 let availableModels = [];
+// Track active API resources
+let activeSession = null;
+let activeInputStream = null;
+let activeDataInputStream = null;
+let isCancelled = false;
 
 /**
  * Checks if a model is an OpenAI model
@@ -152,6 +157,9 @@ export async function sendMessageToAPI(
     );
   }
 
+  // Reset cancellation flag at the start of a new request
+  isCancelled = false;
+
   // Convert conversation history to OpenAI format
   const messages = context.map((msg) => ({
     role: msg.type === "user" ? "user" : "assistant",
@@ -171,7 +179,7 @@ export async function sendMessageToAPI(
 
   try {
     // Create Soup session and message
-    const session = new Soup.Session();
+    activeSession = new Soup.Session();
     const message = Soup.Message.new("POST", OPENAI_API_URL);
 
     // Set headers and body
@@ -186,12 +194,18 @@ export async function sendMessageToAPI(
 
     // Handle streaming response
     const inputStream = await new Promise((resolve, reject) => {
-      session.send_async(
+      activeSession.send_async(
         message,
         GLib.PRIORITY_DEFAULT,
         null,
         (session, result) => {
           try {
+            // Check if cancelled before processing result
+            if (isCancelled) {
+              reject(new Error("Request cancelled"));
+              return;
+            }
+
             if (message.get_status() !== Soup.Status.OK) {
               throw new Error(`HTTP error: ${message.get_status()}`);
             }
@@ -201,6 +215,7 @@ export async function sendMessageToAPI(
               throw new Error("No response stream available");
             }
 
+            activeInputStream = inputStream;
             resolve(inputStream);
           } catch (e) {
             console.error("Error sending message:", e);
@@ -216,8 +231,15 @@ export async function sendMessageToAPI(
       close_base_stream: true,
     });
 
+    activeDataInputStream = dataInputStream;
+
     // Process the streaming response
     while (true) {
+      // Check if cancelled before reading more data
+      if (isCancelled) {
+        break;
+      }
+
       const [line] = await dataInputStream.read_line_async(
         GLib.PRIORITY_DEFAULT,
         null
@@ -248,10 +270,72 @@ export async function sendMessageToAPI(
       }
     }
 
+    // Clean up after we're done
     dataInputStream.close(null);
+    activeDataInputStream = null;
+    activeInputStream = null;
+    activeSession = null;
+
     return { response: fullResponse };
   } catch (error) {
     console.error("API request error:", error);
+
+    // Clean up resources in case of error
+    if (activeDataInputStream) {
+      try {
+        activeDataInputStream.close(null);
+        activeDataInputStream = null;
+      } catch (e) {
+        console.error("Error closing data input stream:", e);
+      }
+    }
+
+    activeInputStream = null;
+    activeSession = null;
+
     throw error;
   }
+}
+
+/**
+ * Stops any ongoing API request, closes streams and cleans up resources
+ */
+export function stopMessage() {
+  if (!activeSession) {
+    return; // No active session to stop
+  }
+
+  isCancelled = true;
+
+  // Close the data input stream if it exists
+  if (activeDataInputStream) {
+    try {
+      activeDataInputStream.close(null);
+      activeDataInputStream = null;
+    } catch (e) {
+      console.error("Error closing data input stream:", e);
+    }
+  }
+
+  // Close the input stream if it exists
+  if (activeInputStream) {
+    try {
+      activeInputStream.close(null);
+      activeInputStream = null;
+    } catch (e) {
+      console.error("Error closing input stream:", e);
+    }
+  }
+
+  // Cancel any pending operations on the session
+  if (activeSession) {
+    try {
+      activeSession.abort();
+      activeSession = null;
+    } catch (e) {
+      console.error("Error aborting session:", e);
+    }
+  }
+
+  console.log("OpenAI API request cancelled");
 }
