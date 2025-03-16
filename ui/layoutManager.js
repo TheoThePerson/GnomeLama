@@ -32,7 +32,7 @@ export function calculatePanelDimensions() {
     panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
   const sendButtonSize = inputFieldHeight;
   const availableInputWidth =
-    panelWidth - sendButtonSize - 3 * horizontalPadding;
+    panelWidth - sendButtonSize / 2 - 3 * horizontalPadding;
   const buttonsHeight = topBarHeight;
 
   return {
@@ -197,30 +197,55 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
  * @param {St.Button} sendButton - The send button
  * @param {St.Icon} sendIcon - The send icon
  */
-export function updateInputArea(
-  inputFieldBox,
-  inputField,
-  sendButton,
-  sendIcon
-) {
-  const { availableInputWidth, sendButtonSize, horizontalPadding } =
-    calculatePanelDimensions();
+/**
+ * Updates input area layout
+ * @param {St.BoxLayout} inputFieldBox - The input field container
+ * @param {St.Entry} inputField - The text input field
+ * @param {St.Button} sendButton - The send button
+ * @param {St.Icon} sendIcon - The send icon
+ */
+export function updateInputArea(inputFieldBox, inputField) {
+  const {
+    availableInputWidth,
+    sendButtonSize,
+    inputFieldHeight,
+    panelWidth,
+    horizontalPadding,
+  } = calculatePanelDimensions();
 
-  // Remove the container styling from inputFieldBox as it's now on the parent container
-  inputFieldBox.set_style(`padding: 0 0 8px 0;`);
+  // Set proper alignment for the input field box
+  inputFieldBox.set_style(`
+    padding: 0;
+    height: ${inputFieldHeight}px;
+  `);
+
+  // Center the input field box horizontally
+  inputFieldBox.set_x_align(Clutter.ActorAlign.CENTER);
+  inputFieldBox.set_y_align(Clutter.ActorAlign.CENTER);
   inputFieldBox.spacing = 8;
 
-  // Configure input field - remove background, keep only text
+  // Calculate remaining space to ensure proper centering
+  const totalContentWidth = availableInputWidth + sendButtonSize + 8; // width + button + spacing
+  const leftPadding = Math.max(
+    0,
+    (panelWidth - 2 * horizontalPadding - totalContentWidth) / 2
+  );
+
+  // Add padding to the left side to center the content if needed
+  if (leftPadding > 0) {
+    inputFieldBox.set_style(`
+      padding: 0 0 0 ${leftPadding}px;
+      height: ${inputFieldHeight}px;
+    `);
+  }
+
+  // Configure input field with proper centering
   inputField.set_style(`
     background-color: transparent;
     border: none;
     width: ${availableInputWidth}px;
   `);
 
-  // Configure send button
-  sendButton.set_width(sendButtonSize);
-  sendButton.set_height(sendButtonSize);
-
-  // Configure send icon
-  sendIcon.icon_size = sendButtonSize;
+  // Ensure the input field's height is properly set
+  inputField.set_height(-1); // Let it use natural height
 }
