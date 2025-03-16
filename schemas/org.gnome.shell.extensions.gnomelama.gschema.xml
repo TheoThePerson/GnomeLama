@@ -91,5 +91,10 @@
       <summary>Background Opacity</summary>
       <description>Background opacity of the panel (0.0-1.0, where 1.0 is fully opaque).</description>
     </key>
+    <key name="input-field-spacing-fraction" type="d">
+      <default>0.005</default>
+      <summary>Input Field Spacing Fraction</summary>
+      <description>Spacing between input field and send button as a fraction of panel width.</description>
+    </key>
   </schema>
 </schemalist>

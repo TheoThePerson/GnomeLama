@@ -1,11 +1,9 @@
 /**
  * Provider for communicating with Ollama API
  */
-import Gio from "gi://Gio";
-import GLib from "gi://GLib";
-import Soup from "gi://Soup";
+
 import { getSettings } from "../../lib/settings.js";
-import { createCancellableSession, invokeCallback } from "./apiUtils.js";
+import { createCancellableSession, invokeCallback } from "../apiUtils.js";
 
 let currentContext = null; // Store the context from previous interactions
 let apiSession = null; // API session handler

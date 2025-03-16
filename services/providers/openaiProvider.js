@@ -1,11 +1,8 @@
 /**
  * Provider for communicating with OpenAI API
  */
-import Gio from "gi://Gio";
-import GLib from "gi://GLib";
-import Soup from "gi://Soup";
 import { getSettings } from "../../lib/settings.js";
-import { createCancellableSession, invokeCallback } from "./apiUtils.js";
+import { createCancellableSession, invokeCallback } from "../apiUtils.js";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";

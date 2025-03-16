@@ -139,6 +139,9 @@ export const Indicator = GObject.registerClass(
       this._modelButton = modelButton;
       this._modelButtonLabel = modelButtonLabel;
 
+      // Set default label while initializing
+      this._updateModelLabel("Loading...");
+
       // Create model selection popup menu
       this._modelMenu = new PopupMenu.PopupMenu(
         new St.Button(),
@@ -203,15 +206,22 @@ export const Indicator = GObject.registerClass(
     }
 
     async _addModelMenuItems() {
+      // Update label to show fetching status
+      this._updateModelLabel("Fetching models");
+
       const { models, error } = await fetchModelNames();
 
       // Show error message if no models found
       if (error) {
+        this._updateModelLabel("No models found");
         MessageProcessor.addTemporaryMessage(this._outputContainer, error);
         return;
       }
 
-      if (models.length === 0) return;
+      if (models.length === 0) {
+        this._updateModelLabel("No models found");
+        return;
+      }
 
       // Clear existing menu items first
       this._modelMenu.removeAll();
@@ -260,6 +270,13 @@ export const Indicator = GObject.registerClass(
       setModel(name);
 
       this._modelMenu.close();
+
+      if (this._isProcessingMessage) {
+        stopAiMessage();
+        this._isProcessingMessage = false;
+        this._updateSendButtonState(true);
+      }
+
       this._clearHistory();
     }
 
@@ -271,6 +288,12 @@ export const Indicator = GObject.registerClass(
 
       this._clearButton = clearButton;
       this._clearIcon = clearIcon;
+
+      if (this._isProcessingMessage) {
+        stopAiMessage();
+        this._isProcessingMessage = false;
+        this._updateSendButtonState(true);
+      }
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
     }
