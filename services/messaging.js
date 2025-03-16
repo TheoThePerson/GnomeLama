@@ -128,6 +128,6 @@ export function stopAiMessage() {
   if (openaiProvider.isOpenAIModel(currentModel)) {
     openaiProvider.stopMessage();
   } else {
-    // ollamaProvider.stopMessage(); not implemented yet
+    ollamaProvider.stopMessage();
   }
 }

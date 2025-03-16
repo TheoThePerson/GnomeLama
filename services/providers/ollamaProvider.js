@@ -7,6 +7,10 @@ import Soup from "gi://Soup";
 import { getSettings } from "../../lib/settings.js";
 
 let currentContext = null; // Store the context from previous interactions
+let activeSession = null; // Store the active session
+let activeCancellable = null; // Store the cancellable object
+let isMessageCancelled = false; // Flag to track if the message has been cancelled
+let fullResponseBuffer = ""; // Buffer to store the accumulated response
 
 /**
  * Gets the current context from previous interactions
@@ -94,6 +98,13 @@ export async function sendMessageToAPI(
 ) {
   const settings = getSettings();
 
+  // Reset cancellation state
+  isMessageCancelled = false;
+  fullResponseBuffer = "";
+
+  // Create cancellable object
+  activeCancellable = new Gio.Cancellable();
+
   // Prepare payload
   const payload = JSON.stringify({
     model: modelName,
@@ -110,7 +121,7 @@ export async function sendMessageToAPI(
 
   try {
     // Create Soup session and message
-    const session = new Soup.Session();
+    activeSession = new Soup.Session();
     const message = Soup.Message.new("POST", endpoint);
 
     // Set headers and body
@@ -121,19 +132,28 @@ export async function sendMessageToAPI(
 
     // Handle streaming response
     const inputStream = await new Promise((resolve, reject) => {
-      session.send_async(
+      activeSession.send_async(
         message,
         GLib.PRIORITY_DEFAULT,
-        null,
+        activeCancellable,
         (session, result) => {
           try {
+            // Check if cancelled
+            if (
+              isMessageCancelled ||
+              (activeCancellable && activeCancellable.is_cancelled())
+            ) {
+              resolve(null);
+              return;
+            }
+
             // Check the HTTP status code
             if (message.get_status() !== Soup.Status.OK) {
               throw new Error(`HTTP error: ${message.get_status()}`);
             }
 
             // Get the response input stream
-            const inputStream = session.send_finish(result);
+            const inputStream = activeSession.send_finish(result);
             if (!inputStream) {
               throw new Error("No response stream available");
             }
@@ -147,6 +167,11 @@ export async function sendMessageToAPI(
       );
     });
 
+    // Return early if cancelled or no input stream
+    if (isMessageCancelled || !inputStream) {
+      return { response: fullResponseBuffer, context: currentContext };
+    }
+
     // Read from the stream
     const dataInputStream = new Gio.DataInputStream({
       base_stream: inputStream,
@@ -154,44 +179,93 @@ export async function sendMessageToAPI(
     });
 
     // Process the streaming response
-    while (true) {
-      const [line] = await dataInputStream.read_line_async(
-        GLib.PRIORITY_DEFAULT,
-        null
-      );
-      if (!line) break;
-
-      const lineText = new TextDecoder().decode(line);
+    while (!isMessageCancelled) {
+      // Check if cancelled before reading next line
+      if (activeCancellable && activeCancellable.is_cancelled()) {
+        break;
+      }
 
       try {
-        const json = JSON.parse(lineText);
+        const [line] = await dataInputStream.read_line_async(
+          GLib.PRIORITY_DEFAULT,
+          activeCancellable
+        );
 
-        // Save context if provided
-        if (json.context) {
-          currentContext = json.context;
-        }
+        if (!line) break;
 
-        // Handle response content
-        if (json.response) {
-          const chunk = json.response;
-          fullResponse += chunk;
+        const lineText = new TextDecoder().decode(line);
 
-          if (onData) {
-            await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-              onData(chunk);
-              return GLib.SOURCE_REMOVE;
-            });
+        try {
+          const json = JSON.parse(lineText);
+
+          // Save context if provided
+          if (json.context) {
+            currentContext = json.context;
           }
+
+          // Handle response content
+          if (json.response) {
+            const chunk = json.response;
+            fullResponse += chunk;
+            fullResponseBuffer += chunk;
+
+            if (onData && !isMessageCancelled) {
+              await GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                onData(chunk);
+                return GLib.SOURCE_REMOVE;
+              });
+            }
+          }
+        } catch (parseError) {
+          console.error("Error parsing JSON chunk:", parseError);
         }
-      } catch (parseError) {
-        console.error("Error parsing JSON chunk:", parseError);
+      } catch (readError) {
+        // Check if this is a cancellation error
+        if (
+          isMessageCancelled ||
+          (activeCancellable && activeCancellable.is_cancelled())
+        ) {
+          break;
+        }
+        console.error("Error reading from stream:", readError);
+        break;
       }
     }
 
     dataInputStream.close(null);
+
+    // Clean up
+    activeSession = null;
+    activeCancellable = null;
+
     return { response: fullResponse, context: currentContext };
   } catch (error) {
     console.error("API request error:", error);
+    // Clean up on error
+    activeSession = null;
+    activeCancellable = null;
+
     throw error;
   }
+}
+
+/**
+ * Stops the current message streaming operation
+ * @returns {string} The accumulated response text so far
+ */
+export function stopMessage() {
+  if (!activeSession || !activeCancellable) {
+    return fullResponseBuffer;
+  }
+
+  console.log("Cancelling message stream");
+  isMessageCancelled = true;
+
+  // Cancel any ongoing operations
+  if (activeCancellable && !activeCancellable.is_cancelled()) {
+    activeCancellable.cancel();
+  }
+
+  // Return the accumulated response so far
+  return fullResponseBuffer;
 }
