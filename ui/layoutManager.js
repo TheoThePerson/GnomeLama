@@ -176,6 +176,13 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     panelWidth - horizontalPadding * 2,
     containerHeight
   );
+
+  // Apply rounded lighter grey container styling to the entire input+buttons area
+  inputButtonsContainer.set_style(`
+    background-color: rgba(80, 80, 80, 0.5);
+    border-radius: 16px;
+    padding: 12px;
+  `);
 }
 
 /**
@@ -194,14 +201,16 @@ export function updateInputArea(
   const { availableInputWidth, sendButtonSize, horizontalPadding } =
     calculatePanelDimensions();
 
-  // Since input field is now in a container, it doesn't need absolute positioning
-  inputFieldBox.set_style(`padding: 4px 0;`);
+  // Remove the container styling from inputFieldBox as it's now on the parent container
+  inputFieldBox.set_style(`padding: 0 0 8px 0;`);
   inputFieldBox.spacing = 8;
 
-  // Configure input field
-  inputField.set_style(
-    `border-radius: 9999px; width: ${availableInputWidth}px;`
-  );
+  // Configure input field - remove background, keep only text
+  inputField.set_style(`
+    background-color: transparent;
+    border: none;
+    width: ${availableInputWidth}px;
+  `);
 
   // Configure send button
   sendButton.set_width(sendButtonSize);
