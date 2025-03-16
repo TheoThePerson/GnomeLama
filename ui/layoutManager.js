@@ -153,6 +153,10 @@ export function updateOutputArea(outputScrollView, outputContainer) {
  * Updates the input-buttons container position
  * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
  */
+/**
+ * Updates the input-buttons container position
+ * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
+ */
 export function updateInputButtonsContainer(inputButtonsContainer) {
   const {
     panelWidth,
@@ -164,6 +168,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   } = calculatePanelDimensions();
 
   // The container should go all the way to the bottom of the screen
+  // Add extra space for gap between input and buttons (16px)
   const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
 
   // Position at the bottom with only horizontal padding
@@ -182,10 +187,9 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   inputButtonsContainer.set_style(`
     background-color: rgba(80, 80, 80, 0.5);
     border-radius: 16px 16px 0 0; /* Rounded only at the top */
-    padding: 12px;
+    padding: 6px;
   `);
 }
-
 /**
  * Updates input area layout
  * @param {St.BoxLayout} inputFieldBox - The input field container
