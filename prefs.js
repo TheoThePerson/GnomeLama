@@ -104,20 +104,6 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       0.05,
       0.005
     );
-
-    // Buttons to input field padding
-    this._addSpinRow(
-      paddingGroup,
-      settings,
-      "buttons-input-padding",
-      _("Buttons to Input Padding"),
-      _(
-        "Space between the input field and buttons. Higher values increase the gap."
-      ),
-      0,
-      20,
-      1
-    );
   }
 
   /**

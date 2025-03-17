@@ -89,15 +89,13 @@ export function updateButtonsContainer(
 ) {
   const { panelWidth, buttonsHeight, panelHeight, horizontalPadding } =
     calculatePanelDimensions();
-
   const settings = getSettings();
-  const buttonsInputPadding = settings.get_double("buttons-input-padding");
 
   // Position at the bottom of the panel with padding from input field
   buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
   buttonsBox.set_position(
     horizontalPadding,
-    panelHeight - buttonsHeight - horizontalPadding + buttonsInputPadding
+    panelHeight - buttonsHeight - horizontalPadding
   );
 
   // Configure model button
@@ -170,9 +168,6 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     paddingY,
   } = calculatePanelDimensions();
 
-  const settings = getSettings();
-  const buttonsInputPadding = settings.get_double("buttons-input-padding");
-
   // The container should go all the way to the bottom of the screen
   // Add extra space for gap between input and buttons
   const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
@@ -218,9 +213,7 @@ export function updateInputArea(
     availableInputWidth,
     sendButtonSize,
   } = calculatePanelDimensions();
-
   const settings = getSettings();
-  const buttonsInputPadding = settings.get_double("buttons-input-padding");
 
   // Position the input field box
   inputFieldBox.set_size(availableInputWidth, inputFieldHeight);

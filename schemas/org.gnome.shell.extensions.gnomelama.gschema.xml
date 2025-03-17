@@ -91,10 +91,5 @@
       <summary>Input Field Spacing Fraction</summary>
       <description>Spacing between input field and send button as a fraction of panel width.</description>
     </key>
-    <key name="buttons-input-padding" type="d">
-      <default>8</default>
-      <summary>Buttons to Input Field Padding</summary>
-      <description>Space between the input field and buttons container in pixels. Higher values increase the gap.</description>
-    </key>
   </schema>
 </schemalist>
