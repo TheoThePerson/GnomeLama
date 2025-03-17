@@ -26,7 +26,15 @@ export class FileHandler {
     this._inputButtonsContainer = inputButtonsContainer;
     this._updateLayoutCallback = updateLayoutCallback;
 
-    this._fileBoxesContainer = null;
+    // Create a container that will hold files and the input buttons container
+    this._expandedContainer = null;
+
+    // Store the original input buttons container parent
+    this._originalParent = null;
+
+    // Store the original position and style of the input buttons container
+    this._originalInputPos = null;
+    this._originalInputStyle = null;
   }
 
   // Method is now public
@@ -129,22 +137,100 @@ export class FileHandler {
     }
   }
 
-  _displayFileContentBox(content, fileName) {
-    // Initialize or reposition the file boxes container
-    this._setupFileBoxesContainer();
+  _setupExpandedContainer() {
+    // If already set up, return
+    if (this._expandedContainer) return;
 
-    // Create a new box for file content - make it square and smaller
+    // Save original parent and position
+    this._originalParent = this._inputButtonsContainer.get_parent();
+    this._originalInputPos = this._inputButtonsContainer.get_position();
+    this._originalInputStyle = this._inputButtonsContainer.get_style();
+
+    // Get the dimensions
+    const dimensions = LayoutManager.calculatePanelDimensions();
+
+    // Get the height of the input buttons container for exact positioning later
+    const [, inputHeight] =
+      this._inputButtonsContainer.get_preferred_height(-1);
+
+    // Create a new expanded container that will hold both file boxes and input container
+    // Minimal padding and styling to make it look seamless
+    this._expandedContainer = new St.BoxLayout({
+      style_class: "expanded-container",
+      style:
+        "background-color: rgba(80, 80, 80, 0.2); border-radius: 16px 16px 0 0; padding: 0;",
+      vertical: true,
+      x_expand: true,
+      y_expand: false,
+    });
+
+    // Create a horizontal container for file boxes - position it right above the input
+    this._fileBoxesContainer = new St.BoxLayout({
+      style_class: "file-boxes-container",
+      style: "spacing: 10px; margin: 8px 8px 0 8px;", // Add margin only on sides and top
+      vertical: false,
+      x_expand: false,
+      y_expand: false,
+    });
+
+    // Remove input buttons container from its parent
+    if (this._inputButtonsContainer.get_parent()) {
+      this._inputButtonsContainer
+        .get_parent()
+        .remove_child(this._inputButtonsContainer);
+    }
+
+    // Add file boxes container to expanded container first
+    this._expandedContainer.add_child(this._fileBoxesContainer);
+
+    // Add input buttons container to expanded container
+    this._expandedContainer.add_child(this._inputButtonsContainer);
+
+    // Make sure input container keeps its original style
+    this._inputButtonsContainer.set_style(this._originalInputStyle);
+
+    // Add expanded container to panel overlay
+    this._panelOverlay.add_child(this._expandedContainer);
+
+    // Position the expanded container
+    this._positionExpandedContainer();
+  }
+
+  _positionExpandedContainer() {
+    if (!this._expandedContainer) return;
+
+    const dimensions = LayoutManager.calculatePanelDimensions();
+
+    // Calculate position - keep it exactly where the input container would be
+    const x = dimensions.horizontalPadding;
+
+    const y = dimensions.panelHeight - this._expandedContainer.get_height();
+
+    // Set position of expanded container
+    this._expandedContainer.set_position(x, y);
+
+    // Set width to match panel width minus padding
+    this._expandedContainer.set_width(
+      dimensions.panelWidth - dimensions.horizontalPadding * 2
+    );
+  }
+
+  _displayFileContentBox(content, fileName) {
+    // Set up the expanded container if needed
+    this._setupExpandedContainer();
+
+    // Create a new box for file content - square and small
     const fileBox = new St.BoxLayout({
       style_class: "file-content-box",
       style:
         "background-color: #FFFFFF; " +
-        "border: 2px solid #000000; " +
+        "border: 1px solid #000000; " + // Thinner border
         "border-radius: 8px; " +
-        "padding: 10px; " +
-        "margin: 0; " +
-        "width: 160px; " + // Fixed width
-        "height: 160px; " + // Same as width to make it square
-        "box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);",
+        "padding: 6px; " + // Less padding
+        "margin: 3px; " + // Less margin
+        "width: 100px; " + // Slightly smaller width
+        "height: 100px; " + // Same as width to make it square
+        "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);", // Lighter shadow
       vertical: true,
       x_expand: false, // Don't expand to fill width
       y_expand: false,
@@ -153,19 +239,19 @@ export class FileHandler {
     // Create header box for filename and close button
     const headerBox = new St.BoxLayout({
       style_class: "file-content-header",
-      style: "width: 100%; margin-bottom: 5px;",
+      style: "width: 100%; margin-bottom: 3px;", // Less margin
       vertical: false,
     });
 
     // Add filename as the title - truncate if too long
     let displayName = fileName;
-    if (displayName.length > 15) {
-      displayName = displayName.substring(0, 12) + "...";
+    if (displayName.length > 10) {
+      displayName = displayName.substring(0, 8) + "...";
     }
 
     const titleLabel = new St.Label({
       text: displayName,
-      style: "font-weight: bold; color: #000000; font-size: 14px;",
+      style: "font-weight: bold; color: #000000; font-size: 10px;", // Smaller font
       x_expand: true,
     });
     headerBox.add_child(titleLabel);
@@ -176,11 +262,11 @@ export class FileHandler {
       style:
         "font-weight: bold; " +
         "color: #000000; " +
-        "font-size: 16px; " +
+        "font-size: 12px; " + // Smaller font
         "background: none; " +
         "border: none; " +
-        "width: 20px; " +
-        "height: 20px;",
+        "width: 14px; " + // Smaller button
+        "height: 14px;", // Smaller button
       label: "✕",
     });
 
@@ -200,7 +286,7 @@ export class FileHandler {
       style_class: "file-content-scroll",
       x_expand: true,
       y_expand: true,
-      style: "min-height: 120px;",
+      style: "min-height: 60px;", // Less height
     });
 
     // Create a container for the content inside the scroll view
@@ -213,7 +299,7 @@ export class FileHandler {
     const contentLabel = new St.Label({
       text: content,
       style_class: "file-content-text",
-      style: "font-family: monospace; font-size: 12px; color: #000000;",
+      style: "font-family: monospace; font-size: 9px; color: #000000;", // Smaller font
     });
 
     contentLabel.clutter_text.set_line_wrap(true);
@@ -230,43 +316,12 @@ export class FileHandler {
 
     // Add this file box to the file boxes container
     this._fileBoxesContainer.add_child(fileBox);
-  }
 
-  _setupFileBoxesContainer() {
-    const dimensions = LayoutManager.calculatePanelDimensions();
+    // Reposition the expanded container after adding the file
+    this._positionExpandedContainer();
 
-    if (!this._fileBoxesContainer) {
-      // Create a horizontal container for files
-      this._fileBoxesContainer = new St.BoxLayout({
-        style_class: "file-boxes-container",
-        style:
-          "spacing: 15px; background-color: rgba(80, 80, 80, 0.2); border-radius: 12px; padding: 12px;",
-        vertical: false,
-        x_expand: true,
-        y_expand: false,
-      });
-
-      // Position it in the lower part of the output area, above the input buttons
-      const outputAreaHeight = dimensions.outputHeight;
-      const fileContainerHeight = 200; // Approximate height for the file boxes container
-
-      // Add the file boxes container to the panel overlay
-      this._panelOverlay.add_child(this._fileBoxesContainer);
-
-      // Position it at a fixed position in the output area
-      this._fileBoxesContainer.set_position(
-        dimensions.horizontalPadding,
-        dimensions.paddingY +
-          outputAreaHeight -
-          fileContainerHeight -
-          dimensions.paddingY
-      );
-
-      // Set the width to match the panel width minus padding
-      this._fileBoxesContainer.set_width(
-        dimensions.panelWidth - dimensions.horizontalPadding * 2
-      );
-    }
+    // Update the overall layout
+    this._updateLayoutCallback();
   }
 
   _removeFileBox(fileBox) {
@@ -282,26 +337,57 @@ export class FileHandler {
       this._fileBoxesContainer.get_children().length === 0
     ) {
       this.cleanupFileContentBox();
+    } else {
+      // Just reposition the container
+      this._positionExpandedContainer();
+      // Update the layout
+      this._updateLayoutCallback();
     }
   }
 
   // Clean up when removing the file content box
   cleanupFileContentBox() {
-    // Clean up file boxes
-    if (this._fileBoxesContainer) {
-      // Remove and destroy all file boxes
-      this._fileBoxesContainer.get_children().forEach((child) => {
-        this._fileBoxesContainer.remove_child(child);
-        child.destroy();
-      });
-
-      // Remove and destroy the file boxes container
-      if (this._fileBoxesContainer.get_parent()) {
-        this._fileBoxesContainer
-          .get_parent()
-          .remove_child(this._fileBoxesContainer);
+    if (this._expandedContainer) {
+      // First, take the input buttons container out of expanded container
+      if (
+        this._inputButtonsContainer.get_parent() === this._expandedContainer
+      ) {
+        this._expandedContainer.remove_child(this._inputButtonsContainer);
       }
-      this._fileBoxesContainer.destroy();
+
+      // Add input buttons container back to its original parent
+      if (this._originalParent) {
+        this._originalParent.add_child(this._inputButtonsContainer);
+
+        // Restore original position if we saved it
+        if (this._originalInputPos) {
+          const [x, y] = this._originalInputPos;
+          this._inputButtonsContainer.set_position(x, y);
+        }
+
+        // Restore original style if we saved it
+        if (this._originalInputStyle) {
+          this._inputButtonsContainer.set_style(this._originalInputStyle);
+        }
+      }
+
+      // Remove file boxes and container
+      if (this._fileBoxesContainer) {
+        this._fileBoxesContainer.get_children().forEach((child) => {
+          this._fileBoxesContainer.remove_child(child);
+          child.destroy();
+        });
+      }
+
+      // Remove and destroy the expanded container
+      if (this._expandedContainer.get_parent()) {
+        this._expandedContainer
+          .get_parent()
+          .remove_child(this._expandedContainer);
+      }
+
+      this._expandedContainer.destroy();
+      this._expandedContainer = null;
       this._fileBoxesContainer = null;
     }
 
