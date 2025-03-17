@@ -6,8 +6,6 @@ import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
-import GLib from "gi://GLib";
-import Pango from "gi://Pango";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
@@ -17,10 +15,8 @@ import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.j
 import * as PanelElements from "./panelElements.js";
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
-import * as UIComponents from "./components.js";
-import { getSettings } from "../lib/settings.js";
 
-// Import messaging functionality
+// Import messaging
 import {
   fetchModelNames,
   setModel,
@@ -41,10 +37,8 @@ export const Indicator = GObject.registerClass(
       this._context = null;
       this._isProcessingMessage = false;
 
-      // Initialize UI components
       this._initUI();
 
-      // Connect event handlers
       this._settingsChangedId = this._settings.connect("changed", () =>
         this._updateLayout()
       );
@@ -54,10 +48,9 @@ export const Indicator = GObject.registerClass(
       this.connect("button-press-event", this._togglePanelOverlay.bind(this));
     }
 
-    // UI INITIALIZATION METHODS
+    // UI INITIALIZATION
 
     _initUI() {
-      // Create a properly aligned AI text label for the panel button
       this.add_child(
         new St.Label({
           text: "AI",
@@ -66,37 +59,31 @@ export const Indicator = GObject.registerClass(
         })
       );
 
-      // Create main panel components
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
 
-      // Create container for both input field and buttons
       this._inputButtonsContainer = new St.BoxLayout({
         style_class: "input-buttons-container",
         vertical: true,
         reactive: true,
       });
 
-      // Create buttons container
       this._buttonsContainer = new St.BoxLayout({
         style_class: "buttons-container",
         vertical: false,
         reactive: true,
       });
 
-      // Setup scrollable content area
       const { outputScrollView, outputContainer } =
         PanelElements.createOutputArea(dimensions);
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
 
-      // Check if there's any conversation history
       const history = getConversationHistory();
       const isNewChat =
         history.length === 0 ||
         (history.length > 0 && history[history.length - 1].type === "user");
 
-      // Setup input components
       const { inputFieldBox, inputField, sendButton, sendIcon } =
         PanelElements.createInputArea(this._extensionPath, isNewChat);
       this._inputFieldBox = inputFieldBox;
@@ -104,7 +91,6 @@ export const Indicator = GObject.registerClass(
       this._sendButton = sendButton;
       this._sendIcon = sendIcon;
 
-      // Add click handler to input field to close model menu
       this._inputField.connect("button-press-event", () => {
         if (this._modelMenu && this._modelMenu.isOpen) {
           this._modelMenu.close();
@@ -112,7 +98,6 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Setup model selector and clear button
       this._setupModelMenu();
       this._setupFileButton();
       this._setupClearButton();
@@ -124,23 +109,18 @@ export const Indicator = GObject.registerClass(
       this._buttonsContainer.add_child(this._clearButton);
       this._buttonsContainer.add_child(this._sendButton);
 
-      // Add input field and buttons to the container
       this._inputButtonsContainer.add_child(this._inputFieldBox);
       this._inputButtonsContainer.add_child(this._buttonsContainer);
 
-      // Assemble the UI
       this._panelOverlay.add_child(this._outputScrollView);
       this._panelOverlay.add_child(this._inputButtonsContainer);
 
-      // Ensure the overlay is properly added to Chrome
       Main.layoutManager.addChrome(this._panelOverlay, {
         affectsInputRegion: true,
       });
 
-      // messageFormater Ensure the panel is collapsed by default
       this._panelOverlay.visible = false;
 
-      // Handle scroll events in the overlay
       this._panelOverlay.connect("scroll-event", (_, event) => {
         if (this._outputScrollView) {
           this._outputScrollView.emit("scroll-event", event);
@@ -149,7 +129,7 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Handle Enter key press in input field
+      // Enter key
       this._inputField.clutter_text.connect("key-press-event", (_, event) => {
         if (event.get_key_symbol() === Clutter.KEY_Return) {
           if (this._isProcessingMessage) {
@@ -164,15 +144,12 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Connect send button click
       this._sendButton.connect("clicked", this._sendMessage.bind(this));
 
-      //  messageFormater Prevents `_updateLayout()` from forcing it open
       this._updateLayout();
     }
 
     async _setupModelMenu() {
-      // Create model button and popup menu
       const { modelButton, modelButtonLabel } =
         PanelElements.createModelButton();
       this._modelButton = modelButton;
@@ -180,10 +157,8 @@ export const Indicator = GObject.registerClass(
 
       this._modelButtonLabel.set_style("color: #808080;");
 
-      // Set default label while initializing
       this._updateModelLabel("Loading...");
 
-      // Create model selection popup menu
       this._modelMenu = new PopupMenu.PopupMenu(
         new St.Button(),
         0.0,
@@ -192,14 +167,12 @@ export const Indicator = GObject.registerClass(
       Main.uiGroup.add_child(this._modelMenu.actor);
       this._modelMenu.actor.hide();
 
-      // Configure menu position when opened
       this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
         if (isOpen) {
           const dimensions = LayoutManager.calculatePanelDimensions();
           const panelLeft = dimensions.monitor.width - dimensions.panelWidth;
           let menuActor = this._modelMenu.actor || this._modelMenu;
 
-          // Position menu above the input-buttons container
           const [containerX, containerY] =
             this._inputButtonsContainer.get_transformed_position();
 
@@ -210,7 +183,6 @@ export const Indicator = GObject.registerClass(
         }
       });
 
-      // Add click outside handler to close menu
       global.stage.connect("button-press-event", (actor, event) => {
         if (this._modelMenu && this._modelMenu.isOpen) {
           let [x, y] = event.get_coords();
@@ -220,7 +192,6 @@ export const Indicator = GObject.registerClass(
           let [buttonX, buttonY] = this._modelButton.get_transformed_position();
           let [buttonWidth, buttonHeight] = this._modelButton.get_size();
 
-          // Check if click is outside both menu and button
           if (
             !(
               x >= menuX &&
@@ -241,23 +212,19 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Toggle menu on button press
       this._modelButton.connect("button-press-event", () => {
         this._modelMenu.toggle();
         return Clutter.EVENT_STOP;
       });
 
-      // Populate model menu items
       await this._addModelMenuItems();
     }
 
     async _addModelMenuItems() {
-      // Update label to show fetching status
       this._updateModelLabel("Fetching models");
 
       const { models, error } = await fetchModelNames();
 
-      // Show error message if no models found
       if (error) {
         this._updateModelLabel("No models found");
         MessageProcessor.addTemporaryMessage(this._outputContainer, error);
@@ -269,10 +236,8 @@ export const Indicator = GObject.registerClass(
         return;
       }
 
-      // Clear existing menu items first
       this._modelMenu.removeAll();
 
-      // Get default model or use first available
       const defaultModel = this._settings.get_string("default-model");
       const selectedModel = models.includes(defaultModel)
         ? defaultModel
@@ -280,11 +245,9 @@ export const Indicator = GObject.registerClass(
       this._updateModelLabel(selectedModel);
       setModel(selectedModel);
 
-      // Create menu items
       models.forEach((name) => {
         let modelItem = new PopupMenu.PopupMenuItem(name);
 
-        // Mark current model as active
         if (name === selectedModel) {
           modelItem.setOrnament(PopupMenu.Ornament.DOT);
         }
@@ -303,7 +266,6 @@ export const Indicator = GObject.registerClass(
     }
 
     _selectModel(name, modelItem) {
-      // Update menu item ornaments
       this._modelMenu.box.get_children().forEach((child) => {
         if (child.setOrnament) {
           child.setOrnament(PopupMenu.Ornament.NONE);
@@ -324,13 +286,12 @@ export const Indicator = GObject.registerClass(
       }
 
       this._clearHistory();
-      // Update input field hint for new chat is handled in _clearHistory
     }
 
     _setupClearButton() {
       const { clearButton, clearIcon } = PanelElements.createClearButton(
         this._extensionPath,
-        this._settings.get_double("button-icon-scale") // Using button-icon-scale
+        this._settings.get_double("button-icon-scale")
       );
 
       this._clearButton = clearButton;
@@ -348,7 +309,7 @@ export const Indicator = GObject.registerClass(
     _setupFileButton() {
       const { fileButton, fileIcon } = PanelElements.createFileButton(
         this._extensionPath,
-        this._settings.get_double("button-icon-scale") // Using button-icon-scale
+        this._settings.get_double("button-icon-scale")
       );
 
       this._fileButton = fileButton;
@@ -369,7 +330,6 @@ export const Indicator = GObject.registerClass(
 
         subprocess.init(null);
 
-        // Read output asynchronously
         subprocess.communicate_utf8_async(null, null, (source, res) => {
           try {
             let [, stdout, stderr] = source.communicate_utf8_finish(res);
@@ -377,7 +337,6 @@ export const Indicator = GObject.registerClass(
             if (stdout.trim()) {
               let selectedFilePath = stdout.trim();
 
-              // Display file selection message
               MessageProcessor.addTemporaryMessage(
                 this._outputContainer,
                 `Selected file: ${selectedFilePath}`
@@ -385,7 +344,6 @@ export const Indicator = GObject.registerClass(
 
               console.log(`File selected: ${selectedFilePath}`);
 
-              // Always try to read and display file content
               this._readAndDisplayFile(selectedFilePath);
             } else if (stderr.trim()) {
               console.error(`Error selecting file: ${stderr}`);
@@ -405,10 +363,8 @@ export const Indicator = GObject.registerClass(
 
     _readAndDisplayFile(filePath) {
       try {
-        // Create file object
         const file = Gio.File.new_for_path(filePath);
 
-        // Check if file exists
         if (!file.query_exists(null)) {
           console.error(`File does not exist: ${filePath}`);
           MessageProcessor.addTemporaryMessage(
@@ -418,15 +374,12 @@ export const Indicator = GObject.registerClass(
           return;
         }
 
-        // Get the file name from the path
         const fileName = file.get_basename();
 
-        // Try to read file content
         try {
           const [success, content] = file.load_contents(null);
 
           if (success) {
-            // Try to decode content
             let fileContent;
             try {
               fileContent = new TextDecoder("utf-8").decode(content);
@@ -465,13 +418,12 @@ export const Indicator = GObject.registerClass(
     }
 
     _displayFileContentBox(content, fileName) {
-      // Initialize the file boxes container if it doesn't exist
       if (!this._fileBoxesContainer) {
-        // Create a horizontal container for file boxes
+        // Create a horizontal container for files
         this._fileBoxesContainer = new St.BoxLayout({
           style_class: "file-boxes-container",
-          style: "spacing: 15px;", // Space between file boxes
-          vertical: false, // Horizontal layout
+          style: "spacing: 15px;",
+          vertical: false,
           x_expand: true,
           y_expand: false,
         });
@@ -880,37 +832,29 @@ export const Indicator = GObject.registerClass(
         }
       });
 
-      // Restore temporary messages
       tempMessages.forEach((msg) => {
         this._outputContainer.add_child(msg);
       });
 
-      // Update input field hint based on conversation state
+      // Update input field hint based
       const isNewChat =
         history.length === 0 ||
         (history.length > 0 && history[history.length - 1].type === "user");
       PanelElements.updateInputFieldHint(this._inputField, isNewChat);
 
-      // Scroll to the bottom to show latest messages
       PanelElements.scrollToBottom(this._outputScrollView);
     }
 
     _clearHistory() {
-      // Clear conversation history and context
       clearConversationHistory();
       this._context = null;
 
-      // Clear UI
       MessageProcessor.clearOutput(this._outputContainer);
 
-      // Update input field hint for new chat
       PanelElements.updateInputFieldHint(this._inputField, true);
     }
 
-    // LAYOUT UPDATES
-
     _updateLayout() {
-      // Get the updated panel dimensions
       const dimensions = LayoutManager.calculatePanelDimensions();
 
       // Update each component's layout
@@ -933,24 +877,20 @@ export const Indicator = GObject.registerClass(
         this._sendIcon
       );
 
-      // Scroll to bottom to ensure content is visible after layout change
       PanelElements.scrollToBottom(this._outputScrollView);
     }
 
     // CLEANUP
 
     destroy() {
-      // Disconnect settings change signal
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
       }
 
-      // Disconnect send button click handler
       if (this._sendButtonClickId) {
         this._sendButton.disconnect(this._sendButtonClickId);
       }
 
-      // Remove the panel overlay from Chrome
       if (this._panelOverlay) {
         Main.layoutManager.removeChrome(this._panelOverlay);
       }
