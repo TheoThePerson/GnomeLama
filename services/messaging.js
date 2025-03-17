@@ -14,7 +14,6 @@ let currentModel = null;
  */
 export function setModel(modelName) {
   currentModel = modelName;
-  // Save as the default model in settings
   const settings = getSettings();
   settings.set_string("default-model", modelName);
 }
@@ -81,18 +80,15 @@ function addMessageToHistory(text, type) {
  * @returns {Promise<string>} The complete response
  */
 export async function sendMessage(message, context, onData) {
-  // Ensure a model is selected
   if (!currentModel) {
     currentModel = getSettings().get_string("default-model");
   }
 
-  // Add user message to history
   addMessageToHistory(message, "user");
 
   try {
     let result;
 
-    // Determine which provider to use based on whether it's an OpenAI model
     if (openaiProvider.isOpenAIModel(currentModel)) {
       result = await openaiProvider.sendMessageToAPI(
         message,
@@ -101,7 +97,6 @@ export async function sendMessage(message, context, onData) {
         onData
       );
     } else {
-      // Get current context if not provided
       const currentContext = context || ollamaProvider.getCurrentContext();
       result = await ollamaProvider.sendMessageToAPI(
         message,
@@ -111,7 +106,6 @@ export async function sendMessage(message, context, onData) {
       );
     }
 
-    // Add assistant response to history
     addMessageToHistory(result.response, "assistant");
     return result.response;
   } catch (e) {

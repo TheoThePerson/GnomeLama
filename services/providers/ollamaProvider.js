@@ -32,13 +32,9 @@ export async function fetchModelNames() {
     const settings = getSettings();
     const endpoint = settings.get_string("models-api-endpoint");
 
-    // Create a temporary session for this request
     const tempSession = createCancellableSession();
-
-    // Make the API request
     const data = await tempSession.get(endpoint);
 
-    // Parse and extract model names
     return data.models
       .map((model) => model.name)
       .filter((value, index, self) => self.indexOf(value) === index)
@@ -64,11 +60,8 @@ export async function sendMessageToAPI(
   onData
 ) {
   const settings = getSettings();
-
-  // Create a new API session
   apiSession = createCancellableSession();
 
-  // Prepare payload
   const payload = JSON.stringify({
     model: modelName,
     prompt: messageText,
@@ -77,24 +70,19 @@ export async function sendMessageToAPI(
     context: context || null,
   });
 
-  // Get the API endpoint
   const endpoint = settings.get_string("api-endpoint");
 
-  // Define how to process each chunk from the Ollama API
   const processChunk = async (lineText) => {
     try {
       const json = JSON.parse(lineText);
 
-      // Save context if provided
       if (json.context) {
         currentContext = json.context;
       }
 
-      // Handle response content
       if (json.response) {
         const chunk = json.response;
 
-        // Call the onData callback if provided
         if (onData) {
           await invokeCallback(onData, chunk);
         }
@@ -109,7 +97,6 @@ export async function sendMessageToAPI(
   };
 
   try {
-    // Send the request and process streaming response
     const result = await apiSession.sendRequest(
       "POST",
       endpoint,
@@ -118,7 +105,6 @@ export async function sendMessageToAPI(
       processChunk
     );
 
-    // Clean up
     const response = result.response;
     const responseContext = currentContext;
     apiSession = null;
@@ -127,13 +113,11 @@ export async function sendMessageToAPI(
   } catch (error) {
     console.error("API request error:", error);
 
-    // Clean up on error
     const accumulatedResponse = apiSession
       ? apiSession.getAccumulatedResponse()
       : "";
     apiSession = null;
 
-    // If we have accumulated some response, return it despite the error
     if (accumulatedResponse) {
       return { response: accumulatedResponse, context: currentContext };
     }
@@ -152,11 +136,7 @@ export function stopMessage() {
   }
 
   console.log("Cancelling message stream");
-
-  // Cancel the request and get the accumulated response
   const partialResponse = apiSession.cancelRequest();
-
-  // Clean up
   apiSession = null;
 
   return partialResponse;

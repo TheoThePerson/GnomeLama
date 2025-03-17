@@ -33,20 +33,16 @@ export function createCancellableSession() {
     body = null,
     processChunk
   ) {
-    // Reset cancellation state
     isCancelled = false;
     accumulatedResponse = "";
 
     try {
-      // Create message
       const message = Soup.Message.new(method, url);
 
-      // Set headers
       Object.entries(headers).forEach(([key, value]) => {
         message.request_headers.append(key, value);
       });
 
-      // Set body if provided (for POST requests)
       if (body && method === "POST") {
         message.set_request_body_from_bytes(
           "application/json",
@@ -54,7 +50,6 @@ export function createCancellableSession() {
         );
       }
 
-      // Send the request
       const inputStream = await new Promise((resolve, reject) => {
         session.send_async(
           message,
@@ -62,18 +57,15 @@ export function createCancellableSession() {
           cancellable,
           (session, result) => {
             try {
-              // Check if cancelled
               if (isCancelled || (cancellable && cancellable.is_cancelled())) {
                 resolve(null);
                 return;
               }
 
-              // Check HTTP status
               if (message.get_status() !== Soup.Status.OK) {
                 throw new Error(`HTTP error: ${message.get_status()}`);
               }
 
-              // Get input stream
               const stream = session.send_finish(result);
               if (!stream) {
                 throw new Error("No response stream available");
@@ -89,12 +81,10 @@ export function createCancellableSession() {
         );
       });
 
-      // Return early if cancelled or no input stream
       if (isCancelled || !inputStream) {
         return { response: accumulatedResponse };
       }
 
-      // Read from the stream
       const dataInputStream = new Gio.DataInputStream({
         base_stream: inputStream,
         close_base_stream: true,
@@ -102,10 +92,8 @@ export function createCancellableSession() {
 
       activeDataInputStream = dataInputStream;
 
-      // Process the streaming response
       let fullResponse = "";
       while (!isCancelled) {
-        // Check if cancelled before reading more data
         if (cancellable && cancellable.is_cancelled()) {
           break;
         }
@@ -121,7 +109,6 @@ export function createCancellableSession() {
           const lineText = new TextDecoder().decode(line);
 
           try {
-            // Process the chunk using the provided function
             const chunk = await processChunk(lineText);
 
             if (chunk) {
@@ -132,7 +119,6 @@ export function createCancellableSession() {
             console.error("Error processing chunk:", parseError);
           }
         } catch (readError) {
-          // Check if this is a cancellation error
           if (isCancelled || (cancellable && cancellable.is_cancelled())) {
             break;
           }
@@ -141,7 +127,6 @@ export function createCancellableSession() {
         }
       }
 
-      // Clean up
       cleanupResources();
 
       return { response: fullResponse };
@@ -149,7 +134,6 @@ export function createCancellableSession() {
       console.error("API request error:", error);
       cleanupResources();
 
-      // If we were cancelled and have data, return it despite the error
       if (isCancelled && accumulatedResponse) {
         return { response: accumulatedResponse };
       }
@@ -169,7 +153,6 @@ export function createCancellableSession() {
       const session = new Soup.Session();
       const message = Soup.Message.new("GET", url);
 
-      // Set headers
       Object.entries(headers).forEach(([key, value]) => {
         message.request_headers.append(key, value);
       });
@@ -252,7 +235,6 @@ export function createCancellableSession() {
     get,
     cancelRequest,
     getAccumulatedResponse: () => accumulatedResponse,
-    isCancelled: () => isCancelled,
   };
 }
 
@@ -263,13 +245,11 @@ export function createCancellableSession() {
  * @returns {Promise<void>}
  */
 export async function invokeCallback(callback, data) {
-  if (!callback) return;
-
-  return new Promise((resolve) => {
-    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-      callback(data);
-      resolve();
-      return GLib.SOURCE_REMOVE;
-    });
-  });
+  if (typeof callback === "function") {
+    try {
+      await callback(data);
+    } catch (e) {
+      console.error("Error in callback:", e);
+    }
+  }
 }

@@ -1,5 +1,4 @@
 /**
- * Linux Copilot - GNOME Shell Extension
  * Panel UI implementation
  */
 import GObject from "gi://GObject";
