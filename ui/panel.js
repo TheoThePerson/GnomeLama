@@ -322,7 +322,7 @@ export const Indicator = GObject.registerClass(
     _setupClearButton() {
       const { clearButton, clearIcon } = PanelElements.createClearButton(
         this._extensionPath,
-        this._settings.get_double("clear-icon-scale")
+        this._settings.get_double("button-icon-scale") // Using button-icon-scale
       );
 
       this._clearButton = clearButton;
@@ -340,7 +340,7 @@ export const Indicator = GObject.registerClass(
     _setupFileButton() {
       const { fileButton, fileIcon } = PanelElements.createFileButton(
         this._extensionPath,
-        this._settings.get_double("clear-icon-scale") // Using the same scale as clear button
+        this._settings.get_double("button-icon-scale") // Using button-icon-scale
       );
 
       this._fileButton = fileButton;
@@ -573,7 +573,8 @@ export const Indicator = GObject.registerClass(
       LayoutManager.updateButtonsContainer(
         this._buttonsContainer,
         this._modelButton,
-        this._clearButton
+        this._clearButton,
+        this._fileButton
       );
       LayoutManager.updateOutputArea(
         this._outputScrollView,

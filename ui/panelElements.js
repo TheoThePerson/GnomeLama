@@ -35,20 +35,6 @@ export function createPanelOverlay(dimensions) {
 }
 
 /**
- * Creates a top bar container
- * @param {object} dimensions - Layout dimensions
- * @returns {St.BoxLayout} - The created top bar
- */
-export function createTopBar(dimensions) {
-  return new St.BoxLayout({
-    style_class: "top-bar",
-    width: dimensions.panelWidth,
-    height: dimensions.topBarHeight,
-    reactive: true,
-  });
-}
-
-/**
  * Creates a model button with label
  * @param {string} label - Initial button label text
  * @returns {object} - Object containing button and label elements
@@ -211,13 +197,15 @@ export function createInputArea(extensionPath, isNewChat = true) {
   const inputFieldBox = new St.BoxLayout({
     style_class: "input-field-box",
     vertical: false,
+    style: "background-color: transparent;",
   });
 
   const inputField = new St.Entry({
     hint_text: isNewChat ? "Start your conversation..." : "Your response...",
     can_focus: true,
     style_class: "input-field",
-    style: "caret-color: white; color: white;",
+    style:
+      "background-color: transparent; border: none; caret-color: white; color: white;",
   });
 
   const sendIcon = new St.Icon({

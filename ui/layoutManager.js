@@ -19,8 +19,6 @@ export function calculatePanelDimensions() {
   const panelWidth =
     monitor.width * settings.get_double("panel-width-fraction");
   const panelHeight = monitor.height - Main.panel.actor.height;
-  const topBarHeight =
-    panelHeight * settings.get_double("top-bar-height-fraction");
   const inputFieldHeight =
     panelHeight * settings.get_double("input-field-height-fraction");
   const paddingY = panelHeight * settings.get_double("padding-fraction-y");
@@ -28,19 +26,17 @@ export function calculatePanelDimensions() {
     panelWidth * settings.get_double("padding-fraction-x");
 
   // Calculate derived dimensions
-  const outputHeight =
-    panelHeight - inputFieldHeight - topBarHeight - paddingY * 2;
+  const outputHeight = panelHeight - inputFieldHeight - paddingY * 2;
   const sendButtonSize = inputFieldHeight;
   const availableInputWidth =
     panelWidth - sendButtonSize / 2 - 3 * horizontalPadding;
-  const buttonsHeight = topBarHeight;
+  const buttonsHeight = inputFieldHeight * 0.8;
 
   return {
     monitor,
     panelWidth,
     panelHeight,
     paddingY,
-    topBarHeight,
     inputFieldHeight,
     outputHeight,
     sendButtonSize,
@@ -83,28 +79,36 @@ export function updatePanelOverlay(panelOverlay) {
  * @param {St.BoxLayout} buttonsBox - The buttons container
  * @param {St.Button} modelButton - The model selection button
  * @param {St.Button} clearButton - The clear history button
+ * @param {St.Button} fileButton - The file button
  */
-export function updateButtonsContainer(buttonsBox, modelButton, clearButton) {
+export function updateButtonsContainer(
+  buttonsBox,
+  modelButton,
+  clearButton,
+  fileButton
+) {
   const { panelWidth, buttonsHeight, panelHeight, horizontalPadding } =
     calculatePanelDimensions();
 
-  // Position at the bottom of the panel
+  const settings = getSettings();
+  const buttonsInputPadding = settings.get_double("buttons-input-padding");
+
+  // Position at the bottom of the panel with padding from input field
   buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
   buttonsBox.set_position(
     horizontalPadding,
-    panelHeight - buttonsHeight - horizontalPadding
+    panelHeight - buttonsHeight - horizontalPadding + buttonsInputPadding
   );
 
   // Configure model button
   modelButton.set_width(panelWidth * 0.6);
   modelButton.set_height(buttonsHeight);
 
-  // Configure clear button
-  const settings = getSettings();
-  const clearIconScale = settings.get_double("clear-icon-scale");
-  const iconSize = 24 * clearIconScale;
+  // Configure clear and file buttons
+  const buttonIconScale = settings.get_double("button-icon-scale");
+  const iconSize = 24 * buttonIconScale;
 
-  // Update icon size
+  // Update clear button icon size
   if (clearButton.get_child()) {
     const clearIcon = clearButton.get_child();
     clearIcon.set_size(iconSize, iconSize);
@@ -113,13 +117,30 @@ export function updateButtonsContainer(buttonsBox, modelButton, clearButton) {
     clearIcon.set_y_align(Clutter.ActorAlign.CENTER);
   }
 
-  // Size and align the button
-  const clearButtonSize = Math.max(buttonsHeight * 0.9, 32);
-  clearButton.set_width(clearButtonSize);
-  clearButton.set_height(clearButtonSize);
+  // Update file button icon size
+  if (fileButton && fileButton.get_child()) {
+    const fileIcon = fileButton.get_child();
+    fileIcon.set_size(iconSize, iconSize);
+    fileIcon.set_style("margin: 0 auto;");
+    fileIcon.set_x_align(Clutter.ActorAlign.CENTER);
+    fileIcon.set_y_align(Clutter.ActorAlign.CENTER);
+  }
+
+  // Size and align the buttons
+  const buttonSize = Math.max(buttonsHeight * 0.9, 32);
+  clearButton.set_width(buttonSize);
+  clearButton.set_height(buttonSize);
   clearButton.set_style("padding: 0; margin: 0;");
   clearButton.set_x_align(Clutter.ActorAlign.CENTER);
   clearButton.set_y_align(Clutter.ActorAlign.CENTER);
+
+  if (fileButton) {
+    fileButton.set_width(buttonSize);
+    fileButton.set_height(buttonSize);
+    fileButton.set_style("padding: 0; margin: 0;");
+    fileButton.set_x_align(Clutter.ActorAlign.CENTER);
+    fileButton.set_y_align(Clutter.ActorAlign.CENTER);
+  }
 }
 
 /**
@@ -128,26 +149,13 @@ export function updateButtonsContainer(buttonsBox, modelButton, clearButton) {
  * @param {St.BoxLayout} outputContainer - The output container
  */
 export function updateOutputArea(outputScrollView, outputContainer) {
-  const { panelWidth, outputHeight, paddingY, horizontalPadding } =
-    calculatePanelDimensions();
+  const { panelWidth, outputHeight, paddingY } = calculatePanelDimensions();
 
-  // Configure scroll view - now positioned below padding
+  // Position the output area
   outputScrollView.set_size(panelWidth, outputHeight);
   outputScrollView.set_position(0, paddingY);
-  outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
-
-  // Configure content container
-  const contentWidth = panelWidth - 2 * horizontalPadding;
-  outputContainer.set_style(
-    `padding: 0 ${horizontalPadding}px; width: ${contentWidth}px;`
-  );
-  outputContainer.set_width(contentWidth);
 }
 
-/**
- * Updates the input-buttons container position
- * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
- */
 /**
  * Updates the input-buttons container position
  * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
@@ -162,8 +170,11 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     paddingY,
   } = calculatePanelDimensions();
 
+  const settings = getSettings();
+  const buttonsInputPadding = settings.get_double("buttons-input-padding");
+
   // The container should go all the way to the bottom of the screen
-  // Add extra space for gap between input and buttons (16px)
+  // Add extra space for gap between input and buttons
   const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
 
   // Position at the bottom with only horizontal padding
@@ -178,13 +189,14 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     containerHeight
   );
 
-  // Apply rounded lighter grey container styling to the entire input+buttons area
+  // Apply rounded container styling but keep it transparent
   inputButtonsContainer.set_style(`
-    background-color: rgba(80, 80, 80, 0.5);
+    background-color: rgba(80, 80, 80, 0.2);
     border-radius: 16px 16px 0 0; /* Rounded only at the top */
     padding: 6px;
   `);
 }
+
 /**
  * Updates input area layout
  * @param {St.BoxLayout} inputFieldBox - The input field container
@@ -192,55 +204,46 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
  * @param {St.Button} sendButton - The send button
  * @param {St.Icon} sendIcon - The send icon
  */
-/**
- * Updates input area layout
- * @param {St.BoxLayout} inputFieldBox - The input field container
- * @param {St.Entry} inputField - The text input field
- * @param {St.Button} sendButton - The send button
- * @param {St.Icon} sendIcon - The send icon
- */
-export function updateInputArea(inputFieldBox, inputField) {
+export function updateInputArea(
+  inputFieldBox,
+  inputField,
+  sendButton,
+  sendIcon
+) {
   const {
+    panelWidth,
+    panelHeight,
+    inputFieldHeight,
+    horizontalPadding,
     availableInputWidth,
     sendButtonSize,
-    inputFieldHeight,
-    panelWidth,
-    horizontalPadding,
   } = calculatePanelDimensions();
 
-  // Set proper alignment for the input field box
-  inputFieldBox.set_style(`
-    padding: 0;
-    height: ${inputFieldHeight}px;
-  `);
+  const settings = getSettings();
+  const buttonsInputPadding = settings.get_double("buttons-input-padding");
 
-  // Center the input field box horizontally
-  inputFieldBox.set_x_align(Clutter.ActorAlign.CENTER);
-  inputFieldBox.set_y_align(Clutter.ActorAlign.CENTER);
-  inputFieldBox.spacing = 8;
-
-  // Calculate remaining space to ensure proper centering
-  const totalContentWidth = availableInputWidth + sendButtonSize + 8; // width + button + spacing
-  const leftPadding = Math.max(
-    0,
-    (panelWidth - 2 * horizontalPadding - totalContentWidth) / 2
+  // Position the input field box
+  inputFieldBox.set_size(availableInputWidth, inputFieldHeight);
+  inputFieldBox.set_position(
+    horizontalPadding,
+    panelHeight - inputFieldHeight - horizontalPadding * 2
   );
 
-  // Add padding to the left side to center the content if needed
-  if (leftPadding > 0) {
-    inputFieldBox.set_style(`
-      padding: 0 0 0 ${leftPadding}px;
-      height: ${inputFieldHeight}px;
-    `);
-  }
+  // Configure input field with transparent background
+  inputField.set_width(availableInputWidth);
+  inputField.set_height(inputFieldHeight);
+  inputField.set_style(
+    "background-color: transparent; border: none; caret-color: white; color: white;"
+  );
 
-  // Configure input field with proper centering
-  inputField.set_style(`
-    background-color: transparent;
-    border: none;
-    width: ${availableInputWidth}px;
-  `);
+  // Configure send button
+  const sendButtonIconScale = settings.get_double("send-button-icon-scale");
+  const sendIconSize = 24 * sendButtonIconScale;
 
-  // Ensure the input field's height is properly set
-  inputField.set_height(-1); // Let it use natural height
+  sendIcon.set_size(sendIconSize, sendIconSize);
+  sendButton.set_size(sendButtonSize, sendButtonSize);
+  sendButton.set_position(
+    panelWidth - sendButtonSize - horizontalPadding,
+    panelHeight - sendButtonSize - horizontalPadding * 2
+  );
 }

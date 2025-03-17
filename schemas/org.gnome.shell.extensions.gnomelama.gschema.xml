@@ -21,15 +21,15 @@
       <summary>Padding Fraction Y</summary>
       <description>Vertical padding fraction.</description>
     </key>
-    <key name="top-bar-height-fraction" type="d">
-      <default>0.03</default>
-      <summary>Top Bar Height Fraction</summary>
-      <description>Defines the height of the top bar.</description>
-    </key>
-    <key name="clear-icon-scale" type="d">
+    <key name="button-icon-scale" type="d">
       <default>1</default>
-      <summary>Clear Icon Scale</summary>
-      <description>Scale factor for the clear history icon.</description>
+      <summary>Button Icon Scale</summary>
+      <description>Scale factor for the clear and file button icons.</description>
+    </key>
+    <key name="send-button-icon-scale" type="d">
+      <default>1</default>
+      <summary>Send Button Icon Scale</summary>
+      <description>Scale factor for the send button icon.</description>
     </key>
     <key name="clear-button-padding-fraction" type="d">
       <default>0.01</default>
@@ -50,11 +50,6 @@
       <default>"#313131"</default>
       <summary>Background Color</summary>
       <description>Background color of the panel.</description>
-    </key>
-    <key name="top-bar-color" type="s">
-      <default>"#626262"</default>
-      <summary>Top Bar Color</summary>
-      <description>Background color of the top bar.</description>
     </key>
     <key name="text-color" type="s">
       <default>"#FFFFFF"</default>
@@ -95,6 +90,11 @@
       <default>0.005</default>
       <summary>Input Field Spacing Fraction</summary>
       <description>Spacing between input field and send button as a fraction of panel width.</description>
+    </key>
+    <key name="buttons-input-padding" type="d">
+      <default>8</default>
+      <summary>Buttons to Input Field Padding</summary>
+      <description>Space between the input field and buttons container in pixels. Higher values increase the gap.</description>
     </key>
   </schema>
 </schemalist>

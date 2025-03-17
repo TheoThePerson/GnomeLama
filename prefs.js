@@ -105,16 +105,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       0.005
     );
 
-    // Top bar height
+    // Buttons to input field padding
     this._addSpinRow(
       paddingGroup,
       settings,
-      "top-bar-height-fraction",
-      _("Top Bar Height"),
-      _("Height of the top bar as a fraction of screen height"),
-      0.01,
-      0.1,
-      0.005
+      "buttons-input-padding",
+      _("Buttons to Input Padding"),
+      _(
+        "Space between the input field and buttons. Higher values increase the gap."
+      ),
+      0,
+      20,
+      1
     );
   }
 
@@ -129,13 +131,25 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     });
     page.add(iconGroup);
 
-    // Clear icon scale
+    // Button icon scale
     this._addSpinRow(
       iconGroup,
       settings,
-      "clear-icon-scale",
-      _("Clear Icon Scale"),
-      _("Scale factor for the clear history icon"),
+      "button-icon-scale",
+      _("Button Icon Scale"),
+      _("Scale factor for the clear and file button icons"),
+      0.5,
+      1.5,
+      0.1
+    );
+
+    // Send button icon scale
+    this._addSpinRow(
+      iconGroup,
+      settings,
+      "send-button-icon-scale",
+      _("Send Button Icon Scale"),
+      _("Scale factor for the send button icon"),
       0.5,
       1.5,
       0.1
@@ -218,15 +232,6 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       0.0,
       1.0,
       0.05
-    );
-
-    // Top bar color
-    this._addColorRow(
-      uiColorsGroup,
-      settings,
-      "top-bar-color",
-      _("Top Bar Color"),
-      _("Background color of the top bar")
     );
 
     // Text color
