@@ -170,6 +170,8 @@ export const Indicator = GObject.registerClass(
       this._modelButton = modelButton;
       this._modelButtonLabel = modelButtonLabel;
 
+      this._modelButtonLabel.set_style("color: #808080;");
+
       // Set default label while initializing
       this._updateModelLabel("Loading...");
 
