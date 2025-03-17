@@ -1,24 +1,31 @@
+/**
+ * Linux Copilot - GNOME Shell Extension
+ * Panel UI implementation
+ */
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import Pango from "gi://Pango";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 // Import from reorganized modules
 import * as PanelElements from "./panelElements.js";
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
+import * as UIComponents from "./components.js";
+import { getSettings } from "../lib/settings.js";
 
 // Import messaging functionality
 import {
-  getConversationHistory,
-  clearConversationHistory,
   fetchModelNames,
   setModel,
   stopAiMessage,
+  getConversationHistory,
 } from "../services/messaging.js";
 
 export const Indicator = GObject.registerClass(
@@ -377,8 +384,8 @@ export const Indicator = GObject.registerClass(
 
               console.log(`File selected: ${selectedFilePath}`);
 
-              // Check if the file is a text file
-              this._checkAndDisplayFileContent(selectedFilePath);
+              // Always try to read and display file content
+              this._readAndDisplayFile(selectedFilePath);
             } else if (stderr.trim()) {
               console.error(`Error selecting file: ${stderr}`);
             }
@@ -395,65 +402,61 @@ export const Indicator = GObject.registerClass(
       }
     }
 
-    _checkAndDisplayFileContent(filePath) {
+    _readAndDisplayFile(filePath) {
       try {
-        // Check if file exists and is readable
+        // Create file object
         const file = Gio.File.new_for_path(filePath);
+
+        // Check if file exists
         if (!file.query_exists(null)) {
           console.error(`File does not exist: ${filePath}`);
+          MessageProcessor.addTemporaryMessage(
+            this._outputContainer,
+            `File does not exist: ${filePath}`
+          );
           return;
         }
 
-        // Get file info to check mime type
-        const fileInfo = file.query_info(
-          "standard::content-type",
-          Gio.FileQueryInfoFlags.NONE,
-          null
-        );
-        const contentType = fileInfo.get_content_type();
-
-        // Check if it's a text file
-        const isTextFile =
-          contentType.includes("text/") ||
-          filePath.endsWith(".txt") ||
-          filePath.endsWith(".md") ||
-          filePath.endsWith(".json") ||
-          filePath.endsWith(".xml") ||
-          filePath.endsWith(".csv") ||
-          filePath.endsWith(".log") ||
-          filePath.endsWith(".js") ||
-          filePath.endsWith(".py") ||
-          filePath.endsWith(".html") ||
-          filePath.endsWith(".css");
-
-        if (isTextFile) {
-          // Read file content
+        // Try to read file content
+        try {
           const [success, content] = file.load_contents(null);
 
           if (success) {
+            // Try to decode content
             let fileContent;
             try {
-              // Try to decode as UTF-8
               fileContent = new TextDecoder("utf-8").decode(content);
             } catch (e) {
-              // Fallback to simple string conversion
               fileContent = content.toString();
             }
 
-            // Limit content length to prevent UI issues
-            const maxLength = 2000;
-            if (fileContent.length > maxLength) {
+            // Limit content length
+            if (fileContent.length > 2000) {
               fileContent =
-                fileContent.substring(0, maxLength) +
-                "...\n(Content truncated)";
+                fileContent.substring(0, 2000) + "...\n(Content truncated)";
             }
 
-            // Display file content in a box above input field
+            // Display the content in a white box above input field
             this._displayFileContentBox(fileContent);
+          } else {
+            MessageProcessor.addTemporaryMessage(
+              this._outputContainer,
+              "Failed to read file content"
+            );
           }
+        } catch (e) {
+          console.error(`Error reading file: ${e}`);
+          MessageProcessor.addTemporaryMessage(
+            this._outputContainer,
+            `Error reading file: ${e.message || e}`
+          );
         }
       } catch (error) {
-        console.error(`Error reading file: ${error}`);
+        console.error(`Error processing file: ${error}`);
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          `Error processing file: ${error.message || error}`
+        );
       }
     }
 
@@ -465,92 +468,169 @@ export const Indicator = GObject.registerClass(
         this._fileContentBox = null;
       }
 
-      // Create a new box for file content
+      // Create a new box for file content - make it a perfect square
       this._fileContentBox = new St.BoxLayout({
         style_class: "file-content-box",
         style:
-          "background-color: rgba(30, 30, 30, 0.9); " +
+          "background-color: #FFFFFF; " +
+          "border: 2px solid #000000; " +
           "border-radius: 8px; " +
           "padding: 10px; " +
-          "margin-bottom: 10px; " +
-          "max-height: 200px; " +
-          "max-width: 100%;",
+          "margin: 0; " + // Remove margins to allow precise positioning
+          "width: 120px; " +
+          "height: 120px; " + // Make it a perfect square
+          "box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);",
         vertical: true,
+        x_expand: false, // Don't expand to fill width
+        y_expand: false,
+        x_align: Clutter.ActorAlign.CENTER,
+      });
+
+      // Create header box for title and close button
+      const headerBox = new St.BoxLayout({
+        style_class: "file-content-header",
+        style: "width: 100%; margin-bottom: 5px;",
+        vertical: false,
+      });
+
+      // Add a title to the header
+      const titleLabel = new St.Label({
+        text: "File Content:",
+        style: "font-weight: bold; color: #000000; font-size: 14px;",
         x_expand: true,
       });
+      headerBox.add_child(titleLabel);
+
+      // Add close button (X) to the header - no red background
+      const closeButton = new St.Button({
+        style_class: "file-content-close-button",
+        style:
+          "font-weight: bold; " +
+          "color: #000000; " +
+          "font-size: 16px; " +
+          "background: none; " +
+          "border: none; " +
+          "width: 20px; " +
+          "height: 20px;",
+        label: "✕",
+      });
+
+      closeButton.connect("clicked", () => {
+        this._cleanupFileContentBox();
+      });
+
+      // Add close button to header
+      headerBox.add_child(closeButton);
+
+      // Add header to the box
+      this._fileContentBox.add_child(headerBox);
 
       // Create scrollable container for content
       const scrollView = new St.ScrollView({
         style_class: "file-content-scroll",
         x_expand: true,
         y_expand: true,
+        style: "min-height: 80px;",
+      });
+
+      // Create a container for the content inside the scroll view
+      const contentBox = new St.BoxLayout({
+        vertical: true,
+        x_expand: true,
       });
 
       // Create label with file content
       const contentLabel = new St.Label({
         text: content,
         style_class: "file-content-text",
-        style: "font-family: monospace; font-size: 12px; color: #ffffff;",
+        style: "font-family: monospace; font-size: 14px; color: #000000;",
       });
 
       contentLabel.clutter_text.set_line_wrap(true);
       contentLabel.clutter_text.set_selectable(true);
 
-      // Add close button
-      const closeButton = new St.Button({
-        style_class: "file-content-close-button",
-        style:
-          "background-color: rgba(200, 0, 0, 0.7); " +
-          "border-radius: 12px; " +
-          "width: 24px; " +
-          "height: 24px; " +
-          "font-weight: bold; " +
-          "color: white; " +
-          "position: absolute; " +
-          "right: 5px; " +
-          "top: 5px;",
-        label: "X",
-      });
+      // Add content label to the content box
+      contentBox.add_child(contentLabel);
 
-      closeButton.connect("clicked", () => {
-        if (this._fileContentBox && this._fileContentBox.get_parent()) {
-          this._fileContentBox.get_parent().remove_child(this._fileContentBox);
-          this._fileContentBox.destroy();
-          this._fileContentBox = null;
-        }
-      });
+      // Add content box to the scroll view
+      scrollView.add_child(contentBox);
 
-      // Add content to scroll view
-      scrollView.add_actor(contentLabel);
-
-      // Add scroll view and close button to the box
+      // Add scroll view to the box
       this._fileContentBox.add_child(scrollView);
-      this._fileContentBox.add_child(closeButton);
 
-      // Insert the file content box above the input field
-      this._panelOverlay.insert_child_below(
-        this._fileContentBox,
-        this._inputButtonsContainer
+      // Add the file content box to the panel overlay
+      this._panelOverlay.add_child(this._fileContentBox);
+
+      // Position the box so its bottom touches the top of the input container
+      this._positionFileContentBox();
+
+      // Connect to allocation-changed signal to reposition when panel size changes
+      this._allocationChangedId = this._panelOverlay.connect(
+        "allocation-changed",
+        () => {
+          this._positionFileContentBox();
+        }
       );
+    }
+
+    _positionFileContentBox() {
+      if (!this._fileContentBox || !this._inputButtonsContainer) return;
+
+      // Get the position and size of the input container
+      const [inputX, inputY] =
+        this._inputButtonsContainer.get_transformed_position();
+      const [inputWidth, inputHeight] = this._inputButtonsContainer.get_size();
+
+      // Get the size of the file content box
+      const [boxWidth, boxHeight] = this._fileContentBox.get_size();
+
+      // Calculate position: centered horizontally, bottom touching the top of input container
+      const x = Math.floor((this._panelOverlay.width - boxWidth) / 2);
+      const y = inputY - boxHeight;
+
+      // Set the position
+      this._fileContentBox.set_position(x, Math.max(10, y)); // Ensure at least 10px from top
+    }
+
+    // Clean up allocation-changed signal when removing the file content box
+    _cleanupFileContentBox() {
+      if (this._allocationChangedId) {
+        this._panelOverlay.disconnect(this._allocationChangedId);
+        this._allocationChangedId = null;
+      }
+
+      if (this._fileContentBox && this._fileContentBox.get_parent()) {
+        this._fileContentBox.get_parent().remove_child(this._fileContentBox);
+        this._fileContentBox.destroy();
+        this._fileContentBox = null;
+      }
     }
 
     async _togglePanelOverlay() {
       // Toggle visibility
       this._panelOverlay.visible = !this._panelOverlay.visible;
 
-      // If closing, reset the input field
+      // If closing, reset the input field and close model menu
       if (!this._panelOverlay.visible) {
         this._inputField.set_text("");
 
-        // Clean up file content box if it exists
-        if (this._fileContentBox && this._fileContentBox.get_parent()) {
-          this._fileContentBox.get_parent().remove_child(this._fileContentBox);
-          this._fileContentBox.destroy();
-          this._fileContentBox = null;
+        // Close model menu when panel is closed
+        if (this._modelMenu && this._modelMenu.isOpen) {
+          this._modelMenu.close();
         }
+
+        // Clean up file content box if it exists
+        this._cleanupFileContentBox();
       } else {
-        // If opening, focus the input field
-        global.stage.set_key_focus(this._inputField);
+        // If opening, repopulate model menu and focus input field
+        // Clear existing menu items
+        if (this._modelMenu) {
+          this._modelMenu.removeAll();
+          // Repopulate model menu items
+          await this._addModelMenuItems();
+        }
+        this._updateHistory();
+        global.stage.set_key_focus(this._inputField.clutter_text);
       }
 
       // Update layout
@@ -560,38 +640,35 @@ export const Indicator = GObject.registerClass(
     // MESSAGING FUNCTIONALITY
 
     async _sendMessage() {
-      const message = this._inputField.get_text();
-      if (!message || message.trim() === "") {
-        return;
-      }
+      const userMessage = this._inputField.get_text().trim();
+      if (!userMessage || this._isProcessingMessage) return;
 
       // Clean up file content box if it exists
-      if (this._fileContentBox && this._fileContentBox.get_parent()) {
-        this._fileContentBox.get_parent().remove_child(this._fileContentBox);
-        this._fileContentBox.destroy();
-        this._fileContentBox = null;
-      }
+      this._cleanupFileContentBox();
 
-      // Clear input field
+      // Clear input field immediately
       this._inputField.set_text("");
 
       // Update input field hint to "Your response..." immediately after sending
       PanelElements.updateInputFieldHint(this._inputField, false);
 
-      // Set processing flag and disable send button
+      // Set processing state
       this._isProcessingMessage = true;
       this._updateSendButtonState(false);
 
       try {
         // Process the user message
         await MessageProcessor.processUserMessage({
-          userMessage: message,
+          userMessage: userMessage,
           context: this._context,
           outputContainer: this._outputContainer,
           scrollView: this._outputScrollView,
-          onResponseStart: () => {},
+          onResponseStart: () => {
+            // Update send button to show stop icon
+            this._updateSendButtonState(true, true);
+          },
           onResponseEnd: () => {
-            // Reset processing flag when response is complete
+            // Reset processing state
             this._isProcessingMessage = false;
             this._updateSendButtonState(true);
             // No need to update hint here as we already updated it when sending the message
