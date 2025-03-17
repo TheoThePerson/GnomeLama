@@ -31,7 +31,7 @@ export class ModelManager {
   createModelButton() {
     const modelButton = new St.Button({
       style_class: "model-button",
-      style: "padding: 0 8px; height: 32px;",
+      style: "padding: 0px; height: 32px;",
       can_focus: true,
     });
 
@@ -125,17 +125,16 @@ export class ModelManager {
     // Get menu actor
     let menuActor = this._modelMenu.actor || this._modelMenu;
 
-    // Get input container position
-    const [, inputContainerY] =
-      this._inputButtonsContainer.get_transformed_position();
+    // Get model button position and size
+    const [buttonX, buttonY] = this._modelButton.get_transformed_position();
 
     // Get menu height
     const [, menuHeight] = menuActor.get_preferred_height(-1);
 
-    // Position the menu at the left edge of the panel, just above the input container
+    // Position the menu aligned with the model button, just above it
     menuActor.set_position(
-      dimensions.monitor.width - dimensions.panelWidth,
-      inputContainerY - menuHeight - 10 // 10px padding above input container
+      buttonX,
+      buttonY - menuHeight - 5 // 5px padding above button
     );
   }
 

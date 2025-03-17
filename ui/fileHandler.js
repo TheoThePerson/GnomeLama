@@ -6,6 +6,7 @@ import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import GLib from "gi://GLib";
 
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
@@ -26,8 +27,6 @@ export class FileHandler {
     this._updateLayoutCallback = updateLayoutCallback;
 
     this._fileBoxesContainer = null;
-    this._expandedContainer = null;
-    this._allocationChangedId = null;
   }
 
   // Method is now public
@@ -131,16 +130,8 @@ export class FileHandler {
   }
 
   _displayFileContentBox(content, fileName) {
-    if (!this._fileBoxesContainer) {
-      // Create a horizontal container for files
-      this._fileBoxesContainer = new St.BoxLayout({
-        style_class: "file-boxes-container",
-        style: "spacing: 15px;",
-        vertical: false,
-        x_expand: true,
-        y_expand: false,
-      });
-    }
+    // Initialize or reposition the file boxes container
+    this._setupFileBoxesContainer();
 
     // Create a new box for file content - make it square and smaller
     const fileBox = new St.BoxLayout({
@@ -239,80 +230,43 @@ export class FileHandler {
 
     // Add this file box to the file boxes container
     this._fileBoxesContainer.add_child(fileBox);
-
-    // If this is our first file, set up the expanded container
-    if (this._fileBoxesContainer.get_children().length === 1) {
-      this._setupExpandedContainer();
-    }
-
-    // Make sure the expanded container is properly positioned
-    this._positionExpandedContainer();
   }
 
-  _setupExpandedContainer() {
-    // Create a container that will hold both the file boxes and the input-buttons container
-    this._expandedContainer = new St.BoxLayout({
-      style_class: "expanded-container",
-      style:
-        "background-color: rgba(80, 80, 80, 0.2); " +
-        "border-radius: 16px 16px 0 0; " + // Rounded only at the top
-        "padding: 12px;",
-      vertical: true,
-      x_expand: true,
-      y_expand: false,
-    });
-
-    // Add the file boxes container first
-    this._expandedContainer.add_child(this._fileBoxesContainer);
-
-    // Move input-buttons container from panel overlay to expanded container
-    if (this._inputButtonsContainer.get_parent()) {
-      this._inputButtonsContainer
-        .get_parent()
-        .remove_child(this._inputButtonsContainer);
-    }
-
-    // Reset the style of the input-buttons container since it will now be inside the expanded container
-    this._inputButtonsContainer.set_style(
-      "background-color: transparent; padding: 0; margin-top: 10px;"
-    );
-
-    // Add the input-buttons container to the expanded container
-    this._expandedContainer.add_child(this._inputButtonsContainer);
-
-    // Add the expanded container to the panel overlay
-    this._panelOverlay.add_child(this._expandedContainer);
-
-    // Position the expanded container initially
-    this._positionExpandedContainer();
-
-    // Connect to allocation-changed signal to reposition when panel size changes
-    this._allocationChangedId = this._panelOverlay.connect(
-      "allocation-changed",
-      () => {
-        this._positionExpandedContainer();
-      }
-    );
-  }
-
-  _positionExpandedContainer() {
-    if (!this._expandedContainer) return;
-
+  _setupFileBoxesContainer() {
     const dimensions = LayoutManager.calculatePanelDimensions();
 
-    // Get the height of the expanded container
-    const [, expandedHeight] = this._expandedContainer.get_preferred_height(-1);
+    if (!this._fileBoxesContainer) {
+      // Create a horizontal container for files
+      this._fileBoxesContainer = new St.BoxLayout({
+        style_class: "file-boxes-container",
+        style:
+          "spacing: 15px; background-color: rgba(80, 80, 80, 0.2); border-radius: 12px; padding: 12px;",
+        vertical: false,
+        x_expand: true,
+        y_expand: false,
+      });
 
-    // Position the expanded container at the bottom of the panel with proper padding
-    this._expandedContainer.set_position(
-      dimensions.horizontalPadding,
-      dimensions.panelHeight - expandedHeight - dimensions.paddingY
-    );
+      // Position it in the lower part of the output area, above the input buttons
+      const outputAreaHeight = dimensions.outputHeight;
+      const fileContainerHeight = 200; // Approximate height for the file boxes container
 
-    // Set the width to span most of the panel with padding on both sides
-    this._expandedContainer.set_width(
-      dimensions.panelWidth - dimensions.horizontalPadding * 2
-    );
+      // Add the file boxes container to the panel overlay
+      this._panelOverlay.add_child(this._fileBoxesContainer);
+
+      // Position it at a fixed position in the output area
+      this._fileBoxesContainer.set_position(
+        dimensions.horizontalPadding,
+        dimensions.paddingY +
+          outputAreaHeight -
+          fileContainerHeight -
+          dimensions.paddingY
+      );
+
+      // Set the width to match the panel width minus padding
+      this._fileBoxesContainer.set_width(
+        dimensions.panelWidth - dimensions.horizontalPadding * 2
+      );
+    }
   }
 
   _removeFileBox(fileBox) {
@@ -328,19 +282,11 @@ export class FileHandler {
       this._fileBoxesContainer.get_children().length === 0
     ) {
       this.cleanupFileContentBox();
-    } else {
-      // Otherwise just reposition the container
-      this._positionExpandedContainer();
     }
   }
 
-  // Clean up allocation-changed signal when removing the file content box
+  // Clean up when removing the file content box
   cleanupFileContentBox() {
-    if (this._allocationChangedId) {
-      this._panelOverlay.disconnect(this._allocationChangedId);
-      this._allocationChangedId = null;
-    }
-
     // Clean up file boxes
     if (this._fileBoxesContainer) {
       // Remove and destroy all file boxes
@@ -359,55 +305,8 @@ export class FileHandler {
       this._fileBoxesContainer = null;
     }
 
-    // If we have an expanded container, move input-buttons container back to panel overlay
-    if (this._expandedContainer) {
-      if (this._inputButtonsContainer.get_parent()) {
-        this._inputButtonsContainer
-          .get_parent()
-          .remove_child(this._inputButtonsContainer);
-      }
-
-      // Add it back to the panel overlay
-      this._panelOverlay.add_child(this._inputButtonsContainer);
-
-      // Remove and destroy the expanded container
-      if (this._expandedContainer.get_parent()) {
-        this._expandedContainer
-          .get_parent()
-          .remove_child(this._expandedContainer);
-      }
-      this._expandedContainer.destroy();
-      this._expandedContainer = null;
-    }
-
-    // Update the layout - this will recalculate all UI element positions correctly
+    // Update the layout to ensure everything is positioned correctly
     this._updateLayoutCallback();
-  }
-
-  _updateLayoutForInputButtonsContainer() {
-    // Get dimensions
-    const dimensions = LayoutManager.calculatePanelDimensions();
-
-    // Position and style the input-buttons container
-    this._inputButtonsContainer.set_style(
-      "background-color: rgba(255, 255, 255, 0.95); " +
-        "border-radius: 12px; " +
-        "padding: 10px; " +
-        "box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);"
-    );
-
-    // Position the container at the bottom of the panel
-    this._inputButtonsContainer.set_position(
-      dimensions.horizontalPadding,
-      dimensions.panelHeight -
-        this._inputButtonsContainer.get_height() -
-        dimensions.paddingY
-    );
-
-    // Set the width to span most of the panel
-    this._inputButtonsContainer.set_width(
-      dimensions.panelWidth - dimensions.horizontalPadding * 2
-    );
   }
 
   destroy() {
