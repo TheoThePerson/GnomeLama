@@ -26,6 +26,7 @@ import {
   setModel,
   stopAiMessage,
   getConversationHistory,
+  clearConversationHistory,
 } from "../services/messaging.js";
 
 export const Indicator = GObject.registerClass(
@@ -417,6 +418,9 @@ export const Indicator = GObject.registerClass(
           return;
         }
 
+        // Get the file name from the path
+        const fileName = file.get_basename();
+
         // Try to read file content
         try {
           const [success, content] = file.load_contents(null);
@@ -436,8 +440,8 @@ export const Indicator = GObject.registerClass(
                 fileContent.substring(0, 2000) + "...\n(Content truncated)";
             }
 
-            // Display the content in a white box above input field
-            this._displayFileContentBox(fileContent);
+            // Display the content in a file box
+            this._displayFileContentBox(fileContent, fileName);
           } else {
             MessageProcessor.addTemporaryMessage(
               this._outputContainer,
@@ -460,48 +464,57 @@ export const Indicator = GObject.registerClass(
       }
     }
 
-    _displayFileContentBox(content) {
-      // Remove any existing file content box
-      if (this._fileContentBox && this._fileContentBox.get_parent()) {
-        this._fileContentBox.get_parent().remove_child(this._fileContentBox);
-        this._fileContentBox.destroy();
-        this._fileContentBox = null;
+    _displayFileContentBox(content, fileName) {
+      // Initialize the file boxes container if it doesn't exist
+      if (!this._fileBoxesContainer) {
+        // Create a horizontal container for file boxes
+        this._fileBoxesContainer = new St.BoxLayout({
+          style_class: "file-boxes-container",
+          style: "spacing: 15px;", // Space between file boxes
+          vertical: false, // Horizontal layout
+          x_expand: true,
+          y_expand: false,
+        });
       }
 
-      // Create a new box for file content - make it a perfect square
-      this._fileContentBox = new St.BoxLayout({
+      // Create a new box for file content - make it square and smaller
+      const fileBox = new St.BoxLayout({
         style_class: "file-content-box",
         style:
           "background-color: #FFFFFF; " +
           "border: 2px solid #000000; " +
           "border-radius: 8px; " +
           "padding: 10px; " +
-          "margin: 0; " + // Remove margins to allow precise positioning
-          "width: 120px; " +
-          "height: 120px; " + // Make it a perfect square
+          "margin: 0; " +
+          "width: 160px; " + // Fixed width
+          "height: 160px; " + // Same as width to make it square
           "box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);",
         vertical: true,
         x_expand: false, // Don't expand to fill width
         y_expand: false,
-        x_align: Clutter.ActorAlign.CENTER,
       });
 
-      // Create header box for title and close button
+      // Create header box for filename and close button
       const headerBox = new St.BoxLayout({
         style_class: "file-content-header",
         style: "width: 100%; margin-bottom: 5px;",
         vertical: false,
       });
 
-      // Add a title to the header
+      // Add filename as the title - truncate if too long
+      let displayName = fileName;
+      if (displayName.length > 15) {
+        displayName = displayName.substring(0, 12) + "...";
+      }
+
       const titleLabel = new St.Label({
-        text: "File Content:",
+        text: displayName,
         style: "font-weight: bold; color: #000000; font-size: 14px;",
         x_expand: true,
       });
       headerBox.add_child(titleLabel);
 
-      // Add close button (X) to the header - no red background
+      // Add close button (X) to the header
       const closeButton = new St.Button({
         style_class: "file-content-close-button",
         style:
@@ -516,21 +529,22 @@ export const Indicator = GObject.registerClass(
       });
 
       closeButton.connect("clicked", () => {
-        this._cleanupFileContentBox();
+        // Remove just this file box
+        this._removeFileBox(fileBox);
       });
 
       // Add close button to header
       headerBox.add_child(closeButton);
 
       // Add header to the box
-      this._fileContentBox.add_child(headerBox);
+      fileBox.add_child(headerBox);
 
       // Create scrollable container for content
       const scrollView = new St.ScrollView({
         style_class: "file-content-scroll",
         x_expand: true,
         y_expand: true,
-        style: "min-height: 80px;",
+        style: "min-height: 120px;",
       });
 
       // Create a container for the content inside the scroll view
@@ -543,7 +557,7 @@ export const Indicator = GObject.registerClass(
       const contentLabel = new St.Label({
         text: content,
         style_class: "file-content-text",
-        style: "font-family: monospace; font-size: 14px; color: #000000;",
+        style: "font-family: monospace; font-size: 12px; color: #000000;",
       });
 
       contentLabel.clutter_text.set_line_wrap(true);
@@ -556,40 +570,102 @@ export const Indicator = GObject.registerClass(
       scrollView.add_child(contentBox);
 
       // Add scroll view to the box
-      this._fileContentBox.add_child(scrollView);
+      fileBox.add_child(scrollView);
 
-      // Add the file content box to the panel overlay
-      this._panelOverlay.add_child(this._fileContentBox);
+      // Add this file box to the file boxes container
+      this._fileBoxesContainer.add_child(fileBox);
 
-      // Position the box so its bottom touches the top of the input container
-      this._positionFileContentBox();
+      // If this is our first file, set up the expanded container
+      if (this._fileBoxesContainer.get_children().length === 1) {
+        this._setupExpandedContainer();
+      }
+
+      // Make sure the expanded container is properly positioned
+      this._positionExpandedContainer();
+    }
+
+    _setupExpandedContainer() {
+      // Create a container that will hold both the file boxes and the input-buttons container
+      this._expandedContainer = new St.BoxLayout({
+        style_class: "expanded-container",
+        style:
+          "background-color: rgba(80, 80, 80, 0.2); " +
+          "border-radius: 16px 16px 0 0; " + // Rounded only at the top
+          "padding: 12px;",
+        vertical: true,
+        x_expand: true,
+        y_expand: false,
+      });
+
+      // Add the file boxes container first
+      this._expandedContainer.add_child(this._fileBoxesContainer);
+
+      // Move input-buttons container from panel overlay to expanded container
+      if (this._inputButtonsContainer.get_parent()) {
+        this._inputButtonsContainer
+          .get_parent()
+          .remove_child(this._inputButtonsContainer);
+      }
+
+      // Reset the style of the input-buttons container since it will now be inside the expanded container
+      this._inputButtonsContainer.set_style(
+        "background-color: transparent; padding: 0; margin-top: 10px;"
+      );
+
+      // Add the input-buttons container to the expanded container
+      this._expandedContainer.add_child(this._inputButtonsContainer);
+
+      // Add the expanded container to the panel overlay
+      this._panelOverlay.add_child(this._expandedContainer);
+
+      // Position the expanded container initially
+      this._positionExpandedContainer();
 
       // Connect to allocation-changed signal to reposition when panel size changes
       this._allocationChangedId = this._panelOverlay.connect(
         "allocation-changed",
         () => {
-          this._positionFileContentBox();
+          this._positionExpandedContainer();
         }
       );
     }
 
-    _positionFileContentBox() {
-      if (!this._fileContentBox || !this._inputButtonsContainer) return;
+    _positionExpandedContainer() {
+      if (!this._expandedContainer) return;
 
-      // Get the position and size of the input container
-      const [inputX, inputY] =
-        this._inputButtonsContainer.get_transformed_position();
-      const [inputWidth, inputHeight] = this._inputButtonsContainer.get_size();
+      const dimensions = LayoutManager.calculatePanelDimensions();
 
-      // Get the size of the file content box
-      const [boxWidth, boxHeight] = this._fileContentBox.get_size();
+      // Position the expanded container at the bottom of the panel with proper padding
+      this._expandedContainer.set_position(
+        dimensions.horizontalPadding,
+        dimensions.panelHeight -
+          this._expandedContainer.get_height() -
+          dimensions.paddingY
+      );
 
-      // Calculate position: centered horizontally, bottom touching the top of input container
-      const x = Math.floor((this._panelOverlay.width - boxWidth) / 2);
-      const y = inputY - boxHeight;
+      // Set the width to span most of the panel with padding on both sides
+      this._expandedContainer.set_width(
+        dimensions.panelWidth - dimensions.horizontalPadding * 2
+      );
+    }
 
-      // Set the position
-      this._fileContentBox.set_position(x, Math.max(10, y)); // Ensure at least 10px from top
+    _removeFileBox(fileBox) {
+      // Remove the file box from its parent
+      if (fileBox && fileBox.get_parent()) {
+        fileBox.get_parent().remove_child(fileBox);
+        fileBox.destroy();
+      }
+
+      // If there are no more file boxes, clean up everything
+      if (
+        !this._fileBoxesContainer ||
+        this._fileBoxesContainer.get_children().length === 0
+      ) {
+        this._cleanupFileContentBox();
+      } else {
+        // Otherwise just reposition the container
+        this._positionExpandedContainer();
+      }
     }
 
     // Clean up allocation-changed signal when removing the file content box
@@ -599,11 +675,50 @@ export const Indicator = GObject.registerClass(
         this._allocationChangedId = null;
       }
 
-      if (this._fileContentBox && this._fileContentBox.get_parent()) {
-        this._fileContentBox.get_parent().remove_child(this._fileContentBox);
-        this._fileContentBox.destroy();
-        this._fileContentBox = null;
+      // Clean up file boxes
+      if (this._fileBoxesContainer) {
+        // Remove and destroy all file boxes
+        this._fileBoxesContainer.get_children().forEach((child) => {
+          this._fileBoxesContainer.remove_child(child);
+          child.destroy();
+        });
+
+        // Remove and destroy the file boxes container
+        if (this._fileBoxesContainer.get_parent()) {
+          this._fileBoxesContainer
+            .get_parent()
+            .remove_child(this._fileBoxesContainer);
+        }
+        this._fileBoxesContainer.destroy();
+        this._fileBoxesContainer = null;
       }
+
+      // If we have an expanded container, move input-buttons container back to panel overlay
+      if (this._expandedContainer) {
+        if (this._inputButtonsContainer.get_parent()) {
+          this._inputButtonsContainer
+            .get_parent()
+            .remove_child(this._inputButtonsContainer);
+        }
+
+        // Reset style for the input-buttons container
+        LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+
+        // Add it back to the panel overlay
+        this._panelOverlay.add_child(this._inputButtonsContainer);
+
+        // Remove and destroy the expanded container
+        if (this._expandedContainer.get_parent()) {
+          this._expandedContainer
+            .get_parent()
+            .remove_child(this._expandedContainer);
+        }
+        this._expandedContainer.destroy();
+        this._expandedContainer = null;
+      }
+
+      // Update the layout
+      this._updateLayout();
     }
 
     async _togglePanelOverlay() {
@@ -643,7 +758,7 @@ export const Indicator = GObject.registerClass(
       const userMessage = this._inputField.get_text().trim();
       if (!userMessage || this._isProcessingMessage) return;
 
-      // Clean up file content box if it exists
+      // Clean up file content boxes if they exist
       this._cleanupFileContentBox();
 
       // Clear input field immediately
