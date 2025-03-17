@@ -85,13 +85,8 @@ export function updatePanelOverlay(panelOverlay) {
  * @param {St.Button} clearButton - The clear history button
  */
 export function updateButtonsContainer(buttonsBox, modelButton, clearButton) {
-  const {
-    panelWidth,
-    buttonsHeight,
-    panelHeight,
-    inputFieldHeight,
-    horizontalPadding,
-  } = calculatePanelDimensions();
+  const { panelWidth, buttonsHeight, panelHeight, horizontalPadding } =
+    calculatePanelDimensions();
 
   // Position at the bottom of the panel
   buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
