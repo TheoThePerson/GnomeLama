@@ -217,6 +217,7 @@ export function createInputArea(extensionPath, isNewChat = true) {
     hint_text: isNewChat ? "Start your conversation..." : "Your response...",
     can_focus: true,
     style_class: "input-field",
+    style: "caret-color: white; color: white;",
   });
 
   const sendIcon = new St.Icon({
