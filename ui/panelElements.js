@@ -40,26 +40,31 @@ export function createPanelOverlay(dimensions) {
  * @returns {object} - Object containing button and label elements
  */
 export function createModelButton(label = "No models found") {
-  //will be overwritten by the actual model name if any are found
+  const modelButton = new St.Button({
+    style_class: "model-button",
+    style: "padding: 0 8px; height: 32px;",
+    can_focus: true,
+  });
+
   const modelButtonLabel = new St.Label({
     text: label,
     style_class: "model-button-label",
-    x_align: Clutter.ActorAlign.START,
+    style: "color: #808080;",
     y_align: Clutter.ActorAlign.CENTER,
-    x_expand: true,
+    x_align: Clutter.ActorAlign.START,
   });
 
+  // Create a container for proper alignment
   const buttonContentBox = new St.BoxLayout({
     style: "padding-left: 12px;",
     x_expand: true,
   });
+
+  // Add the label to the content box
   buttonContentBox.add_child(modelButtonLabel);
 
-  const modelButton = new St.Button({
-    child: buttonContentBox,
-    style_class: "model-button",
-    x_align: Clutter.ActorAlign.FILL,
-  });
+  // Set the content box as the button's child
+  modelButton.set_child(buttonContentBox);
 
   return { modelButton, modelButtonLabel };
 }
@@ -220,7 +225,7 @@ export function createInputArea(extensionPath, isNewChat = true) {
   // Only add the input field to the box, the send button will be in the buttons container
   inputFieldBox.add_child(inputField);
 
-  return { inputFieldBox, inputField, sendButton, sendIcon };
+  return { inputFieldBox, inputField, sendButton };
 }
 
 /**

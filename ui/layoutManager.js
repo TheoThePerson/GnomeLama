@@ -102,9 +102,10 @@ export function updateButtonsContainer(
   modelButton.set_width(panelWidth * 0.6);
   modelButton.set_height(buttonsHeight);
 
-  // Configure clear and file buttons
+  // Calculate consistent icon and button sizes
   const buttonIconScale = settings.get_double("button-icon-scale");
-  const iconSize = 24 * buttonIconScale;
+  const iconSize = Math.round(24 * buttonIconScale);
+  const buttonSize = Math.max(Math.round(buttonsHeight * 0.9), 32);
 
   // Update clear button icon size
   if (clearButton.get_child()) {
@@ -125,7 +126,6 @@ export function updateButtonsContainer(
   }
 
   // Size and align the buttons
-  const buttonSize = Math.max(buttonsHeight * 0.9, 32);
   clearButton.set_width(buttonSize);
   clearButton.set_height(buttonSize);
   clearButton.set_style("padding: 0; margin: 0;");
@@ -197,14 +197,8 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
  * @param {St.BoxLayout} inputFieldBox - The input field container
  * @param {St.Entry} inputField - The text input field
  * @param {St.Button} sendButton - The send button
- * @param {St.Icon} sendIcon - The send icon
  */
-export function updateInputArea(
-  inputFieldBox,
-  inputField,
-  sendButton,
-  sendIcon
-) {
+export function updateInputArea(inputFieldBox, inputField, sendButton) {
   const {
     panelWidth,
     panelHeight,
@@ -230,13 +224,18 @@ export function updateInputArea(
   );
 
   // Configure send button
-  const sendButtonIconScale = settings.get_double("send-button-icon-scale");
-  const sendIconSize = 24 * sendButtonIconScale;
-
-  sendIcon.set_size(sendIconSize, sendIconSize);
   sendButton.set_size(sendButtonSize, sendButtonSize);
   sendButton.set_position(
     panelWidth - sendButtonSize - horizontalPadding,
     panelHeight - sendButtonSize - horizontalPadding * 2
   );
+
+  // If the button has a child (the icon), configure it
+  if (sendButton.get_child()) {
+    const sendButtonIconScale = settings.get_double("send-button-icon-scale");
+    const sendIconSize = 24 * sendButtonIconScale;
+
+    const sendIcon = sendButton.get_child();
+    sendIcon.set_size(sendIconSize, sendIconSize);
+  }
 }
