@@ -2,6 +2,7 @@ import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
@@ -105,11 +106,13 @@ export const Indicator = GObject.registerClass(
 
       // Setup model selector and clear button
       this._setupModelMenu();
+      this._setupFileButton();
       this._setupClearButton();
 
       // Configure the buttons container
       this._buttonsContainer.add_child(this._modelButton);
       this._buttonsContainer.add_child(new St.Widget({ x_expand: true }));
+      this._buttonsContainer.add_child(this._fileButton);
       this._buttonsContainer.add_child(this._clearButton);
       this._buttonsContainer.add_child(this._sendButton);
 
@@ -330,6 +333,61 @@ export const Indicator = GObject.registerClass(
       }
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
+    }
+
+    _setupFileButton() {
+      const { fileButton, fileIcon } = PanelElements.createFileButton(
+        this._extensionPath,
+        this._settings.get_double("clear-icon-scale") // Using the same scale as clear button
+      );
+
+      this._fileButton = fileButton;
+      this._fileIcon = fileIcon;
+
+      this._fileButton.connect("clicked", this._openFileSelector.bind(this));
+    }
+
+    _openFileSelector() {
+      try {
+        const command = ["zenity", "--file-selection", "--title=Select a file"];
+
+        let subprocess = new Gio.Subprocess({
+          argv: command,
+          flags:
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+        });
+
+        subprocess.init(null);
+
+        // Read output asynchronously
+        subprocess.communicate_utf8_async(null, null, (source, res) => {
+          try {
+            let [, stdout, stderr] = source.communicate_utf8_finish(res);
+
+            if (stdout.trim()) {
+              let selectedFilePath = stdout.trim();
+
+              // Display file selection message
+              MessageProcessor.addTemporaryMessage(
+                this._outputContainer,
+                `Selected file: ${selectedFilePath}`
+              );
+
+              console.log(`File selected: ${selectedFilePath}`);
+            } else if (stderr.trim()) {
+              console.error(`Error selecting file: ${stderr}`);
+            }
+          } catch (e) {
+            console.error(`Error processing file selection: ${e}`);
+          }
+        });
+      } catch (error) {
+        console.error(`Error opening file selector: ${error}`);
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          "Error opening file selector. Please try again."
+        );
+      }
     }
 
     async _togglePanelOverlay() {

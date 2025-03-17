@@ -106,6 +106,33 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
 }
 
 /**
+ * Creates a file selection button with file icon
+ * @param {string} extensionPath - Path to the extension
+ * @param {number} iconScale - Scale factor for the icon
+ * @returns {object} - Object containing button and icon elements
+ */
+export function createFileButton(extensionPath, iconScale = 1.0) {
+  const iconSize = 24 * iconScale;
+
+  const fileIcon = new St.Icon({
+    gicon: Gio.icon_new_for_string(`${extensionPath}/icons/file-icon.svg`),
+    style_class: "system-status-icon",
+    style: "margin: 0 auto;",
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+    width: iconSize,
+    height: iconSize,
+  });
+
+  const fileButton = new St.Button({
+    child: fileIcon,
+    style_class: "file-button",
+  });
+
+  return { fileButton, fileIcon };
+}
+
+/**
  * Creates a scrollable output area
  * @param {object} dimensions - Layout dimensions
  * @returns {object} - Object containing scroll view and container
