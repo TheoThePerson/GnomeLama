@@ -1,12 +1,8 @@
 /**
  * File handling functionality for the panel UI
  */
-import GObject from "gi://GObject";
 import St from "gi://St";
-import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import GLib from "gi://GLib";
 
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
@@ -26,15 +22,8 @@ export class FileHandler {
     this._inputButtonsContainer = inputButtonsContainer;
     this._updateLayoutCallback = updateLayoutCallback;
 
-    // Create a container that will hold files and the input buttons container
+    // Create a container that will hold files
     this._expandedContainer = null;
-
-    // Store the original input buttons container parent
-    this._originalParent = null;
-
-    // Store the original position and style of the input buttons container
-    this._originalInputPos = null;
-    this._originalInputStyle = null;
   }
 
   // Method is now public
@@ -141,53 +130,36 @@ export class FileHandler {
     // If already set up, return
     if (this._expandedContainer) return;
 
-    // Save original parent and position
-    this._originalParent = this._inputButtonsContainer.get_parent();
-    this._originalInputPos = this._inputButtonsContainer.get_position();
-    this._originalInputStyle = this._inputButtonsContainer.get_style();
-
     // Get the dimensions
     const dimensions = LayoutManager.calculatePanelDimensions();
 
-    // Get the height of the input buttons container for exact positioning later
+    // Get the input container dimensions for positioning
     const [, inputHeight] =
       this._inputButtonsContainer.get_preferred_height(-1);
+    const inputPosition = this._inputButtonsContainer.get_position();
 
-    // Create a new expanded container that will hold both file boxes and input container
-    // Minimal padding and styling to make it look seamless
+    // Create a new expanded container that will hold file boxes
+    // Darker background and stretches all the way down
     this._expandedContainer = new St.BoxLayout({
       style_class: "expanded-container",
       style:
-        "background-color: rgba(80, 80, 80, 0.2); border-radius: 16px 16px 0 0; padding: 0;",
+        "background-color: rgba(60, 60, 60, 0.3); border-radius: 16px 16px 0 0; padding: 0;",
       vertical: true,
       x_expand: true,
       y_expand: false,
     });
 
-    // Create a horizontal container for file boxes - position it right above the input
+    // Create a horizontal container for file boxes - position it above the input
     this._fileBoxesContainer = new St.BoxLayout({
       style_class: "file-boxes-container",
-      style: "spacing: 10px; margin: 8px 8px 0 8px;", // Add margin only on sides and top
+      style: "spacing: 10px; margin: 8px;", // Add margin all around
       vertical: false,
       x_expand: false,
       y_expand: false,
     });
 
-    // Remove input buttons container from its parent
-    if (this._inputButtonsContainer.get_parent()) {
-      this._inputButtonsContainer
-        .get_parent()
-        .remove_child(this._inputButtonsContainer);
-    }
-
-    // Add file boxes container to expanded container first
+    // Add file boxes container to expanded container
     this._expandedContainer.add_child(this._fileBoxesContainer);
-
-    // Add input buttons container to expanded container
-    this._expandedContainer.add_child(this._inputButtonsContainer);
-
-    // Make sure input container keeps its original style
-    this._inputButtonsContainer.set_style(this._originalInputStyle);
 
     // Add expanded container to panel overlay
     this._panelOverlay.add_child(this._expandedContainer);
@@ -201,10 +173,17 @@ export class FileHandler {
 
     const dimensions = LayoutManager.calculatePanelDimensions();
 
-    // Calculate position - keep it exactly where the input container would be
+    // Get the actual position and size of the input container
+    const inputPosition = this._inputButtonsContainer.get_position();
+    const [, inputHeight] =
+      this._inputButtonsContainer.get_preferred_height(-1);
+
+    // Calculate position - place directly above the input container
     const x = dimensions.horizontalPadding;
 
-    const y = dimensions.panelHeight - this._expandedContainer.get_height();
+    // Position the expanded container just above the input container
+    // inputPosition[1] gives us the Y coordinate of the input container
+    const y = inputPosition[1] - this._fileBoxesContainer.get_height() - 15; // 15px spacing
 
     // Set position of expanded container
     this._expandedContainer.set_position(x, y);
@@ -213,6 +192,13 @@ export class FileHandler {
     this._expandedContainer.set_width(
       dimensions.panelWidth - dimensions.horizontalPadding * 2
     );
+
+    // Set z-index to ensure it stays behind the input container
+    this._expandedContainer.set_z_position(-1);
+
+    // Set height to reach the bottom of the screen - including the input container
+    const heightNeeded = dimensions.panelHeight - y;
+    this._expandedContainer.set_height(heightNeeded);
   }
 
   _displayFileContentBox(content, fileName) {
@@ -348,29 +334,6 @@ export class FileHandler {
   // Clean up when removing the file content box
   cleanupFileContentBox() {
     if (this._expandedContainer) {
-      // First, take the input buttons container out of expanded container
-      if (
-        this._inputButtonsContainer.get_parent() === this._expandedContainer
-      ) {
-        this._expandedContainer.remove_child(this._inputButtonsContainer);
-      }
-
-      // Add input buttons container back to its original parent
-      if (this._originalParent) {
-        this._originalParent.add_child(this._inputButtonsContainer);
-
-        // Restore original position if we saved it
-        if (this._originalInputPos) {
-          const [x, y] = this._originalInputPos;
-          this._inputButtonsContainer.set_position(x, y);
-        }
-
-        // Restore original style if we saved it
-        if (this._originalInputStyle) {
-          this._inputButtonsContainer.set_style(this._originalInputStyle);
-        }
-      }
-
       // Remove file boxes and container
       if (this._fileBoxesContainer) {
         this._fileBoxesContainer.get_children().forEach((child) => {

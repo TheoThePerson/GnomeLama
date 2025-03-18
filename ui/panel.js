@@ -4,10 +4,8 @@
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
-import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
-import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 // Import from reorganized modules
@@ -22,7 +20,6 @@ import { MessageSender } from "./messageSender.js";
 
 // Import messaging
 import {
-  stopAiMessage,
   getConversationHistory,
   clearConversationHistory,
 } from "../services/messaging.js";
