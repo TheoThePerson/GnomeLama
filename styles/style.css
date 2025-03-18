@@ -80,7 +80,9 @@
   border-radius: 16px;
   margin: 8px;
   padding: 8px;
-  z-index: 2
+  z-index: 2;
+  transition-property: height, y;
+  transition-duration: 0.1s;
 }
 
 /* Buttons container style */
@@ -240,9 +242,12 @@
 .file-boxes-container {
   spacing: 10px;
   margin: 4px 4px 8px 4px;
-  padding-bottom: 4px;
+  padding: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: transparent;
+  background-color: rgba(40, 40, 40, 0.3);
+  border-radius: 8px;
+  min-height: 110px;
+  width: calc(100% - 8px);
 }
 
 /* File content box styles */

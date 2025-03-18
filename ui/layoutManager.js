@@ -185,6 +185,9 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     containerHeight += fileBoxesContainer.get_height();
   }
 
+  // Ensure immediate position update
+  inputButtonsContainer.set_height(containerHeight);
+
   // Position at the bottom with only horizontal padding
   inputButtonsContainer.set_position(
     horizontalPadding,

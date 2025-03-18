@@ -382,6 +382,7 @@ export class FileHandler {
     return new St.Label({
       text: displayName,
       x_expand: true,
+      style_class: "file-content-title",
     });
   }
 
@@ -459,12 +460,20 @@ export class FileHandler {
   _removeFileBox(fileBox) {
     if (!this._fileBoxesContainer) return;
 
-    // Remove file box from container
-    this._fileBoxesContainer.remove_child(fileBox);
-    fileBox.destroy();
+    // Check if this is the last file box
+    const isLastFileBox = this._fileBoxesContainer.get_n_children() === 1;
 
-    // Update after removal
-    this._updateAfterRemoval();
+    if (isLastFileBox) {
+      // If it's the last box, clean up everything at once to avoid flicker
+      this.cleanupFileContentBox();
+    } else {
+      // Remove file box from container
+      this._fileBoxesContainer.remove_child(fileBox);
+      fileBox.destroy();
+
+      // Update layout for remaining boxes
+      this._adjustInputContainerHeight();
+    }
   }
 
   /**
@@ -505,7 +514,11 @@ export class FileHandler {
    */
   cleanupFileContentBox() {
     this._cleanupFileBoxes();
-    this._adjustInputContainerHeight();
+
+    // Force layout update to resize the input container immediately
+    if (this._updateLayoutCallback) {
+      this._updateLayoutCallback();
+    }
   }
 
   /**
