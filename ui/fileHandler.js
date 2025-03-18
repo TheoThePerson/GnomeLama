@@ -14,7 +14,7 @@ const UI = {
     EXPANDED: {
       STYLE_CLASS: "expanded-container",
       STYLE:
-        "background-color: rgba(60, 60, 60, 0.3); border-radius: 16px 16px 0 0; padding: 0;",
+        "background-color: rgb(60, 60, 60); border-radius: 16px 16px 0 0; padding: 0;",
     },
     FILE_BOXES: {
       STYLE_CLASS: "file-boxes-container",
@@ -342,7 +342,6 @@ export class FileHandler {
     this._expandedContainer.set_position(x, y);
     this._expandedContainer.set_width(width);
     this._expandedContainer.set_height(height);
-    this._expandedContainer.set_z_position(-1); // Behind input container
   }
 
   /**

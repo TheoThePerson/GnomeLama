@@ -76,10 +76,11 @@
 
 /* Input and buttons container */
 .input-buttons-container {
-  background-color: rgba(30, 30, 30, 0.8);
+  background-color: rgb(30, 30, 30);
   border-radius: 16px;
   margin: 8px;
   padding: 8px;
+  z-index: 10;
 }
 
 /* Buttons container style */
