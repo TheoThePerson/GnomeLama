@@ -68,6 +68,9 @@ export class FileHandler {
 
     // Container that will hold files
     this._fileBoxesContainer = null;
+
+    // Track loaded file content
+    this._loadedFiles = new Map(); // Map to store filename -> content
   }
 
   /**
@@ -318,6 +321,9 @@ export class FileHandler {
     // Add file box to the container
     this._fileBoxesContainer.add_child(fileBox);
 
+    // Store file content in our map
+    this._loadedFiles.set(fileName, content);
+
     // Update layout
     this._adjustInputContainerHeight();
   }
@@ -460,6 +466,26 @@ export class FileHandler {
   _removeFileBox(fileBox) {
     if (!this._fileBoxesContainer) return;
 
+    // Get the file name from the header to remove from our map
+    const headerBox = fileBox.get_children()[0];
+    if (headerBox) {
+      const titleLabel = headerBox.get_children()[0];
+      if (titleLabel && titleLabel.text) {
+        // Find the full file name in our map that matches or ends with the displayed title
+        for (const fileName of this._loadedFiles.keys()) {
+          // Handle truncated display names
+          if (
+            fileName === titleLabel.text ||
+            (titleLabel.text.endsWith("...") &&
+              fileName.startsWith(titleLabel.text.replace(/\.\.\.$/, "")))
+          ) {
+            this._loadedFiles.delete(fileName);
+            break;
+          }
+        }
+      }
+    }
+
     // Check if this is the last file box
     const isLastFileBox = this._fileBoxesContainer.get_n_children() === 1;
 
@@ -515,6 +541,9 @@ export class FileHandler {
   cleanupFileContentBox() {
     this._cleanupFileBoxes();
 
+    // Clear loaded files map
+    this._loadedFiles.clear();
+
     // Force layout update to resize the input container immediately
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
@@ -541,5 +570,31 @@ export class FileHandler {
    */
   destroy() {
     this.cleanupFileContentBox();
+  }
+
+  /**
+   * Get all loaded file content formatted for AI prompt
+   * @returns {string} Formatted file content string
+   */
+  getFormattedFileContent() {
+    if (this._loadedFiles.size === 0) {
+      return "";
+    }
+
+    let result = "";
+    for (const [fileName, content] of this._loadedFiles.entries()) {
+      result += `Name: ${fileName}\nContent:\n"${content}"\n\n`;
+    }
+
+    // Trim trailing newlines but keep other spacing
+    return result.replace(/\n+$/, "");
+  }
+
+  /**
+   * Check if any files are loaded
+   * @returns {boolean} True if files are loaded
+   */
+  hasLoadedFiles() {
+    return this._loadedFiles.size > 0;
   }
 }

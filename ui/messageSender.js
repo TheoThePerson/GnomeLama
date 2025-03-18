@@ -75,6 +75,23 @@ export class MessageSender {
     // Clear input field immediately
     this._inputField.set_text("");
 
+    // Prepare message text, adding file content if available
+    let messageToSend = "Prompt: " + userMessage;
+    let fileContentAdded = false;
+
+    // Create display message for UI and history (simpler version)
+    let displayMessage = userMessage;
+
+    if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+      // Get formatted file content with two line breaks
+      const fileContent = this._fileHandler.getFormattedFileContent();
+      if (fileContent) {
+        messageToSend += "\n\n" + fileContent;
+        fileContentAdded = true;
+        displayMessage += " [files attached]";
+      }
+    }
+
     // Clean up file boxes if fileHandler is available
     if (this._fileHandler) {
       this._fileHandler.cleanupFileContentBox();
@@ -88,9 +105,13 @@ export class MessageSender {
     this._updateSendButtonState(false);
 
     try {
-      // Process the user message
+      // Show the simplified message in UI
+      MessageProcessor.appendUserMessage(this._outputContainer, displayMessage);
+
+      // Process the user message with files included, but store the display message in history
       await MessageProcessor.processUserMessage({
-        userMessage: userMessage,
+        userMessage: messageToSend,
+        displayMessage: displayMessage, // Add display message for history
         context: this._context,
         outputContainer: this._outputContainer,
         scrollView: this._outputScrollView,
@@ -103,6 +124,7 @@ export class MessageSender {
           this._isProcessingMessage = false;
           this._updateSendButtonState(true);
         },
+        skipAppendUserMessage: true, // Skip appending again since we did it above
       });
     } catch (error) {
       console.error("Error processing message:", error);

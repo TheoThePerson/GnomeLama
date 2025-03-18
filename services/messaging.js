@@ -77,14 +77,16 @@ function addMessageToHistory(text, type) {
  * @param {string} message - The message to send
  * @param {string} context - Optional conversation context
  * @param {Function} onData - Callback function for streaming response
+ * @param {string} displayMessage - Optional simplified message for history (without file content)
  * @returns {Promise<string>} The complete response
  */
-export async function sendMessage(message, context, onData) {
+export async function sendMessage(message, context, onData, displayMessage) {
   if (!currentModel) {
     currentModel = getSettings().get_string("default-model");
   }
 
-  addMessageToHistory(message, "user");
+  // Use displayMessage for history if provided, otherwise use the full message
+  addMessageToHistory(displayMessage || message, "user");
 
   try {
     let result;

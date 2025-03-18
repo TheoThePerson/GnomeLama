@@ -16,20 +16,24 @@ let temporaryMessages = new Set();
  * Process user message and handle AI response
  * @param {object} options - Processing options
  * @param {string} options.userMessage - The user message to process
+ * @param {string} options.displayMessage - Optional simplified message for history and display
  * @param {string} options.context - Optional conversation context
  * @param {St.BoxLayout} options.outputContainer - Container for output messages
  * @param {St.ScrollView} options.scrollView - Scroll view for output
  * @param {Function} options.onResponseStart - Called when response starts
  * @param {Function} options.onResponseEnd - Called when response ends
+ * @param {boolean} options.skipAppendUserMessage - Skip appending user message (when already added)
  * @returns {Promise<void>}
  */
 export async function processUserMessage({
   userMessage,
+  displayMessage,
   context,
   outputContainer,
   scrollView,
   onResponseStart,
   onResponseEnd,
+  skipAppendUserMessage = false,
 }) {
   if (!userMessage || !userMessage.trim()) {
     return;
@@ -38,8 +42,10 @@ export async function processUserMessage({
   // Remove any existing temporary messages when user sends a message
   removeTemporaryMessages(outputContainer);
 
-  // Add user message to UI
-  appendUserMessage(outputContainer, userMessage);
+  // Add user message to UI (if not skipped)
+  if (!skipAppendUserMessage) {
+    appendUserMessage(outputContainer, displayMessage || userMessage);
+  }
 
   // Get color from settings
   const settings = getSettings();
@@ -51,20 +57,25 @@ export async function processUserMessage({
 
   try {
     // Process AI response with streaming
-    await sendMessage(userMessage, context, (chunk) => {
-      fullResponse += chunk;
+    await sendMessage(
+      userMessage,
+      context,
+      (chunk) => {
+        fullResponse += chunk;
 
-      // Create response container if not exists
-      if (!responseContainer) {
-        if (onResponseStart) onResponseStart();
-        responseContainer = PanelElements.createResponseContainer(bgColor);
-        outputContainer.add_child(responseContainer);
-      }
+        // Create response container if not exists
+        if (!responseContainer) {
+          if (onResponseStart) onResponseStart();
+          responseContainer = PanelElements.createResponseContainer(bgColor);
+          outputContainer.add_child(responseContainer);
+        }
 
-      // Update response content
-      updateResponseContainer(responseContainer, fullResponse);
-      PanelElements.scrollToBottom(scrollView);
-    });
+        // Update response content
+        updateResponseContainer(responseContainer, fullResponse);
+        PanelElements.scrollToBottom(scrollView);
+      },
+      displayMessage // Pass display message for history
+    );
 
     // Notify that response is complete without passing the response
     if (onResponseEnd) onResponseEnd();
