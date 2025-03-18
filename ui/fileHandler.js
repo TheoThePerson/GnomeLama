@@ -8,7 +8,78 @@ import Gio from "gi://Gio";
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
 
+// UI Constants
+const UI = {
+  CONTAINER: {
+    EXPANDED: {
+      STYLE_CLASS: "expanded-container",
+      STYLE:
+        "background-color: rgba(60, 60, 60, 0.3); border-radius: 16px 16px 0 0; padding: 0;",
+    },
+    FILE_BOXES: {
+      STYLE_CLASS: "file-boxes-container",
+      STYLE: "spacing: 10px; margin: 8px;",
+    },
+  },
+  FILE_BOX: {
+    STYLE_CLASS: "file-content-box",
+    STYLE:
+      "background-color: #FFFFFF; " +
+      "border: 1px solid #000000; " +
+      "border-radius: 8px; " +
+      "padding: 6px; " +
+      "margin: 3px; " +
+      "width: 100px; " +
+      "height: 100px; " +
+      "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);",
+    HEADER: {
+      STYLE_CLASS: "file-content-header",
+      STYLE: "width: 100%; margin-bottom: 3px;",
+      TITLE: {
+        STYLE: "font-weight: bold; color: #000000; font-size: 10px;",
+        MAX_LENGTH: 10,
+        TRUNCATE_LENGTH: 8,
+      },
+      CLOSE_BUTTON: {
+        STYLE_CLASS: "file-content-close-button",
+        STYLE:
+          "font-weight: bold; " +
+          "color: #000000; " +
+          "font-size: 12px; " +
+          "background: none; " +
+          "border: none; " +
+          "width: 14px; " +
+          "height: 14px;",
+        LABEL: "✕",
+      },
+    },
+    CONTENT: {
+      SCROLL: {
+        STYLE_CLASS: "file-content-scroll",
+        STYLE: "min-height: 60px;",
+      },
+      TEXT: {
+        STYLE_CLASS: "file-content-text",
+        STYLE: "font-family: monospace; font-size: 9px; color: #000000;",
+        MAX_LENGTH: 2000,
+      },
+    },
+  },
+};
+
+/**
+ * Handles file operations for the panel UI
+ */
 export class FileHandler {
+  /**
+   * Creates a new FileHandler instance
+   *
+   * @param {string} extensionPath - Path to the extension directory
+   * @param {St.Widget} outputContainer - Container for output messages
+   * @param {St.Widget} panelOverlay - Panel overlay container
+   * @param {St.Widget} inputButtonsContainer - Container for input buttons
+   * @param {Function} updateLayoutCallback - Callback to update layout
+   */
   constructor(
     extensionPath,
     outputContainer,
@@ -22,141 +93,193 @@ export class FileHandler {
     this._inputButtonsContainer = inputButtonsContainer;
     this._updateLayoutCallback = updateLayoutCallback;
 
-    // Create a container that will hold files
+    // Container that will hold files
     this._expandedContainer = null;
+    this._fileBoxesContainer = null;
   }
 
-  // Method is now public
+  /**
+   * Opens a file selector dialog
+   */
   openFileSelector() {
     try {
       const command = ["zenity", "--file-selection", "--title=Select a file"];
+      this._executeCommand(command);
+    } catch (error) {
+      this._handleError("Error opening file selector", error);
+    }
+  }
 
-      let subprocess = new Gio.Subprocess({
+  /**
+   * Executes a command as a subprocess
+   *
+   * @private
+   * @param {string[]} command - Command to execute
+   */
+  _executeCommand(command) {
+    try {
+      const subprocess = new Gio.Subprocess({
         argv: command,
         flags:
           Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
       });
 
       subprocess.init(null);
-
-      subprocess.communicate_utf8_async(null, null, (source, res) => {
-        try {
-          let [, stdout, stderr] = source.communicate_utf8_finish(res);
-
-          if (stdout.trim()) {
-            let selectedFilePath = stdout.trim();
-
-            MessageProcessor.addTemporaryMessage(
-              this._outputContainer,
-              `Selected file: ${selectedFilePath}`
-            );
-
-            console.log(`File selected: ${selectedFilePath}`);
-
-            this._readAndDisplayFile(selectedFilePath);
-          } else if (stderr.trim()) {
-            console.error(`Error selecting file: ${stderr}`);
-          }
-        } catch (e) {
-          console.error(`Error processing file selection: ${e}`);
-        }
-      });
-    } catch (error) {
-      console.error(`Error opening file selector: ${error}`);
-      MessageProcessor.addTemporaryMessage(
-        this._outputContainer,
-        "Error opening file selector. Please try again."
+      subprocess.communicate_utf8_async(
+        null,
+        null,
+        this._handleCommandOutput.bind(this)
       );
+    } catch (error) {
+      this._handleError("Error executing command", error);
     }
   }
 
+  /**
+   * Handles the output from a command
+   *
+   * @private
+   * @param {Gio.Subprocess} source - The subprocess
+   * @param {Gio.AsyncResult} res - The async result
+   */
+  _handleCommandOutput(source, res) {
+    try {
+      const [, stdout, stderr] = source.communicate_utf8_finish(res);
+
+      if (stdout && stdout.trim()) {
+        const selectedFilePath = stdout.trim();
+        this._showFileSelectedMessage(selectedFilePath);
+        this._readAndDisplayFile(selectedFilePath);
+      } else if (stderr && stderr.trim()) {
+        console.error(`Command error: ${stderr}`);
+      }
+    } catch (error) {
+      this._handleError("Error processing command output", error);
+    }
+  }
+
+  /**
+   * Shows a message that a file has been selected
+   *
+   * @private
+   * @param {string} filePath - Path to the selected file
+   */
+  _showFileSelectedMessage(filePath) {
+    MessageProcessor.addTemporaryMessage(
+      this._outputContainer,
+      `Selected file: ${filePath}`
+    );
+    console.log(`File selected: ${filePath}`);
+  }
+
+  /**
+   * Reads and displays the contents of a file
+   *
+   * @private
+   * @param {string} filePath - Path to the file
+   */
   _readAndDisplayFile(filePath) {
     try {
       const file = Gio.File.new_for_path(filePath);
 
-      if (!file.query_exists(null)) {
-        console.error(`File does not exist: ${filePath}`);
-        MessageProcessor.addTemporaryMessage(
-          this._outputContainer,
-          `File does not exist: ${filePath}`
-        );
+      if (!this._validateFile(file, filePath)) {
         return;
       }
 
       const fileName = file.get_basename();
-
-      try {
-        const [success, content] = file.load_contents(null);
-
-        if (success) {
-          let fileContent;
-          try {
-            fileContent = new TextDecoder("utf-8").decode(content);
-          } catch (e) {
-            fileContent = content.toString();
-          }
-
-          // Limit content length
-          if (fileContent.length > 2000) {
-            fileContent =
-              fileContent.substring(0, 2000) + "...\n(Content truncated)";
-          }
-
-          // Display the content in a file box
-          this._displayFileContentBox(fileContent, fileName);
-        } else {
-          MessageProcessor.addTemporaryMessage(
-            this._outputContainer,
-            "Failed to read file content"
-          );
-        }
-      } catch (e) {
-        console.error(`Error reading file: ${e}`);
-        MessageProcessor.addTemporaryMessage(
-          this._outputContainer,
-          `Error reading file: ${e.message || e}`
-        );
-      }
+      this._loadFileContents(file, fileName);
     } catch (error) {
-      console.error(`Error processing file: ${error}`);
-      MessageProcessor.addTemporaryMessage(
-        this._outputContainer,
-        `Error processing file: ${error.message || error}`
-      );
+      this._handleError(`Error processing file: ${filePath}`, error);
     }
   }
 
+  /**
+   * Validates that a file exists
+   *
+   * @private
+   * @param {Gio.File} file - The file to validate
+   * @param {string} filePath - Path to the file
+   * @returns {boolean} - Whether the file exists
+   */
+  _validateFile(file, filePath) {
+    if (!file.query_exists(null)) {
+      console.error(`File does not exist: ${filePath}`);
+      MessageProcessor.addTemporaryMessage(
+        this._outputContainer,
+        `File does not exist: ${filePath}`
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Loads the contents of a file
+   *
+   * @private
+   * @param {Gio.File} file - The file to load
+   * @param {string} fileName - Name of the file
+   */
+  _loadFileContents(file, fileName) {
+    try {
+      const [success, content] = file.load_contents(null);
+
+      if (success) {
+        const fileContent = this._decodeFileContent(content);
+        const truncatedContent = this._truncateContent(fileContent);
+        this._displayFileContentBox(truncatedContent, fileName);
+      } else {
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          "Failed to read file content"
+        );
+      }
+    } catch (error) {
+      this._handleError("Error reading file", error);
+    }
+  }
+
+  /**
+   * Decodes file content from buffer to string
+   *
+   * @private
+   * @param {Uint8Array} content - File content as a buffer
+   * @returns {string} - Decoded file content
+   */
+  _decodeFileContent(content) {
+    try {
+      return new TextDecoder("utf-8").decode(content);
+    } catch (error) {
+      return content.toString();
+    }
+  }
+
+  /**
+   * Truncates content if it exceeds max length
+   *
+   * @private
+   * @param {string} content - Content to truncate
+   * @returns {string} - Truncated content
+   */
+  _truncateContent(content) {
+    const maxLength = UI.FILE_BOX.CONTENT.TEXT.MAX_LENGTH;
+    if (content.length > maxLength) {
+      return content.substring(0, maxLength) + "...\n(Content truncated)";
+    }
+    return content;
+  }
+
+  /**
+   * Sets up the expanded container for file boxes
+   *
+   * @private
+   */
   _setupExpandedContainer() {
     // If already set up, return
     if (this._expandedContainer) return;
 
-    // Get the dimensions
-    const dimensions = LayoutManager.calculatePanelDimensions();
-
-    // Get the input container dimensions for positioning
-    const [, inputHeight] =
-      this._inputButtonsContainer.get_preferred_height(-1);
-    const inputPosition = this._inputButtonsContainer.get_position();
-
-    // Create a new expanded container that will hold file boxes
-    // Darker background and stretches all the way down
-    this._expandedContainer = new St.BoxLayout({
-      style_class: "expanded-container",
-      style:
-        "background-color: rgba(60, 60, 60, 0.3); border-radius: 16px 16px 0 0; padding: 0;",
-      vertical: true,
-      x_expand: true,
-      y_expand: false,
-    });
-
-    // Create a horizontal container for file boxes - position it above the input
-    this._fileBoxesContainer = new St.BoxLayout({
-      style_class: "file-boxes-container",
-      style: "spacing: 10px; margin: 8px;", // Add margin all around
-      vertical: false,
-      x_expand: false,
-      y_expand: false,
-    });
+    this._createExpandedContainer();
+    this._createFileBoxesContainer();
 
     // Add file boxes container to expanded container
     this._expandedContainer.add_child(this._fileBoxesContainer);
@@ -168,114 +291,191 @@ export class FileHandler {
     this._positionExpandedContainer();
   }
 
+  /**
+   * Creates the expanded container
+   *
+   * @private
+   */
+  _createExpandedContainer() {
+    this._expandedContainer = new St.BoxLayout({
+      style_class: UI.CONTAINER.EXPANDED.STYLE_CLASS,
+      style: UI.CONTAINER.EXPANDED.STYLE,
+      vertical: true,
+      x_expand: true,
+      y_expand: false,
+    });
+  }
+
+  /**
+   * Creates the container for file boxes
+   *
+   * @private
+   */
+  _createFileBoxesContainer() {
+    this._fileBoxesContainer = new St.BoxLayout({
+      style_class: UI.CONTAINER.FILE_BOXES.STYLE_CLASS,
+      style: UI.CONTAINER.FILE_BOXES.STYLE,
+      vertical: false,
+      x_expand: false,
+      y_expand: false,
+    });
+  }
+
+  /**
+   * Positions the expanded container
+   *
+   * @private
+   */
   _positionExpandedContainer() {
     if (!this._expandedContainer) return;
 
     const dimensions = LayoutManager.calculatePanelDimensions();
-
-    // Get the actual position and size of the input container
     const inputPosition = this._inputButtonsContainer.get_position();
-    const [, inputHeight] =
-      this._inputButtonsContainer.get_preferred_height(-1);
 
-    // Calculate position - place directly above the input container
+    // Calculate position and size
     const x = dimensions.horizontalPadding;
+    const y = inputPosition[1] - this._fileBoxesContainer.get_height();
+    const width = dimensions.panelWidth - dimensions.horizontalPadding * 2;
+    const height = dimensions.panelHeight - y;
 
-    // Position the expanded container just above the input container
-    // inputPosition[1] gives us the Y coordinate of the input container
-    const y = inputPosition[1] - this._fileBoxesContainer.get_height(); // 15px spacing
-
-    // Set position of expanded container
+    // Apply position and size
     this._expandedContainer.set_position(x, y);
-
-    // Set width to match panel width minus padding
-    this._expandedContainer.set_width(
-      dimensions.panelWidth - dimensions.horizontalPadding * 2
-    );
-
-    // Set z-index to ensure it stays behind the input container
-    this._expandedContainer.set_z_position(-1);
-
-    // Set height to reach the bottom of the screen - including the input container
-    const heightNeeded = dimensions.panelHeight - y;
-    this._expandedContainer.set_height(heightNeeded);
+    this._expandedContainer.set_width(width);
+    this._expandedContainer.set_height(height);
+    this._expandedContainer.set_z_position(-1); // Behind input container
   }
 
+  /**
+   * Displays file content in a box
+   *
+   * @private
+   * @param {string} content - File content
+   * @param {string} fileName - Name of the file
+   */
   _displayFileContentBox(content, fileName) {
     // Set up the expanded container if needed
     this._setupExpandedContainer();
 
-    // Create a new box for file content - square and small
-    const fileBox = new St.BoxLayout({
-      style_class: "file-content-box",
-      style:
-        "background-color: #FFFFFF; " +
-        "border: 1px solid #000000; " + // Thinner border
-        "border-radius: 8px; " +
-        "padding: 6px; " + // Less padding
-        "margin: 3px; " + // Less margin
-        "width: 100px; " + // Slightly smaller width
-        "height: 100px; " + // Same as width to make it square
-        "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);", // Lighter shadow
+    const fileBox = this._createFileBox();
+    const headerBox = this._createHeaderBox(fileName, fileBox);
+    const contentView = this._createContentView(content);
+
+    // Add header and content to the file box
+    fileBox.add_child(headerBox);
+    fileBox.add_child(contentView);
+
+    // Add file box to the container
+    this._fileBoxesContainer.add_child(fileBox);
+
+    // Update layout
+    this._positionExpandedContainer();
+    this._updateLayoutCallback();
+  }
+
+  /**
+   * Creates a file box
+   *
+   * @private
+   * @returns {St.BoxLayout} - The file box
+   */
+  _createFileBox() {
+    return new St.BoxLayout({
+      style_class: UI.FILE_BOX.STYLE_CLASS,
+      style: UI.FILE_BOX.STYLE,
       vertical: true,
-      x_expand: false, // Don't expand to fill width
+      x_expand: false,
       y_expand: false,
     });
+  }
 
-    // Create header box for filename and close button
+  /**
+   * Creates a header box for a file
+   *
+   * @private
+   * @param {string} fileName - Name of the file
+   * @param {St.BoxLayout} fileBox - The file box
+   * @returns {St.BoxLayout} - The header box
+   */
+  _createHeaderBox(fileName, fileBox) {
     const headerBox = new St.BoxLayout({
-      style_class: "file-content-header",
-      style: "width: 100%; margin-bottom: 3px;", // Less margin
+      style_class: UI.FILE_BOX.HEADER.STYLE_CLASS,
+      style: UI.FILE_BOX.HEADER.STYLE,
       vertical: false,
     });
 
-    // Add filename as the title - truncate if too long
-    let displayName = fileName;
-    if (displayName.length > 10) {
-      displayName = displayName.substring(0, 8) + "...";
-    }
-
-    const titleLabel = new St.Label({
-      text: displayName,
-      style: "font-weight: bold; color: #000000; font-size: 10px;", // Smaller font
-      x_expand: true,
-    });
+    // Add title
+    const titleLabel = this._createTitleLabel(fileName);
     headerBox.add_child(titleLabel);
 
-    // Add close button (X) to the header
+    // Add close button
+    const closeButton = this._createCloseButton(fileBox);
+    headerBox.add_child(closeButton);
+
+    return headerBox;
+  }
+
+  /**
+   * Creates a title label for a file
+   *
+   * @private
+   * @param {string} fileName - Name of the file
+   * @returns {St.Label} - The title label
+   */
+  _createTitleLabel(fileName) {
+    // Truncate if too long
+    let displayName = fileName;
+    const maxLength = UI.FILE_BOX.HEADER.TITLE.MAX_LENGTH;
+    const truncateLength = UI.FILE_BOX.HEADER.TITLE.TRUNCATE_LENGTH;
+
+    if (displayName.length > maxLength) {
+      displayName = displayName.substring(0, truncateLength) + "...";
+    }
+
+    return new St.Label({
+      text: displayName,
+      style: UI.FILE_BOX.HEADER.TITLE.STYLE,
+      x_expand: true,
+    });
+  }
+
+  /**
+   * Creates a close button for a file box
+   *
+   * @private
+   * @param {St.BoxLayout} fileBox - The file box
+   * @returns {St.Button} - The close button
+   */
+  _createCloseButton(fileBox) {
     const closeButton = new St.Button({
-      style_class: "file-content-close-button",
-      style:
-        "font-weight: bold; " +
-        "color: #000000; " +
-        "font-size: 12px; " + // Smaller font
-        "background: none; " +
-        "border: none; " +
-        "width: 14px; " + // Smaller button
-        "height: 14px;", // Smaller button
-      label: "✕",
+      style_class: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS,
+      style: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE,
+      label: UI.FILE_BOX.HEADER.CLOSE_BUTTON.LABEL,
     });
 
     closeButton.connect("clicked", () => {
-      // Remove just this file box
       this._removeFileBox(fileBox);
     });
 
-    // Add close button to header
-    headerBox.add_child(closeButton);
+    return closeButton;
+  }
 
-    // Add header to the box
-    fileBox.add_child(headerBox);
-
-    // Create scrollable container for content
+  /**
+   * Creates a content view for file content
+   *
+   * @private
+   * @param {string} content - File content
+   * @returns {St.ScrollView} - The content view
+   */
+  _createContentView(content) {
+    // Create scrollable container
     const scrollView = new St.ScrollView({
-      style_class: "file-content-scroll",
+      style_class: UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS,
+      style: UI.FILE_BOX.CONTENT.SCROLL.STYLE,
       x_expand: true,
       y_expand: true,
-      style: "min-height: 60px;", // Less height
     });
 
-    // Create a container for the content inside the scroll view
+    // Create container for content
     const contentBox = new St.BoxLayout({
       vertical: true,
       x_expand: true,
@@ -284,32 +484,26 @@ export class FileHandler {
     // Create label with file content
     const contentLabel = new St.Label({
       text: content,
-      style_class: "file-content-text",
-      style: "font-family: monospace; font-size: 9px; color: #000000;", // Smaller font
+      style_class: UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS,
+      style: UI.FILE_BOX.CONTENT.TEXT.STYLE,
     });
 
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
-    // Add content label to the content box
+    // Add content to views
     contentBox.add_child(contentLabel);
-
-    // Add content box to the scroll view
     scrollView.add_child(contentBox);
 
-    // Add scroll view to the box
-    fileBox.add_child(scrollView);
-
-    // Add this file box to the file boxes container
-    this._fileBoxesContainer.add_child(fileBox);
-
-    // Reposition the expanded container after adding the file
-    this._positionExpandedContainer();
-
-    // Update the overall layout
-    this._updateLayoutCallback();
+    return scrollView;
   }
 
+  /**
+   * Removes a file box
+   *
+   * @private
+   * @param {St.BoxLayout} fileBox - The file box to remove
+   */
   _removeFileBox(fileBox) {
     // Remove the file box from its parent
     if (fileBox && fileBox.get_parent()) {
@@ -317,6 +511,15 @@ export class FileHandler {
       fileBox.destroy();
     }
 
+    this._updateAfterRemoval();
+  }
+
+  /**
+   * Updates the UI after a file box is removed
+   *
+   * @private
+   */
+  _updateAfterRemoval() {
     // If there are no more file boxes, clean up everything
     if (
       !this._fileBoxesContainer ||
@@ -331,33 +534,71 @@ export class FileHandler {
     }
   }
 
-  // Clean up when removing the file content box
+  /**
+   * Handles errors and displays error messages
+   *
+   * @private
+   * @param {string} context - Context of the error
+   * @param {Error|string} error - The error
+   */
+  _handleError(context, error) {
+    const errorMessage = error.message || error;
+    console.error(`${context}: ${errorMessage}`);
+
+    MessageProcessor.addTemporaryMessage(
+      this._outputContainer,
+      `${context}. ${errorMessage}`
+    );
+  }
+
+  /**
+   * Cleans up the file content box and containers
+   */
   cleanupFileContentBox() {
     if (this._expandedContainer) {
-      // Remove file boxes and container
-      if (this._fileBoxesContainer) {
-        this._fileBoxesContainer.get_children().forEach((child) => {
-          this._fileBoxesContainer.remove_child(child);
-          child.destroy();
-        });
-      }
-
-      // Remove and destroy the expanded container
-      if (this._expandedContainer.get_parent()) {
-        this._expandedContainer
-          .get_parent()
-          .remove_child(this._expandedContainer);
-      }
-
-      this._expandedContainer.destroy();
-      this._expandedContainer = null;
-      this._fileBoxesContainer = null;
+      this._cleanupFileBoxes();
+      this._cleanupExpandedContainer();
     }
 
-    // Update the layout to ensure everything is positioned correctly
+    // Update the layout
     this._updateLayoutCallback();
   }
 
+  /**
+   * Cleans up file boxes
+   *
+   * @private
+   */
+  _cleanupFileBoxes() {
+    if (this._fileBoxesContainer) {
+      this._fileBoxesContainer.get_children().forEach((child) => {
+        this._fileBoxesContainer.remove_child(child);
+        child.destroy();
+      });
+
+      this._fileBoxesContainer = null;
+    }
+  }
+
+  /**
+   * Cleans up the expanded container
+   *
+   * @private
+   */
+  _cleanupExpandedContainer() {
+    if (this._expandedContainer.get_parent()) {
+      this._expandedContainer
+        .get_parent()
+        .remove_child(this._expandedContainer);
+    }
+
+    this._expandedContainer.destroy();
+    this._expandedContainer = null;
+  }
+
+  /**
+   * Destroys the file handler and cleans up resources
+   */
   destroy() {
     this.cleanupFileContentBox();
   }
