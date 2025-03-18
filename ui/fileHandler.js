@@ -11,56 +11,29 @@ import * as LayoutManager from "./layoutManager.js";
 // UI Constants
 const UI = {
   CONTAINER: {
-    EXPANDED: {
-      STYLE_CLASS: "expanded-container",
-      STYLE:
-        "background-color: rgba(60, 60, 60, 0.3); border-radius: 16px 16px 0 0; padding: 0;",
-    },
     FILE_BOXES: {
       STYLE_CLASS: "file-boxes-container",
-      STYLE: "spacing: 10px; margin: 8px;",
     },
   },
   FILE_BOX: {
     STYLE_CLASS: "file-content-box",
-    STYLE:
-      "background-color: #FFFFFF; " +
-      "border: 1px solid #000000; " +
-      "border-radius: 8px; " +
-      "padding: 6px; " +
-      "margin: 3px; " +
-      "width: 100px; " +
-      "height: 100px; " +
-      "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);",
     HEADER: {
       STYLE_CLASS: "file-content-header",
-      STYLE: "width: 100%; margin-bottom: 3px;",
       TITLE: {
-        STYLE: "font-weight: bold; color: #000000; font-size: 10px;",
         MAX_LENGTH: 10,
         TRUNCATE_LENGTH: 8,
       },
       CLOSE_BUTTON: {
         STYLE_CLASS: "file-content-close-button",
-        STYLE:
-          "font-weight: bold; " +
-          "color: #000000; " +
-          "font-size: 12px; " +
-          "background: none; " +
-          "border: none; " +
-          "width: 14px; " +
-          "height: 14px;",
         LABEL: "✕",
       },
     },
     CONTENT: {
       SCROLL: {
         STYLE_CLASS: "file-content-scroll",
-        STYLE: "min-height: 60px;",
       },
       TEXT: {
         STYLE_CLASS: "file-content-text",
-        STYLE: "font-family: monospace; font-size: 9px; color: #000000;",
         MAX_LENGTH: 2000,
       },
     },
@@ -94,7 +67,6 @@ export class FileHandler {
     this._updateLayoutCallback = updateLayoutCallback;
 
     // Container that will hold files
-    this._expandedContainer = null;
     this._fileBoxesContainer = null;
   }
 
@@ -270,40 +242,24 @@ export class FileHandler {
   }
 
   /**
-   * Sets up the expanded container for file boxes
+   * Sets up the file boxes container
    *
    * @private
    */
-  _setupExpandedContainer() {
+  _setupFileBoxesContainer() {
     // If already set up, return
-    if (this._expandedContainer) return;
+    if (this._fileBoxesContainer) return;
 
-    this._createExpandedContainer();
     this._createFileBoxesContainer();
 
-    // Add file boxes container to expanded container
-    this._expandedContainer.add_child(this._fileBoxesContainer);
+    // Add file boxes container to the input buttons container at the top
+    this._inputButtonsContainer.insert_child_at_index(
+      this._fileBoxesContainer,
+      0
+    );
 
-    // Add expanded container to panel overlay
-    this._panelOverlay.add_child(this._expandedContainer);
-
-    // Position the expanded container
-    this._positionExpandedContainer();
-  }
-
-  /**
-   * Creates the expanded container
-   *
-   * @private
-   */
-  _createExpandedContainer() {
-    this._expandedContainer = new St.BoxLayout({
-      style_class: UI.CONTAINER.EXPANDED.STYLE_CLASS,
-      style: UI.CONTAINER.EXPANDED.STYLE,
-      vertical: true,
-      x_expand: true,
-      y_expand: false,
-    });
+    // Adjust the height of the input buttons container to accommodate the file boxes
+    this._adjustInputContainerHeight();
   }
 
   /**
@@ -314,35 +270,30 @@ export class FileHandler {
   _createFileBoxesContainer() {
     this._fileBoxesContainer = new St.BoxLayout({
       style_class: UI.CONTAINER.FILE_BOXES.STYLE_CLASS,
-      style: UI.CONTAINER.FILE_BOXES.STYLE,
       vertical: false,
-      x_expand: false,
+      x_expand: true,
       y_expand: false,
     });
   }
 
   /**
-   * Positions the expanded container
+   * Adjusts the height of the input container to accommodate file boxes
    *
    * @private
    */
-  _positionExpandedContainer() {
-    if (!this._expandedContainer) return;
+  _adjustInputContainerHeight() {
+    if (!this._fileBoxesContainer) return;
 
-    const dimensions = LayoutManager.calculatePanelDimensions();
-    const inputPosition = this._inputButtonsContainer.get_position();
+    // Ensure the file boxes container has proper height set
+    if (this._fileBoxesContainer.get_n_children() > 0) {
+      const boxHeight = 120; // Based on file box height + margins
+      this._fileBoxesContainer.set_height(boxHeight);
+      // Make sure the file boxes container is visible
+      this._fileBoxesContainer.show();
+    }
 
-    // Calculate position and size
-    const x = dimensions.horizontalPadding;
-    const y = inputPosition[1] - this._fileBoxesContainer.get_height();
-    const width = dimensions.panelWidth - dimensions.horizontalPadding * 2;
-    const height = dimensions.panelHeight - y;
-
-    // Apply position and size
-    this._expandedContainer.set_position(x, y);
-    this._expandedContainer.set_width(width);
-    this._expandedContainer.set_height(height);
-    this._expandedContainer.set_z_position(-1); // Behind input container
+    // Update the whole layout
+    this._updateLayoutCallback();
   }
 
   /**
@@ -353,8 +304,8 @@ export class FileHandler {
    * @param {string} fileName - Name of the file
    */
   _displayFileContentBox(content, fileName) {
-    // Set up the expanded container if needed
-    this._setupExpandedContainer();
+    // Set up the file boxes container if needed
+    this._setupFileBoxesContainer();
 
     const fileBox = this._createFileBox();
     const headerBox = this._createHeaderBox(fileName, fileBox);
@@ -368,8 +319,7 @@ export class FileHandler {
     this._fileBoxesContainer.add_child(fileBox);
 
     // Update layout
-    this._positionExpandedContainer();
-    this._updateLayoutCallback();
+    this._adjustInputContainerHeight();
   }
 
   /**
@@ -381,7 +331,6 @@ export class FileHandler {
   _createFileBox() {
     return new St.BoxLayout({
       style_class: UI.FILE_BOX.STYLE_CLASS,
-      style: UI.FILE_BOX.STYLE,
       vertical: true,
       x_expand: false,
       y_expand: false,
@@ -399,7 +348,6 @@ export class FileHandler {
   _createHeaderBox(fileName, fileBox) {
     const headerBox = new St.BoxLayout({
       style_class: UI.FILE_BOX.HEADER.STYLE_CLASS,
-      style: UI.FILE_BOX.HEADER.STYLE,
       vertical: false,
     });
 
@@ -433,8 +381,8 @@ export class FileHandler {
 
     return new St.Label({
       text: displayName,
-      style: UI.FILE_BOX.HEADER.TITLE.STYLE,
       x_expand: true,
+      style_class: "file-content-title",
     });
   }
 
@@ -448,7 +396,6 @@ export class FileHandler {
   _createCloseButton(fileBox) {
     const closeButton = new St.Button({
       style_class: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS,
-      style: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE,
       label: UI.FILE_BOX.HEADER.CLOSE_BUTTON.LABEL,
     });
 
@@ -470,7 +417,6 @@ export class FileHandler {
     // Create scrollable container
     const scrollView = new St.ScrollView({
       style_class: UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS,
-      style: UI.FILE_BOX.CONTENT.SCROLL.STYLE,
       x_expand: true,
       y_expand: true,
     });
@@ -481,19 +427,26 @@ export class FileHandler {
       x_expand: true,
     });
 
-    // Create label with file content
+    // Create label for content
     const contentLabel = new St.Label({
-      text: content,
       style_class: UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS,
-      style: UI.FILE_BOX.CONTENT.TEXT.STYLE,
+      text: content,
+      x_expand: true,
+      y_expand: true,
     });
 
+    // Enable text wrapping and selection
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
-    // Add content to views
+    // Add label to content box
     contentBox.add_child(contentLabel);
+
+    // Add content box to scroll view
     scrollView.add_child(contentBox);
+
+    // Set scroll policies
+    scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
     return scrollView;
   }
@@ -505,63 +458,67 @@ export class FileHandler {
    * @param {St.BoxLayout} fileBox - The file box to remove
    */
   _removeFileBox(fileBox) {
-    // Remove the file box from its parent
-    if (fileBox && fileBox.get_parent()) {
-      fileBox.get_parent().remove_child(fileBox);
-      fileBox.destroy();
-    }
+    if (!this._fileBoxesContainer) return;
 
-    this._updateAfterRemoval();
+    // Check if this is the last file box
+    const isLastFileBox = this._fileBoxesContainer.get_n_children() === 1;
+
+    if (isLastFileBox) {
+      // If it's the last box, clean up everything at once to avoid flicker
+      this.cleanupFileContentBox();
+    } else {
+      // Remove file box from container
+      this._fileBoxesContainer.remove_child(fileBox);
+      fileBox.destroy();
+
+      // Update layout for remaining boxes
+      this._adjustInputContainerHeight();
+    }
   }
 
   /**
-   * Updates the UI after a file box is removed
+   * Updates layout after removing a file box
    *
    * @private
    */
   _updateAfterRemoval() {
-    // If there are no more file boxes, clean up everything
+    // If no more file boxes, destroy container
     if (
       !this._fileBoxesContainer ||
-      this._fileBoxesContainer.get_children().length === 0
+      this._fileBoxesContainer.get_n_children() === 0
     ) {
       this.cleanupFileContentBox();
     } else {
-      // Just reposition the container
-      this._positionExpandedContainer();
-      // Update the layout
-      this._updateLayoutCallback();
+      this._adjustInputContainerHeight();
     }
   }
 
   /**
-   * Handles errors and displays error messages
+   * Handles errors
    *
    * @private
    * @param {string} context - Context of the error
-   * @param {Error|string} error - The error
+   * @param {Error} error - The error
    */
   _handleError(context, error) {
-    const errorMessage = error.message || error;
-    console.error(`${context}: ${errorMessage}`);
-
+    const errorMessage = error.message || String(error);
+    console.error(`${context}:`, errorMessage);
     MessageProcessor.addTemporaryMessage(
       this._outputContainer,
-      `${context}. ${errorMessage}`
+      `Error: ${context} - ${errorMessage}`
     );
   }
 
   /**
-   * Cleans up the file content box and containers
+   * Cleans up the file content box
    */
   cleanupFileContentBox() {
-    if (this._expandedContainer) {
-      this._cleanupFileBoxes();
-      this._cleanupExpandedContainer();
-    }
+    this._cleanupFileBoxes();
 
-    // Update the layout
-    this._updateLayoutCallback();
+    // Force layout update to resize the input container immediately
+    if (this._updateLayoutCallback) {
+      this._updateLayoutCallback();
+    }
   }
 
   /**
@@ -571,33 +528,16 @@ export class FileHandler {
    */
   _cleanupFileBoxes() {
     if (this._fileBoxesContainer) {
-      this._fileBoxesContainer.get_children().forEach((child) => {
-        this._fileBoxesContainer.remove_child(child);
-        child.destroy();
-      });
-
+      if (this._inputButtonsContainer.contains(this._fileBoxesContainer)) {
+        this._inputButtonsContainer.remove_child(this._fileBoxesContainer);
+      }
+      this._fileBoxesContainer.destroy();
       this._fileBoxesContainer = null;
     }
   }
 
   /**
-   * Cleans up the expanded container
-   *
-   * @private
-   */
-  _cleanupExpandedContainer() {
-    if (this._expandedContainer.get_parent()) {
-      this._expandedContainer
-        .get_parent()
-        .remove_child(this._expandedContainer);
-    }
-
-    this._expandedContainer.destroy();
-    this._expandedContainer = null;
-  }
-
-  /**
-   * Destroys the file handler and cleans up resources
+   * Destroys the file handler
    */
   destroy() {
     this.cleanupFileContentBox();

@@ -28,8 +28,7 @@ export function calculatePanelDimensions() {
   // Calculate derived dimensions
   const outputHeight = panelHeight - inputFieldHeight - paddingY * 2;
   const sendButtonSize = inputFieldHeight;
-  const availableInputWidth =
-    panelWidth - sendButtonSize / 2 - 3 * horizontalPadding;
+  const availableInputWidth = panelWidth - horizontalPadding * 2.5;
   const buttonsHeight = inputFieldHeight * 0.8;
 
   return {
@@ -171,7 +170,23 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
 
   // The container should go all the way to the bottom of the screen
   // Use fixed spacing to ensure consistency regardless of content
-  const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+  let containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+
+  // Check if file boxes container exists and has children
+  const fileBoxesContainer = inputButtonsContainer
+    .get_children()
+    .find(
+      (child) =>
+        child.style_class && child.style_class.includes("file-boxes-container")
+    );
+
+  if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
+    // Add height for file boxes
+    containerHeight += fileBoxesContainer.get_height();
+  }
+
+  // Ensure immediate position update
+  inputButtonsContainer.set_height(containerHeight);
 
   // Position at the bottom with only horizontal padding
   inputButtonsContainer.set_position(

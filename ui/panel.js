@@ -18,6 +18,9 @@ import { FileHandler } from "./fileHandler.js";
 import { ModelManager } from "./modelManager.js";
 import { MessageSender } from "./messageSender.js";
 
+// Import styling
+import Gio from "gi://Gio";
+
 // Import messaging
 import {
   getConversationHistory,
@@ -35,6 +38,9 @@ export const Indicator = GObject.registerClass(
       );
       this._context = null;
 
+      // Load stylesheet
+      this._loadStylesheet();
+
       this._initUI();
 
       this._settingsChangedId = this._settings.connect("changed", () =>
@@ -44,6 +50,15 @@ export const Indicator = GObject.registerClass(
         this._updateLayout()
       );
       this.connect("button-press-event", this._togglePanelOverlay.bind(this));
+    }
+
+    _loadStylesheet() {
+      // Load the stylesheet for the extension
+      const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
+      theme.load_stylesheet(
+        Gio.File.new_for_path(`${this._extensionPath}/styles/style.css`)
+      );
+      this._theme = theme;
     }
 
     // UI INITIALIZATION
@@ -297,6 +312,13 @@ export const Indicator = GObject.registerClass(
     destroy() {
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
+      }
+
+      // Unload stylesheet when extension is disabled
+      if (this._theme) {
+        this._theme.unload_stylesheet(
+          Gio.File.new_for_path(`${this._extensionPath}/styles/style.css`)
+        );
       }
 
       if (this._fileHandler) {
