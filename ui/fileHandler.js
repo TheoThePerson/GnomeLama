@@ -305,8 +305,9 @@ export class FileHandler {
    * @private
    * @param {string} content - File content
    * @param {string} fileName - Name of the file
+   * @param {boolean} [storeInMap=true] - Whether to store in _loadedFiles map (default: true)
    */
-  _displayFileContentBox(content, fileName) {
+  _displayFileContentBox(content, fileName, storeInMap = true) {
     // Set up the file boxes container if needed
     this._setupFileBoxesContainer();
 
@@ -321,8 +322,10 @@ export class FileHandler {
     // Add file box to the container
     this._fileBoxesContainer.add_child(fileBox);
 
-    // Store file content in our map
-    this._loadedFiles.set(fileName, content);
+    // Only store file content if requested
+    if (storeInMap) {
+      this._loadedFiles.set(fileName, content);
+    }
 
     // Update layout
     this._adjustInputContainerHeight();
@@ -536,7 +539,34 @@ export class FileHandler {
   }
 
   /**
-   * Cleans up the file content box
+   * Cleans up only the UI elements, preserving loaded file data
+   */
+  cleanupFileUI() {
+    this._cleanupFileBoxes();
+
+    // Force layout update to resize the input container immediately
+    if (this._updateLayoutCallback) {
+      this._updateLayoutCallback();
+    }
+  }
+
+  /**
+   * Restores file UI from loaded file data
+   */
+  restoreFileUI() {
+    // Only restore if we have files
+    if (this._loadedFiles.size === 0) {
+      return;
+    }
+
+    // Create file boxes for all loaded files
+    for (const [fileName, content] of this._loadedFiles.entries()) {
+      this._displayFileContentBox(content, fileName, false); // Don't re-add to _loadedFiles
+    }
+  }
+
+  /**
+   * Cleans up the file content box including UI and data
    */
   cleanupFileContentBox() {
     this._cleanupFileBoxes();

@@ -214,16 +214,24 @@ export const Indicator = GObject.registerClass(
           this._modelManager.closeMenu();
         }
 
-        // Clean up file content box if it exists
+        // Clean up file UI only (preserve file data) when closing
         if (this._fileHandler) {
-          this._fileHandler.cleanupFileContentBox();
+          this._fileHandler.cleanupFileUI();
         }
       } else {
         // If opening, repopulate model menu and focus input field
         if (this._modelManager) {
           await this._modelManager.refreshModels();
         }
+
+        // Restore conversation history
         this._updateHistory();
+
+        // Restore file UI if files were previously loaded
+        if (this._fileHandler) {
+          this._fileHandler.restoreFileUI();
+        }
+
         global.stage.set_key_focus(this._inputField.clutter_text);
       }
 

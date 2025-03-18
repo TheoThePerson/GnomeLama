@@ -94,7 +94,7 @@ export class MessageSender {
 
     // Clean up file boxes if fileHandler is available
     if (this._fileHandler) {
-      this._fileHandler.cleanupFileContentBox();
+      this._fileHandler.cleanupFileContentBox(); // This clears both UI and file data after sending
     }
 
     // Update input field hint to "Your response..." immediately after sending
