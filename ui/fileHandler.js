@@ -13,54 +13,30 @@ const UI = {
   CONTAINER: {
     EXPANDED: {
       STYLE_CLASS: "expanded-container",
-      STYLE:
-        "background-color: rgb(60, 60, 60); border-radius: 16px 16px 0 0; padding: 0;",
     },
     FILE_BOXES: {
       STYLE_CLASS: "file-boxes-container",
-      STYLE: "spacing: 10px; margin: 8px;",
     },
   },
   FILE_BOX: {
     STYLE_CLASS: "file-content-box",
-    STYLE:
-      "background-color: #FFFFFF; " +
-      "border: 1px solid #000000; " +
-      "border-radius: 8px; " +
-      "padding: 6px; " +
-      "margin: 3px; " +
-      "width: 100px; " +
-      "height: 100px; " +
-      "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);",
     HEADER: {
       STYLE_CLASS: "file-content-header",
-      STYLE: "width: 100%; margin-bottom: 3px;",
       TITLE: {
-        STYLE: "font-weight: bold; color: #000000; font-size: 10px;",
         MAX_LENGTH: 10,
         TRUNCATE_LENGTH: 8,
       },
       CLOSE_BUTTON: {
         STYLE_CLASS: "file-content-close-button",
-        STYLE:
-          "font-weight: bold; " +
-          "color: #000000; " +
-          "font-size: 12px; " +
-          "background: none; " +
-          "border: none; " +
-          "width: 14px; " +
-          "height: 14px;",
         LABEL: "✕",
       },
     },
     CONTENT: {
       SCROLL: {
         STYLE_CLASS: "file-content-scroll",
-        STYLE: "min-height: 60px;",
       },
       TEXT: {
         STYLE_CLASS: "file-content-text",
-        STYLE: "font-family: monospace; font-size: 9px; color: #000000;",
         MAX_LENGTH: 2000,
       },
     },
@@ -299,7 +275,6 @@ export class FileHandler {
   _createExpandedContainer() {
     this._expandedContainer = new St.BoxLayout({
       style_class: UI.CONTAINER.EXPANDED.STYLE_CLASS,
-      style: UI.CONTAINER.EXPANDED.STYLE,
       vertical: true,
       x_expand: true,
       y_expand: false,
@@ -314,7 +289,6 @@ export class FileHandler {
   _createFileBoxesContainer() {
     this._fileBoxesContainer = new St.BoxLayout({
       style_class: UI.CONTAINER.FILE_BOXES.STYLE_CLASS,
-      style: UI.CONTAINER.FILE_BOXES.STYLE,
       vertical: false,
       x_expand: false,
       y_expand: false,
@@ -380,7 +354,6 @@ export class FileHandler {
   _createFileBox() {
     return new St.BoxLayout({
       style_class: UI.FILE_BOX.STYLE_CLASS,
-      style: UI.FILE_BOX.STYLE,
       vertical: true,
       x_expand: false,
       y_expand: false,
@@ -398,7 +371,6 @@ export class FileHandler {
   _createHeaderBox(fileName, fileBox) {
     const headerBox = new St.BoxLayout({
       style_class: UI.FILE_BOX.HEADER.STYLE_CLASS,
-      style: UI.FILE_BOX.HEADER.STYLE,
       vertical: false,
     });
 
@@ -432,7 +404,6 @@ export class FileHandler {
 
     return new St.Label({
       text: displayName,
-      style: UI.FILE_BOX.HEADER.TITLE.STYLE,
       x_expand: true,
     });
   }
@@ -447,7 +418,6 @@ export class FileHandler {
   _createCloseButton(fileBox) {
     const closeButton = new St.Button({
       style_class: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS,
-      style: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE,
       label: UI.FILE_BOX.HEADER.CLOSE_BUTTON.LABEL,
     });
 
@@ -469,7 +439,6 @@ export class FileHandler {
     // Create scrollable container
     const scrollView = new St.ScrollView({
       style_class: UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS,
-      style: UI.FILE_BOX.CONTENT.SCROLL.STYLE,
       x_expand: true,
       y_expand: true,
     });
@@ -484,7 +453,6 @@ export class FileHandler {
     const contentLabel = new St.Label({
       text: content,
       style_class: UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS,
-      style: UI.FILE_BOX.CONTENT.TEXT.STYLE,
     });
 
     contentLabel.clutter_text.set_line_wrap(true);

@@ -226,4 +226,65 @@
 
 .scroll-view-clip {
   clip-to-allocation: true;
+}
+
+/* Expanded container styles */
+.expanded-container {
+  background-color: rgb(60, 60, 60);
+  border-radius: 16px 16px 0 0;
+  padding: 0;
+}
+
+/* File boxes container styles */
+.file-boxes-container {
+  spacing: 10px;
+  margin: 8px;
+}
+
+/* File content box styles */
+.file-content-box {
+  background-color: #FFFFFF;
+  border: 1px solid #000000;
+  border-radius: 8px;
+  padding: 6px;
+  margin: 3px;
+  width: 100px;
+  height: 100px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* File content header styles */
+.file-content-header {
+  width: 100%;
+  margin-bottom: 3px;
+}
+
+/* File content title styles */
+.file-content-title {
+  font-weight: bold;
+  color: #000000;
+  font-size: 10px;
+}
+
+/* File content close button styles */
+.file-content-close-button {
+  font-weight: bold;
+  color: #000000;
+  font-size: 12px;
+  background: none;
+  border: none;
+  width: 14px;
+  height: 14px;
+}
+
+/* File content scroll styles */
+.file-content-scroll {
+  min-height: 60px;
+}
+
+/* File content text styles */
+.file-content-text {
+  font-family: monospace;
+  font-size: 9px;
+  color: #000000;
 } 
