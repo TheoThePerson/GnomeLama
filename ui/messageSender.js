@@ -3,7 +3,6 @@
  */
 import Gio from "gi://Gio";
 import Clutter from "gi://Clutter";
-import St from "gi://St";
 
 // Import from reorganized modules
 import * as PanelElements from "./panelElements.js";

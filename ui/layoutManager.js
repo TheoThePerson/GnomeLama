@@ -101,6 +101,7 @@ export function updateButtonsContainer(
   // Configure model button
   modelButton.set_width(panelWidth * 0.6);
   modelButton.set_height(buttonsHeight);
+  modelButton.set_y_align(Clutter.ActorAlign.CENTER);
 
   // Calculate consistent icon and button sizes
   const buttonIconScale = settings.get_double("button-icon-scale");
@@ -169,7 +170,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   } = calculatePanelDimensions();
 
   // The container should go all the way to the bottom of the screen
-  // Add extra space for gap between input and buttons
+  // Use fixed spacing to ensure consistency regardless of content
   const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
 
   // Position at the bottom with only horizontal padding
