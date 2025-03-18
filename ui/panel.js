@@ -103,13 +103,23 @@ export const Indicator = GObject.registerClass(
       this._inputField = inputField;
       this._sendButton = sendButton;
 
-      // Initialize message sender
+      // Initialize file handler first (moved up)
+      this._fileHandler = new FileHandler(
+        this._extensionPath,
+        this._outputContainer,
+        this._panelOverlay,
+        this._inputButtonsContainer,
+        this._updateLayout.bind(this)
+      );
+
+      // Initialize message sender with file handler
       this._messageSender = new MessageSender(
         this._extensionPath,
         this._inputField,
         this._sendButton,
         this._outputContainer,
-        this._outputScrollView
+        this._outputScrollView,
+        this._fileHandler // Pass file handler reference
       );
 
       this._inputField.connect("button-press-event", () => {
@@ -133,15 +143,6 @@ export const Indicator = GObject.registerClass(
       );
       const { modelButton } = this._modelManager.createModelButton();
       this._modelButton = modelButton;
-
-      // Initialize file handler
-      this._fileHandler = new FileHandler(
-        this._extensionPath,
-        this._outputContainer,
-        this._panelOverlay,
-        this._inputButtonsContainer,
-        this._updateLayout.bind(this)
-      );
 
       // Create file button using panelElements
       const { fileButton, fileIcon } = PanelElements.createFileButton(

@@ -36,7 +36,7 @@
 
 /* Message container styles */
 .message-box {
-  min-width: 60px;
+  min-width: 20px;
   min-height: 20px;
   padding: 14px 18px;
   margin: 8px 4px;

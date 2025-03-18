@@ -20,13 +20,15 @@ export class MessageSender {
     inputField,
     sendButton,
     outputContainer,
-    outputScrollView
+    outputScrollView,
+    fileHandler = null // Add fileHandler parameter with default value
   ) {
     this._extensionPath = extensionPath;
     this._inputField = inputField;
     this._sendButton = sendButton;
     this._outputContainer = outputContainer;
     this._outputScrollView = outputScrollView;
+    this._fileHandler = fileHandler; // Store fileHandler reference
 
     this._sendIcon = null;
     this._sendButtonClickId = null;
@@ -72,6 +74,11 @@ export class MessageSender {
 
     // Clear input field immediately
     this._inputField.set_text("");
+
+    // Clean up file boxes if fileHandler is available
+    if (this._fileHandler) {
+      this._fileHandler.cleanupFileContentBox();
+    }
 
     // Update input field hint to "Your response..." immediately after sending
     PanelElements.updateInputFieldHint(this._inputField, false);
@@ -176,5 +183,13 @@ export class MessageSender {
       this._sendButton.disconnect(this._sendButtonClickId);
       this._sendButtonClickId = null;
     }
+  }
+
+  /**
+   * Set the file handler
+   * @param {FileHandler} fileHandler - The file handler instance
+   */
+  setFileHandler(fileHandler) {
+    this._fileHandler = fileHandler;
   }
 }
