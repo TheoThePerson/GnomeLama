@@ -183,7 +183,7 @@ export class FileHandler {
 
     // Position the expanded container just above the input container
     // inputPosition[1] gives us the Y coordinate of the input container
-    const y = inputPosition[1] - this._fileBoxesContainer.get_height() - 15; // 15px spacing
+    const y = inputPosition[1] - this._fileBoxesContainer.get_height(); // 15px spacing
 
     // Set position of expanded container
     this._expandedContainer.set_position(x, y);
