@@ -267,7 +267,7 @@
 /* File content header styles */
 .file-content-header {
   width: 100%;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 6px;
   padding: 4px;
@@ -305,7 +305,7 @@
 .file-content-scroll {
   background-color: rgba(0, 0, 0, 0.02);
   border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: none;
 }
 
 /* File content text styles */
@@ -313,6 +313,6 @@
   font-family: monospace;
   font-size: 11px;
   color: #000000;
-  padding: 6px;
+  padding: 2px;
   line-height: 1.4;
 } 

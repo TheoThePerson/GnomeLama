@@ -133,6 +133,211 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
+      // Flag to prevent double processing of pastes
+      let isProcessingPaste = false;
+      let lastProcessedText = "";
+      let lastPasteTime = 0;
+      let pastedTextCount = 0; // Counter for naming pasted text boxes
+
+      // Set up paste detection via key press event (Ctrl+V)
+      this._inputField.clutter_text.connect(
+        "key-press-event",
+        (actor, event) => {
+          // Check if Ctrl+V was pressed (paste shortcut)
+          const symbol = event.get_key_symbol();
+          const state = event.get_state();
+          const ctrlPressed = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
+
+          if (
+            ctrlPressed &&
+            (symbol === Clutter.KEY_v || symbol === Clutter.KEY_V)
+          ) {
+            // Get current time to prevent double processing
+            const currentTime = Date.now();
+            if (currentTime - lastPasteTime < 500) {
+              return Clutter.EVENT_PROPAGATE; // Prevent double processing
+            }
+            lastPasteTime = currentTime;
+
+            // Get clipboard content
+            const clipboard = St.Clipboard.get_default();
+
+            // Set this flag before the async operation to prevent text-changed from triggering
+            isProcessingPaste = true;
+
+            clipboard.get_text(
+              St.ClipboardType.CLIPBOARD,
+              (clipboard, text) => {
+                if (!text || text === lastProcessedText) {
+                  isProcessingPaste = false;
+                  return;
+                }
+
+                // Count words in pasted text
+                const wordCount = text
+                  .split(/\s+/)
+                  .filter((word) => word.length > 0).length;
+
+                // If text is longer than a threshold, create a file box
+                if (wordCount > 100) {
+                  lastProcessedText = text;
+
+                  // Increment the pasted text counter
+                  pastedTextCount++;
+
+                  // Create a file box with the pasted text and sequential title
+                  if (this._fileHandler) {
+                    this._fileHandler.createFileBoxFromText(
+                      text,
+                      `Pasted ${pastedTextCount}`
+                    );
+
+                    // Clear any text that might be in the input field
+                    this._inputField.set_text("");
+
+                    // Ensure layout is updated
+                    this._updateLayout();
+
+                    // Return focus to input field
+                    global.stage.set_key_focus(this._inputField.clutter_text);
+
+                    // Show a temporary confirmation message
+                    MessageProcessor.addTemporaryMessage(
+                      this._outputContainer,
+                      `Long text added as file box "Pasted ${pastedTextCount}"`
+                    );
+                  }
+                } else {
+                  // For shorter text, manually insert at cursor position
+                  const cursorPos = actor.get_cursor_position();
+                  const currentText = this._inputField.get_text() || "";
+
+                  // Get selection bounds if there's a selection
+                  let selectionStart = -1;
+                  let selectionEnd = -1;
+                  if (actor.get_selection_bound() >= 0) {
+                    selectionStart = Math.min(
+                      actor.get_selection_bound(),
+                      cursorPos
+                    );
+                    selectionEnd = Math.max(
+                      actor.get_selection_bound(),
+                      cursorPos
+                    );
+                  }
+
+                  // Insert text, replacing selection if there is one
+                  let newText;
+                  if (selectionStart >= 0) {
+                    // Replace selected text with paste
+                    newText =
+                      currentText.substring(0, selectionStart) +
+                      text +
+                      currentText.substring(selectionEnd);
+
+                    // Set cursor position after pasted text
+                    const newCursorPos = selectionStart + text.length;
+                    this._inputField.set_text(newText);
+                    actor.set_cursor_position(newCursorPos);
+                  } else {
+                    // Insert at current cursor position
+                    newText =
+                      currentText.substring(0, cursorPos) +
+                      text +
+                      currentText.substring(cursorPos);
+
+                    // Set cursor position after pasted text
+                    const newCursorPos = cursorPos + text.length;
+                    this._inputField.set_text(newText);
+                    actor.set_cursor_position(newCursorPos);
+                  }
+
+                  isProcessingPaste = false;
+                }
+
+                // Reset the processing flag after a delay (just in case it wasn't reset)
+                imports.gi.GLib.timeout_add(
+                  imports.gi.GLib.PRIORITY_DEFAULT,
+                  500,
+                  () => {
+                    isProcessingPaste = false;
+                    return false; // Don't repeat
+                  }
+                );
+              }
+            );
+
+            // Return Clutter.EVENT_STOP to prevent the default paste operation
+            // We've manually handled both short and long text above
+            return Clutter.EVENT_STOP;
+          }
+
+          return Clutter.EVENT_PROPAGATE;
+        }
+      );
+
+      // Handle text changes, potentially from other paste sources
+      this._inputField.clutter_text.connect("text-changed", () => {
+        // If we're processing a paste via Ctrl+V, skip this handler
+        if (isProcessingPaste) {
+          return;
+        }
+
+        const currentText = this._inputField.get_text();
+
+        // Skip if empty or already processed
+        if (
+          !currentText ||
+          currentText.length === 0 ||
+          currentText === lastProcessedText
+        ) {
+          return;
+        }
+
+        // Only process sudden text changes with multiple words (likely pastes)
+        // Count words and see if it exceeds threshold
+        const wordCount = currentText
+          .split(/\s+/)
+          .filter((word) => word.length > 0).length;
+
+        if (wordCount > 100) {
+          // Set flag to prevent double processing
+          isProcessingPaste = true;
+          lastProcessedText = currentText;
+
+          // Increment counter for unique naming
+          pastedTextCount++;
+
+          // Create file box
+          if (this._fileHandler) {
+            this._fileHandler.createFileBoxFromText(
+              currentText,
+              `Pasted ${pastedTextCount}`
+            );
+
+            // Clear the input field
+            this._inputField.set_text("");
+
+            // Update layout and show confirmation
+            this._updateLayout();
+            MessageProcessor.addTemporaryMessage(
+              this._outputContainer,
+              `Long text added as file box "Pasted ${pastedTextCount}"`
+            );
+          }
+
+          // Reset processing flag after delay
+          imports.gi.GLib.timeout_add(
+            imports.gi.GLib.PRIORITY_DEFAULT,
+            500,
+            () => {
+              isProcessingPaste = false;
+              return false;
+            }
+          );
+        }
+      });
+
       // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
         if (this._outputScrollView) {

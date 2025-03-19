@@ -21,7 +21,7 @@ const UI = {
   },
   FILE_BOX: {
     STYLE_CLASS: "file-content-box",
-    SIZE: 80, // Square
+    SIZE: 100, // Square
     MARGIN: 5, // Margin around boxes (reduced)
     HEADER: {
       STYLE_CLASS: "file-content-header",
@@ -417,7 +417,7 @@ export class FileHandler {
 
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-    const contentHeight = UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16;
+    const contentHeight = UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 4;
     contentView.set_height(contentHeight);
 
     fileBox.add_child(headerBox);
@@ -529,7 +529,7 @@ export class FileHandler {
 
     contentBox.add_child(contentLabel);
     scrollView.add_child(contentBox);
-    scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+    scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.NEVER);
 
     return scrollView;
   }
@@ -718,7 +718,7 @@ export class FileHandler {
             UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS
           );
           const contentHeight =
-            UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16;
+            UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 4;
           contentView.set_height(contentHeight);
 
           const contentBox = contentView.get_child();
@@ -735,5 +735,48 @@ export class FileHandler {
     }
 
     this._adjustInputContainerHeight();
+  }
+
+  /**
+   * Creates a file box from pasted text
+   *
+   * @param {string} text - The pasted text to display in a file box
+   * @param {string} [title="Pasted Text"] - Title for the file box
+   */
+  createFileBoxFromText(text, title = "Pasted Text") {
+    if (!text || text.trim() === "") {
+      return;
+    }
+
+    // Check if title contains a number (like "Pasted 1")
+    const hasNumber = /\d+$/.test(title.trim());
+
+    // Create a unique title
+    let uniqueTitle = title;
+    let counter = 1;
+
+    // If we already have this title, create a unique one
+    // For titles with numbers (like "Pasted 1"), increment the number
+    // For titles without numbers, add a counter in parentheses
+    while (this._findExistingFileBox(uniqueTitle)) {
+      if (hasNumber) {
+        // Extract base and number part - e.g., "Pasted 1" -> "Pasted " and "1"
+        const match = title.match(/^(.*?)(\d+)$/);
+        if (match) {
+          const basePart = match[1];
+          const numberPart = parseInt(match[2], 10);
+          // Increment the number
+          uniqueTitle = `${basePart}${numberPart + counter}`;
+        } else {
+          uniqueTitle = `${title} (${counter})`;
+        }
+      } else {
+        uniqueTitle = `${title} (${counter})`;
+      }
+      counter++;
+    }
+
+    // Display the content in a file box
+    this._displayFileContentBox(text, uniqueTitle);
   }
 }
