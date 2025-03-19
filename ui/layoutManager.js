@@ -209,7 +209,15 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
 
       // Ensure we show scrollbars when content is clipped
       fileBoxesContainer.set_style("overflow-y: auto;");
+    } else {
+      // Preserve file box container's style class and ensure it doesn't have scrollbars
+      // when they're not needed
+      fileBoxesContainer.set_style("overflow-y: visible;");
     }
+
+    // Make sure file boxes container is visible and properly positioned
+    fileBoxesContainer.set_position(0, 0);
+    fileBoxesContainer.show();
   }
 
   // Calculate total container height
@@ -235,11 +243,6 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     panelWidth - horizontalPadding * 2,
     containerHeight
   );
-
-  // Set file box container to fixed position at the top of input container
-  if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
-    fileBoxesContainer.set_position(0, 0);
-  }
 
   // Apply styling with higher z-index to keep it on top
   inputButtonsContainer.set_style(`

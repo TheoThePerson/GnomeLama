@@ -192,7 +192,13 @@ export function clearOutput(outputContainer) {
 
   // Clear all messages
   outputContainer.get_children().forEach((child) => {
-    if (!tempMessages.has(child)) {
+    // Only remove message containers, identified by having either 'user-message' or 'assistant-message' style class
+    if (
+      !tempMessages.has(child) &&
+      child.style_class &&
+      (child.style_class.includes("user-message") ||
+        child.style_class.includes("assistant-message"))
+    ) {
       child.destroy();
     }
   });

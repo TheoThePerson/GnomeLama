@@ -108,13 +108,23 @@ export const Indicator = GObject.registerClass(
       this._inputField = inputField;
       this._sendButton = sendButton;
 
+      // Create a safe update layout callback that prevents recursion
+      let isUpdatingLayout = false;
+      const safeUpdateLayout = () => {
+        if (!isUpdatingLayout) {
+          isUpdatingLayout = true;
+          this._updateLayout();
+          isUpdatingLayout = false;
+        }
+      };
+
       // Initialize file handler first (moved up)
       this._fileHandler = new FileHandler(
         this._extensionPath,
         this._outputContainer,
         this._panelOverlay,
         this._inputButtonsContainer,
-        this._updateLayout.bind(this)
+        safeUpdateLayout
       );
 
       // Initialize message sender with file handler
@@ -142,7 +152,21 @@ export const Indicator = GObject.registerClass(
           if (this._messageSender.isProcessingMessage()) {
             this._messageSender.stopMessage();
           }
-          this._clearHistory();
+
+          // Clear conversation history
+          clearConversationHistory();
+          this._context = null;
+
+          // Clear output
+          MessageProcessor.clearOutput(this._outputContainer);
+
+          // Update input field hint
+          PanelElements.updateInputFieldHint(this._inputField, true);
+
+          // Refresh file box formatting if files are loaded
+          if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+            this._fileHandler.refreshFileBoxFormatting();
+          }
         },
         this._inputButtonsContainer
       );
@@ -291,16 +315,29 @@ export const Indicator = GObject.registerClass(
         this._outputContainer.add_child(msg);
       });
 
+      // Refresh file box formatting if files are loaded
+      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+        this._fileHandler.refreshFileBoxFormatting();
+      }
+
       PanelElements.scrollToBottom(this._outputScrollView);
     }
 
     _clearHistory() {
+      // Clear conversation history
       clearConversationHistory();
       this._context = null;
 
+      // Clear output
       MessageProcessor.clearOutput(this._outputContainer);
 
+      // Update input field hint
       PanelElements.updateInputFieldHint(this._inputField, true);
+
+      // Refresh file box formatting if files are loaded
+      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+        this._fileHandler.refreshFileBoxFormatting();
+      }
     }
 
     _updateLayout() {
@@ -324,6 +361,10 @@ export const Indicator = GObject.registerClass(
         this._inputField,
         this._sendButton
       );
+
+      // The fileHandler._adjustInputContainerHeight method will be called through
+      // the FileHandler's callbacks, but our safeUpdateLayout wrapper prevents infinite recursion
+      // by ensuring _updateLayout is not called again if it's already running.
 
       PanelElements.scrollToBottom(this._outputScrollView);
     }

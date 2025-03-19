@@ -651,6 +651,15 @@ export class FileHandler {
       return;
     }
 
+    // Check if file boxes container already exists and has children
+    if (
+      this._fileBoxesContainer &&
+      this._fileBoxesContainer.get_n_children() > 0
+    ) {
+      // Files are already displayed, no need to recreate them
+      return;
+    }
+
     // Create container first to avoid multiple container creations
     const container = this._setupFileBoxesContainer();
 
@@ -726,5 +735,84 @@ export class FileHandler {
    */
   hasLoadedFiles() {
     return this._loadedFiles.size > 0;
+  }
+
+  /**
+   * Refreshes the formatting of all file boxes without recreating them
+   * Should be called after operations that might affect layout
+   */
+  refreshFileBoxFormatting() {
+    if (
+      !this._fileBoxesContainer ||
+      this._fileBoxesContainer.get_n_children() === 0
+    ) {
+      return;
+    }
+
+    // Apply proper styling to file boxes container
+    this._fileBoxesContainer.set_style_class_name(
+      UI.CONTAINER.FILE_BOXES.STYLE_CLASS
+    );
+
+    // Refresh each file box
+    const children = this._fileBoxesContainer.get_children();
+    for (const fileBox of children) {
+      // Ensure the box has the right size and style
+      fileBox.set_style_class_name(UI.FILE_BOX.STYLE_CLASS);
+      fileBox.set_size(UI.FILE_BOX.SIZE, UI.FILE_BOX.SIZE);
+
+      // Get header and content parts
+      if (fileBox.get_n_children() >= 2) {
+        const headerBox = fileBox.get_children()[0];
+        const contentView = fileBox.get_children()[1];
+
+        // Refresh header formatting
+        if (headerBox) {
+          headerBox.set_style_class_name(UI.FILE_BOX.HEADER.STYLE_CLASS);
+          headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
+
+          // Refresh header components if they exist
+          if (headerBox.get_n_children() >= 2) {
+            const titleLabel = headerBox.get_children()[0];
+            const closeButton = headerBox.get_children()[1];
+
+            if (titleLabel) {
+              titleLabel.set_style_class_name("file-content-title");
+            }
+
+            if (closeButton) {
+              closeButton.set_style_class_name(
+                UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS
+              );
+            }
+          }
+        }
+
+        // Refresh content view formatting
+        if (contentView) {
+          contentView.set_style_class_name(
+            UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS
+          );
+          // Calculate content height properly
+          const contentHeight =
+            UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16;
+          contentView.set_height(contentHeight);
+
+          // Refresh content label if it exists
+          const contentBox = contentView.get_child();
+          if (contentBox && contentBox.get_n_children() > 0) {
+            const contentLabel = contentBox.get_children()[0];
+            if (contentLabel) {
+              contentLabel.set_style_class_name(
+                UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Adjust container height to ensure proper layout
+    this._adjustInputContainerHeight();
   }
 }
