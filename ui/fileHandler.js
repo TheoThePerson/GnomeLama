@@ -240,15 +240,12 @@ export class FileHandler {
    * Sets up the file boxes container
    *
    * @private
-   * @returns {St.BoxLayout} The file boxes container
+   * @returns {St.Widget} The file boxes container
    */
   _setupFileBoxesContainer() {
-    // If already set up, return it
     if (this._fileBoxesContainer) return this._fileBoxesContainer;
 
     this._createFileBoxesContainer();
-
-    // Add file boxes container to the input buttons container at the top
     this._inputButtonsContainer.insert_child_at_index(
       this._fileBoxesContainer,
       0
@@ -263,25 +260,22 @@ export class FileHandler {
    * @private
    */
   _createFileBoxesContainer() {
-    // Create a flow layout for better wrapping of boxes
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
-      homogeneous: true, // Make all columns the same size
+      homogeneous: true,
       column_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
       row_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
       max_column_width: UI.FILE_BOX.SIZE + UI.FILE_BOX.MARGIN * 2,
     });
 
-    // Create the container with flow layout
     this._fileBoxesContainer = new St.Widget({
       style_class: UI.CONTAINER.FILE_BOXES.STYLE_CLASS,
       layout_manager: flowLayout,
       x_expand: true,
-      y_expand: false, // Don't allow auto-expansion to avoid pushing other elements
+      y_expand: false,
       clip_to_allocation: true,
     });
 
-    // Calculate initial container height for a single row
     const initialHeight =
       UI.FILE_BOX.SIZE +
       UI.FILE_BOX.MARGIN * 2 +
@@ -292,14 +286,12 @@ export class FileHandler {
 
   /**
    * Adjusts the height of the input container to accommodate file boxes
-   * Recalculates based on number of rows in the flow layout
    *
    * @private
    */
   _adjustInputContainerHeight() {
     if (!this._fileBoxesContainer) return;
 
-    // Calculate container dimensions based on flow layout
     const fileCount = this._fileBoxesContainer.get_n_children();
 
     if (fileCount === 0) {
@@ -308,39 +300,24 @@ export class FileHandler {
       return;
     }
 
-    // Get the dimensions from the layout manager
     const { panelWidth, horizontalPadding } =
       LayoutManager.calculatePanelDimensions();
-
-    // Calculate available width for file boxes
-    // Subtract padding from both sides and container internal padding
     const containerPadding = UI.CONTAINER.FILE_BOXES.PADDING || 0;
     const availableWidth =
       panelWidth - horizontalPadding * 2 - containerPadding * 2;
-
-    // Calculate how many full-sized boxes can fit in a row
     const boxTotalSize =
       UI.FILE_BOX.SIZE +
       UI.FILE_BOX.MARGIN * 2 +
       UI.CONTAINER.FILE_BOXES.SPACING;
     const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalSize));
-
-    // Calculate number of rows needed (at least 1)
     const rowsNeeded = Math.max(1, Math.ceil(fileCount / boxesPerRow));
-
-    // Calculate new container height based on number of rows
     const boxHeight = UI.FILE_BOX.SIZE + UI.FILE_BOX.MARGIN * 2;
     const rowSpacing = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
-
-    // Calculate total height needed for all rows, keep it minimal
     let containerHeight =
       boxHeight * rowsNeeded + rowSpacing + containerPadding * 2;
 
-    // Update container height
     this._fileBoxesContainer.set_height(containerHeight);
     this._fileBoxesContainer.show();
-
-    // Notify the layout manager to update the overall layout
     this._updateLayoutCallback();
   }
 
@@ -350,29 +327,23 @@ export class FileHandler {
    * @private
    * @param {string} content - File content
    * @param {string} fileName - Name of the file
-   * @param {boolean} [storeInMap=true] - Whether to store in _loadedFiles map (default: true)
+   * @param {boolean} [storeInMap=true] - Whether to store in _loadedFiles map
    */
   _displayFileContentBox(content, fileName, storeInMap = true) {
-    // Set up the file boxes container if needed
     const container = this._setupFileBoxesContainer();
-
-    // Check if we already have this file to prevent duplicates
     const existingFileBox = this._findExistingFileBox(fileName);
+
     if (existingFileBox) {
-      // Just update the content if we already have this file
       this._updateFileBoxContent(existingFileBox, content);
     } else {
-      // Create and add a new file box
       const fileBox = this._createFileBox(fileName, content);
       container.add_child(fileBox);
     }
 
-    // Only store file content if requested
     if (storeInMap) {
       this._loadedFiles.set(fileName, content);
     }
 
-    // Update layout
     this._adjustInputContainerHeight();
   }
 
@@ -387,19 +358,17 @@ export class FileHandler {
     if (!this._fileBoxesContainer) return null;
 
     const children = this._fileBoxesContainer.get_children();
+
     for (const child of children) {
-      // Try to find the header box
       const headerBox = child.get_children()[0];
       if (headerBox) {
         const titleLabel = headerBox.get_children()[0];
-        if (titleLabel && titleLabel.text) {
-          // Check if this is our file
-          if (titleLabel.userData && titleLabel.userData === fileName) {
-            return child;
-          }
+        if (titleLabel && titleLabel.userData === fileName) {
+          return child;
         }
       }
     }
+
     return null;
   }
 
@@ -413,7 +382,6 @@ export class FileHandler {
   _updateFileBoxContent(fileBox, content) {
     const children = fileBox.get_children();
     if (children.length >= 2) {
-      // Should have header and content
       const contentView = children[1];
       const contentBox = contentView.get_child();
 
@@ -435,7 +403,6 @@ export class FileHandler {
    * @returns {St.BoxLayout} - The created file box
    */
   _createFileBox(fileName, content) {
-    // Create a square box with the same width and height
     const fileBox = new St.BoxLayout({
       style_class: UI.FILE_BOX.STYLE_CLASS,
       vertical: true,
@@ -445,15 +412,12 @@ export class FileHandler {
       y_expand: false,
     });
 
-    // Add header and content
     const headerBox = this._createHeaderBox(fileName, fileBox);
     const contentView = this._createContentView(content);
 
-    // Set a fixed height for the header to maximize content space
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-    // Content view should fill the remaining height
-    const contentHeight = UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16; // Subtract padding
+    const contentHeight = UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16;
     contentView.set_height(contentHeight);
 
     fileBox.add_child(headerBox);
@@ -477,12 +441,10 @@ export class FileHandler {
       x_expand: true,
     });
 
-    // Add title
     const titleLabel = this._createTitleLabel(fileName);
-    headerBox.add_child(titleLabel);
-
-    // Add close button
     const closeButton = this._createCloseButton(fileBox);
+
+    headerBox.add_child(titleLabel);
     headerBox.add_child(closeButton);
 
     return headerBox;
@@ -496,7 +458,6 @@ export class FileHandler {
    * @returns {St.Label} - The title label
    */
   _createTitleLabel(fileName) {
-    // Truncate if too long
     let displayName = fileName;
     const maxLength = UI.FILE_BOX.HEADER.TITLE.MAX_LENGTH;
     const truncateLength = UI.FILE_BOX.HEADER.TITLE.TRUNCATE_LENGTH;
@@ -511,9 +472,7 @@ export class FileHandler {
       style_class: "file-content-title",
     });
 
-    // Store the full filename as user data to help with identification
     label.userData = fileName;
-
     return label;
   }
 
@@ -546,21 +505,18 @@ export class FileHandler {
    * @returns {St.ScrollView} - The content view
    */
   _createContentView(content) {
-    // Create scrollable container
     const scrollView = new St.ScrollView({
       style_class: UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS,
       x_expand: true,
       y_expand: true,
     });
 
-    // Create container for content
     const contentBox = new St.BoxLayout({
       vertical: true,
       x_expand: true,
       y_expand: true,
     });
 
-    // Create label for content
     const contentLabel = new St.Label({
       style_class: UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS,
       text: content,
@@ -568,17 +524,11 @@ export class FileHandler {
       y_expand: true,
     });
 
-    // Enable text wrapping and selection
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
-    // Add label to content box
     contentBox.add_child(contentLabel);
-
-    // Add content box to scroll view
     scrollView.add_child(contentBox);
-
-    // Set scroll policies
     scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
     return scrollView;
@@ -593,12 +543,10 @@ export class FileHandler {
   _removeFileBox(fileBox) {
     if (!this._fileBoxesContainer) return;
 
-    // Get the file name from the header to remove from our map
     const headerBox = fileBox.get_children()[0];
     if (headerBox) {
       const titleLabel = headerBox.get_children()[0];
       if (titleLabel) {
-        // Use the stored userData to get the full filename
         const fileName = titleLabel.userData;
         if (fileName) {
           this._loadedFiles.delete(fileName);
@@ -606,11 +554,8 @@ export class FileHandler {
       }
     }
 
-    // Remove file box from container
     this._fileBoxesContainer.remove_child(fileBox);
     fileBox.destroy();
-
-    // Update layout for remaining boxes
     this._adjustInputContainerHeight();
   }
 
@@ -635,8 +580,6 @@ export class FileHandler {
    */
   cleanupFileUI() {
     this._cleanupFileBoxes();
-
-    // Force layout update immediately
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
     }
@@ -646,31 +589,24 @@ export class FileHandler {
    * Restores file UI from loaded file data
    */
   restoreFileUI() {
-    // Only restore if we have files
     if (this._loadedFiles.size === 0) {
       return;
     }
 
-    // Check if file boxes container already exists and has children
     if (
       this._fileBoxesContainer &&
       this._fileBoxesContainer.get_n_children() > 0
     ) {
-      // Files are already displayed, no need to recreate them
       return;
     }
 
-    // Create container first to avoid multiple container creations
     const container = this._setupFileBoxesContainer();
 
-    // Batch create all file boxes
-    const files = Array.from(this._loadedFiles.entries());
-    for (const [fileName, content] of files) {
+    for (const [fileName, content] of this._loadedFiles.entries()) {
       const fileBox = this._createFileBox(fileName, content);
       container.add_child(fileBox);
     }
 
-    // Perform a single layout update at the end
     this._adjustInputContainerHeight();
   }
 
@@ -679,11 +615,8 @@ export class FileHandler {
    */
   cleanupFileContentBox() {
     this._cleanupFileBoxes();
-
-    // Clear loaded files map
     this._loadedFiles.clear();
 
-    // Force layout update immediately
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
     }
@@ -725,7 +658,6 @@ export class FileHandler {
       result += `Name: ${fileName}\nContent:\n"${content}"\n\n`;
     }
 
-    // Trim trailing newlines but keep other spacing
     return result.replace(/\n+$/, "");
   }
 
@@ -739,7 +671,6 @@ export class FileHandler {
 
   /**
    * Refreshes the formatting of all file boxes without recreating them
-   * Should be called after operations that might affect layout
    */
   refreshFileBoxFormatting() {
     if (
@@ -749,29 +680,23 @@ export class FileHandler {
       return;
     }
 
-    // Apply proper styling to file boxes container
     this._fileBoxesContainer.set_style_class_name(
       UI.CONTAINER.FILE_BOXES.STYLE_CLASS
     );
 
-    // Refresh each file box
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
-      // Ensure the box has the right size and style
       fileBox.set_style_class_name(UI.FILE_BOX.STYLE_CLASS);
       fileBox.set_size(UI.FILE_BOX.SIZE, UI.FILE_BOX.SIZE);
 
-      // Get header and content parts
       if (fileBox.get_n_children() >= 2) {
         const headerBox = fileBox.get_children()[0];
         const contentView = fileBox.get_children()[1];
 
-        // Refresh header formatting
         if (headerBox) {
           headerBox.set_style_class_name(UI.FILE_BOX.HEADER.STYLE_CLASS);
           headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-          // Refresh header components if they exist
           if (headerBox.get_n_children() >= 2) {
             const titleLabel = headerBox.get_children()[0];
             const closeButton = headerBox.get_children()[1];
@@ -788,17 +713,14 @@ export class FileHandler {
           }
         }
 
-        // Refresh content view formatting
         if (contentView) {
           contentView.set_style_class_name(
             UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS
           );
-          // Calculate content height properly
           const contentHeight =
             UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 16;
           contentView.set_height(contentHeight);
 
-          // Refresh content label if it exists
           const contentBox = contentView.get_child();
           if (contentBox && contentBox.get_n_children() > 0) {
             const contentLabel = contentBox.get_children()[0];
@@ -812,7 +734,6 @@ export class FileHandler {
       }
     }
 
-    // Adjust container height to ensure proper layout
     this._adjustInputContainerHeight();
   }
 }

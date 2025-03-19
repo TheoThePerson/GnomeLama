@@ -31,6 +31,7 @@ export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init(extension) {
       super._init(0.0, "AI Chat Panel");
+
       this._extension = extension;
       this._extensionPath = extension.path;
       this._settings = extension.getSettings(
@@ -43,6 +44,7 @@ export const Indicator = GObject.registerClass(
 
       this._initUI();
 
+      // Connect settings and monitor change events
       this._settingsChangedId = this._settings.connect("changed", () =>
         this._updateLayout()
       );
@@ -53,7 +55,6 @@ export const Indicator = GObject.registerClass(
     }
 
     _loadStylesheet() {
-      // Load the stylesheet for the extension
       const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
       theme.load_stylesheet(
         Gio.File.new_for_path(`${this._extensionPath}/styles/style.css`)
@@ -61,9 +62,8 @@ export const Indicator = GObject.registerClass(
       this._theme = theme;
     }
 
-    // UI INITIALIZATION
-
     _initUI() {
+      // Create AI label for panel
       this.add_child(
         new St.Label({
           text: "AI",
@@ -72,9 +72,11 @@ export const Indicator = GObject.registerClass(
         })
       );
 
+      // Create panel overlay
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
 
+      // Create containers
       this._inputButtonsContainer = new St.BoxLayout({
         style_class: "input-buttons-container",
         vertical: true,
@@ -87,16 +89,18 @@ export const Indicator = GObject.registerClass(
         reactive: true,
       });
 
+      // Create output area
       const { outputScrollView, outputContainer } =
         PanelElements.createOutputArea(dimensions);
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
 
-      // Store output scrollview reference in inputButtonsContainer for dynamic layout adjustments
+      // Store output scrollview reference for dynamic layout adjustments
       this._inputButtonsContainer.userData = {
         outputScrollView: this._outputScrollView,
       };
 
+      // Set up input field based on conversation history
       const history = getConversationHistory();
       const isNewChat =
         history.length === 0 ||
@@ -108,7 +112,7 @@ export const Indicator = GObject.registerClass(
       this._inputField = inputField;
       this._sendButton = sendButton;
 
-      // Create a safe update layout callback that prevents recursion
+      // Create a safe update layout callback
       let isUpdatingLayout = false;
       const safeUpdateLayout = () => {
         if (!isUpdatingLayout) {
@@ -118,25 +122,10 @@ export const Indicator = GObject.registerClass(
         }
       };
 
-      // Initialize file handler first (moved up)
-      this._fileHandler = new FileHandler(
-        this._extensionPath,
-        this._outputContainer,
-        this._panelOverlay,
-        this._inputButtonsContainer,
-        safeUpdateLayout
-      );
+      // Initialize components
+      this._initializeComponents(safeUpdateLayout);
 
-      // Initialize message sender with file handler
-      this._messageSender = new MessageSender(
-        this._extensionPath,
-        this._inputField,
-        this._sendButton,
-        this._outputContainer,
-        this._outputScrollView,
-        this._fileHandler // Pass file handler reference
-      );
-
+      // Set up input field events
       this._inputField.connect("button-press-event", () => {
         if (this._modelManager && this._modelManager.isMenuOpen()) {
           this._modelManager.closeMenu();
@@ -144,69 +133,7 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Initialize model manager
-      this._modelManager = new ModelManager(
-        this._settings,
-        this._outputContainer,
-        () => {
-          if (this._messageSender.isProcessingMessage()) {
-            this._messageSender.stopMessage();
-          }
-
-          // Clear conversation history
-          clearConversationHistory();
-          this._context = null;
-
-          // Clear output
-          MessageProcessor.clearOutput(this._outputContainer);
-
-          // Update input field hint
-          PanelElements.updateInputFieldHint(this._inputField, true);
-
-          // Refresh file box formatting if files are loaded
-          if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-            this._fileHandler.refreshFileBoxFormatting();
-          }
-        },
-        this._inputButtonsContainer
-      );
-      const { modelButton } = this._modelManager.createModelButton();
-      this._modelButton = modelButton;
-
-      // Create file button using panelElements
-      const { fileButton, fileIcon } = PanelElements.createFileButton(
-        this._extensionPath,
-        this._settings.get_double("button-icon-scale")
-      );
-      this._fileButton = fileButton;
-      this._fileIcon = fileIcon;
-
-      // Connect the button to the file handler
-      this._fileButton.connect("clicked", () => {
-        this._fileHandler.openFileSelector();
-      });
-
-      this._setupClearButton();
-
-      // Configure the buttons container
-      this._buttonsContainer.add_child(this._modelButton);
-      this._buttonsContainer.add_child(new St.Widget({ x_expand: true }));
-      this._buttonsContainer.add_child(this._fileButton);
-      this._buttonsContainer.add_child(this._clearButton);
-      this._buttonsContainer.add_child(this._sendButton);
-
-      this._inputButtonsContainer.add_child(this._inputFieldBox);
-      this._inputButtonsContainer.add_child(this._buttonsContainer);
-
-      this._panelOverlay.add_child(this._outputScrollView);
-      this._panelOverlay.add_child(this._inputButtonsContainer);
-
-      Main.layoutManager.addChrome(this._panelOverlay, {
-        affectsInputRegion: true,
-      });
-
-      this._panelOverlay.visible = false;
-
+      // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
         if (this._outputScrollView) {
           this._outputScrollView.emit("scroll-event", event);
@@ -215,7 +142,90 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
+      // Finalize UI setup
+      this._finalizeUISetup();
       this._updateLayout();
+    }
+
+    _initializeComponents(safeUpdateLayout) {
+      // Initialize file handler
+      this._fileHandler = new FileHandler(
+        this._extensionPath,
+        this._outputContainer,
+        this._panelOverlay,
+        this._inputButtonsContainer,
+        safeUpdateLayout
+      );
+
+      // Initialize message sender
+      this._messageSender = new MessageSender(
+        this._extensionPath,
+        this._inputField,
+        this._sendButton,
+        this._outputContainer,
+        this._outputScrollView,
+        this._fileHandler
+      );
+
+      // Initialize model manager with clear callback
+      this._modelManager = new ModelManager(
+        this._settings,
+        this._outputContainer,
+        () => {
+          // Stop any in-progress message
+          if (this._messageSender.isProcessingMessage()) {
+            this._messageSender.stopMessage();
+          }
+
+          // Call the clear history function
+          this._clearHistory();
+        },
+        this._inputButtonsContainer
+      );
+
+      // Get UI elements from components
+      const { modelButton } = this._modelManager.createModelButton();
+      this._modelButton = modelButton;
+
+      // Create file and clear buttons
+      const { fileButton, fileIcon } = PanelElements.createFileButton(
+        this._extensionPath,
+        this._settings.get_double("button-icon-scale")
+      );
+      this._fileButton = fileButton;
+      this._fileIcon = fileIcon;
+
+      this._setupClearButton();
+
+      // Connect file button to handler
+      this._fileButton.connect("clicked", () => {
+        this._fileHandler.openFileSelector();
+      });
+    }
+
+    _finalizeUISetup() {
+      // Configure the buttons container
+      this._buttonsContainer.add_child(this._modelButton);
+      this._buttonsContainer.add_child(new St.Widget({ x_expand: true }));
+      this._buttonsContainer.add_child(this._fileButton);
+      this._buttonsContainer.add_child(this._clearButton);
+      this._buttonsContainer.add_child(this._sendButton);
+
+      // Build input container
+      this._inputButtonsContainer.add_child(this._inputFieldBox);
+      this._inputButtonsContainer.add_child(this._buttonsContainer);
+
+      // Add elements to panel overlay
+      this._panelOverlay.add_child(this._outputScrollView);
+      this._panelOverlay.add_child(this._inputButtonsContainer);
+
+      // Add to chrome with input region
+      Main.layoutManager.addChrome(this._panelOverlay, {
+        affectsInputRegion: true,
+      });
+
+      // Initially hide overlay
+      this._panelOverlay.visible = false;
     }
 
     _setupClearButton() {
@@ -234,36 +244,35 @@ export const Indicator = GObject.registerClass(
       // Toggle visibility
       this._panelOverlay.visible = !this._panelOverlay.visible;
 
-      // If closing, reset the input field and close model menu
       if (!this._panelOverlay.visible) {
+        // If closing the panel
         this._inputField.set_text("");
 
-        // Close model menu when panel is closed
+        // Close model menu
         if (this._modelManager) {
           this._modelManager.closeMenu();
         }
 
-        // Clean up file UI only (preserve file data) when closing
+        // Clean up file UI only (preserve file data)
         if (this._fileHandler) {
           this._fileHandler.cleanupFileUI();
         }
       } else {
-        // If opening panel, restore UI immediately
+        // If opening panel
 
-        // First restore file UI if files were previously loaded - do this first for better UX
+        // Restore file UI if files were previously loaded
         if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
           this._fileHandler.restoreFileUI();
-          // Force an immediate layout update for file UI
           this._updateLayout();
         }
 
         // Restore conversation history
         this._updateHistory();
 
-        // Give focus to input field right away
+        // Give focus to input field
         global.stage.set_key_focus(this._inputField.clutter_text);
 
-        // Then refresh models (async operation) - don't block UI on this
+        // Refresh models (async operation)
         if (this._modelManager) {
           this._modelManager
             .refreshModels()
@@ -275,10 +284,8 @@ export const Indicator = GObject.registerClass(
       this._updateLayout();
     }
 
-    // HISTORY MANAGEMENT
-
     _updateHistory() {
-      // Save any existing temporary messages
+      // Save temporary messages
       const tempMessages = this._outputContainer
         .get_children()
         .filter(
@@ -311,11 +318,12 @@ export const Indicator = GObject.registerClass(
         }
       });
 
+      // Restore temporary messages
       tempMessages.forEach((msg) => {
         this._outputContainer.add_child(msg);
       });
 
-      // Refresh file box formatting if files are loaded
+      // Refresh file box formatting if needed
       if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
         this._fileHandler.refreshFileBoxFormatting();
       }
@@ -331,18 +339,19 @@ export const Indicator = GObject.registerClass(
       // Clear output
       MessageProcessor.clearOutput(this._outputContainer);
 
+      // Clear the input field text
+      this._inputField.set_text("");
+
       // Update input field hint
       PanelElements.updateInputFieldHint(this._inputField, true);
 
-      // Refresh file box formatting if files are loaded
-      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-        this._fileHandler.refreshFileBoxFormatting();
+      // Clear file boxes instead of just refreshing formatting
+      if (this._fileHandler) {
+        this._fileHandler.cleanupFileContentBox(); // Removes UI and data
       }
     }
 
     _updateLayout() {
-      const dimensions = LayoutManager.calculatePanelDimensions();
-
       // Update each component's layout
       LayoutManager.updatePanelOverlay(this._panelOverlay);
       LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
@@ -362,27 +371,23 @@ export const Indicator = GObject.registerClass(
         this._sendButton
       );
 
-      // The fileHandler._adjustInputContainerHeight method will be called through
-      // the FileHandler's callbacks, but our safeUpdateLayout wrapper prevents infinite recursion
-      // by ensuring _updateLayout is not called again if it's already running.
-
       PanelElements.scrollToBottom(this._outputScrollView);
     }
 
-    // CLEANUP
-
     destroy() {
+      // Disconnect settings signal
       if (this._settingsChangedId) {
         this._settings.disconnect(this._settingsChangedId);
       }
 
-      // Unload stylesheet when extension is disabled
+      // Unload stylesheet
       if (this._theme) {
         this._theme.unload_stylesheet(
           Gio.File.new_for_path(`${this._extensionPath}/styles/style.css`)
         );
       }
 
+      // Destroy components
       if (this._fileHandler) {
         this._fileHandler.destroy();
       }
@@ -395,6 +400,7 @@ export const Indicator = GObject.registerClass(
         this._messageSender.destroy();
       }
 
+      // Remove chrome
       if (this._panelOverlay) {
         Main.layoutManager.removeChrome(this._panelOverlay);
       }

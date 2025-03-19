@@ -39,19 +39,18 @@ export async function processUserMessage({
     return;
   }
 
-  // Remove any existing temporary messages when user sends a message
+  // Remove temporary messages
   removeTemporaryMessages(outputContainer);
 
-  // Add user message to UI (if not skipped)
+  // Add user message to UI if not already added
   if (!skipAppendUserMessage) {
     appendUserMessage(outputContainer, displayMessage || userMessage);
   }
 
-  // Get color from settings
-  const settings = getSettings();
-  const bgColor = settings.get_string("ai-message-color");
+  // Get color from settings once
+  const bgColor = getSettings().get_string("ai-message-color");
 
-  // Create response container
+  // Variables for response processing
   let responseContainer = null;
   let fullResponse = "";
 
@@ -63,7 +62,7 @@ export async function processUserMessage({
       (chunk) => {
         fullResponse += chunk;
 
-        // Create response container if not exists
+        // Create response container if needed
         if (!responseContainer) {
           if (onResponseStart) onResponseStart();
           responseContainer = PanelElements.createResponseContainer(bgColor);
@@ -77,23 +76,41 @@ export async function processUserMessage({
       displayMessage // Pass display message for history
     );
 
-    // Notify that response is complete without passing the response
+    // Notify response completion
     if (onResponseEnd) onResponseEnd();
   } catch (error) {
     console.error("Error processing AI response:", error);
-
-    // Handle error case
-    if (!responseContainer) {
-      responseContainer = PanelElements.createResponseContainer(bgColor);
-      outputContainer.add_child(responseContainer);
-    }
-
-    updateResponseContainer(
+    handleResponseError(
+      error,
       responseContainer,
-      "An error occurred while processing your request."
+      outputContainer,
+      bgColor,
+      scrollView
     );
-    PanelElements.scrollToBottom(scrollView);
   }
+}
+
+/**
+ * Handles errors during response processing
+ * @private
+ */
+function handleResponseError(
+  error,
+  responseContainer,
+  outputContainer,
+  bgColor,
+  scrollView
+) {
+  if (!responseContainer) {
+    responseContainer = PanelElements.createResponseContainer(bgColor);
+    outputContainer.add_child(responseContainer);
+  }
+
+  updateResponseContainer(
+    responseContainer,
+    "An error occurred while processing your request."
+  );
+  PanelElements.scrollToBottom(scrollView);
 }
 
 /**
@@ -122,32 +139,40 @@ export function updateResponseContainer(container, responseText) {
   // Parse and add new content
   const parts = parseMessageContent(responseText);
 
-  // Add each part to the container in the correct order
+  // Create a content element for each part
   parts.forEach((part, index) => {
-    let contentElement;
-
-    if (part.type === "code") {
-      contentElement = UIComponents.createCodeContainer(
-        part.content,
-        part.language
-      );
-
-      // Add special class to ensure code blocks behave correctly
-      contentElement.add_style_class_name("code-block-part");
-    } else if (part.type === "formatted") {
-      contentElement = UIComponents.createFormattedTextLabel(
-        part.content,
-        part.format
-      );
-    } else if (part.type === "text") {
-      contentElement = UIComponents.createTextLabel(part.content);
-    }
-
+    const contentElement = createContentElement(part);
     if (contentElement) {
-      // Ensure each part is added in sequence
       container.insert_child_at_index(contentElement, index);
     }
   });
+}
+
+/**
+ * Creates the appropriate UI element for a content part
+ * @private
+ * @param {Object} part - The content part to create an element for
+ * @returns {St.Widget|null} The created UI element or null
+ */
+function createContentElement(part) {
+  switch (part.type) {
+    case "code":
+      const codeElement = UIComponents.createCodeContainer(
+        part.content,
+        part.language
+      );
+      codeElement.add_style_class_name("code-block-part");
+      return codeElement;
+
+    case "formatted":
+      return UIComponents.createFormattedTextLabel(part.content, part.format);
+
+    case "text":
+      return UIComponents.createTextLabel(part.content);
+
+    default:
+      return null;
+  }
 }
 
 /**
@@ -156,9 +181,10 @@ export function updateResponseContainer(container, responseText) {
  * @param {string} text - The message text
  */
 export function addTemporaryMessage(outputContainer, text) {
-  // Remove any existing temporary messages first
+  // Clean up existing temporary messages
   removeTemporaryMessages(outputContainer);
 
+  // Create and add new temporary message
   const tempLabel = UIComponents.createTemporaryMessageLabel(text);
   outputContainer.add_child(tempLabel);
   temporaryMessages.add(tempLabel);
@@ -182,27 +208,36 @@ function removeTemporaryMessages(outputContainer) {
  * @param {St.BoxLayout} outputContainer - The container to clear
  */
 export function clearOutput(outputContainer) {
-  // Save temporary messages
-  const tempMessages = new Set();
+  // Identify which temporary messages to preserve
+  const tempMessagesToKeep = new Set();
   temporaryMessages.forEach((msg) => {
     if (msg.get_parent() === outputContainer) {
-      tempMessages.add(msg);
+      tempMessagesToKeep.add(msg);
     }
   });
 
-  // Clear all messages
-  outputContainer.get_children().forEach((child) => {
-    // Only remove message containers, identified by having either 'user-message' or 'assistant-message' style class
+  // Remove all non-temporary message containers
+  const children = outputContainer.get_children();
+  for (let i = children.length - 1; i >= 0; i--) {
+    const child = children[i];
+    // Skip temporary messages
+    if (tempMessagesToKeep.has(child)) {
+      continue;
+    }
+
+    // Remove all message containers, whether user or AI
+    // Check for common message classes and also check for response containers
     if (
-      !tempMessages.has(child) &&
       child.style_class &&
-      (child.style_class.includes("user-message") ||
+      (child.style_class.includes("message-box") ||
+        child.style_class.includes("user-message") ||
+        child.style_class.includes("ai-message") ||
         child.style_class.includes("assistant-message"))
     ) {
       child.destroy();
     }
-  });
+  }
 
-  // Update our tracking set to only include remaining messages
-  temporaryMessages = tempMessages;
+  // Update tracking set
+  temporaryMessages = tempMessagesToKeep;
 }

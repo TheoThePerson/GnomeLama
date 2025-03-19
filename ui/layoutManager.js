@@ -7,6 +7,11 @@ import St from "gi://St";
 import Clutter from "gi://Clutter";
 import { getSettings } from "../lib/settings.js";
 
+// Cache calculated dimensions to avoid recalculation
+let cachedDimensions = null;
+let lastMonitorWidth = 0;
+let lastMonitorHeight = 0;
+
 /**
  * Calculates dimensions for the panel layout
  * @returns {Object} Object containing calculated dimensions
@@ -14,6 +19,19 @@ import { getSettings } from "../lib/settings.js";
 export function calculatePanelDimensions() {
   const monitor = Main.layoutManager.primaryMonitor;
   const settings = getSettings();
+
+  // Return cached dimensions if monitor size hasn't changed
+  if (
+    cachedDimensions &&
+    monitor.width === lastMonitorWidth &&
+    monitor.height === lastMonitorHeight
+  ) {
+    return cachedDimensions;
+  }
+
+  // Store current monitor dimensions
+  lastMonitorWidth = monitor.width;
+  lastMonitorHeight = monitor.height;
 
   // Calculate basic dimensions
   const panelWidth =
@@ -31,7 +49,8 @@ export function calculatePanelDimensions() {
   const availableInputWidth = panelWidth - horizontalPadding * 2.5;
   const buttonsHeight = inputFieldHeight * 0.8;
 
-  return {
+  // Cache the calculated dimensions
+  cachedDimensions = {
     monitor,
     panelWidth,
     panelHeight,
@@ -43,6 +62,8 @@ export function calculatePanelDimensions() {
     availableInputWidth,
     buttonsHeight,
   };
+
+  return cachedDimensions;
 }
 
 /**
@@ -53,21 +74,22 @@ export function updatePanelOverlay(panelOverlay) {
   const { panelWidth, panelHeight, monitor } = calculatePanelDimensions();
   const settings = getSettings();
 
-  // Update size and position
+  // Set size and position
   panelOverlay.set_size(panelWidth, panelHeight);
   panelOverlay.set_position(
     monitor.width - panelWidth,
     Main.panel.actor.height
   );
 
-  // Get background color and opacity
+  // Apply background color with opacity
   const bgColor = settings.get_string("background-color");
   const opacity = settings.get_double("background-opacity");
+
+  // Parse color components once
   const r = parseInt(bgColor.substring(1, 3), 16);
   const g = parseInt(bgColor.substring(3, 5), 16);
   const b = parseInt(bgColor.substring(5, 7), 16);
 
-  // Update style with configurable opacity
   panelOverlay.set_style(
     `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); border-left: 1px solid rgba(255, 255, 255, 0.1);`
   );
@@ -90,7 +112,7 @@ export function updateButtonsContainer(
     calculatePanelDimensions();
   const settings = getSettings();
 
-  // Position at the bottom of the panel with padding from input field
+  // Position container
   buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
   buttonsBox.set_position(
     horizontalPadding,
@@ -102,42 +124,60 @@ export function updateButtonsContainer(
   modelButton.set_height(buttonsHeight);
   modelButton.set_y_align(Clutter.ActorAlign.CENTER);
 
-  // Calculate consistent icon and button sizes
+  // Calculate icon and button sizes once
   const buttonIconScale = settings.get_double("button-icon-scale");
   const iconSize = Math.round(24 * buttonIconScale);
   const buttonSize = Math.max(Math.round(buttonsHeight * 0.9), 32);
 
-  // Update clear button icon size
+  // Common button style
+  const buttonStyle = "padding: 0; margin: 0;";
+  const buttonProps = {
+    width: buttonSize,
+    height: buttonSize,
+    style: buttonStyle,
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+  };
+
+  // Common icon style and properties
+  const iconStyle = "margin: 0 auto;";
+  const iconProps = {
+    size: iconSize,
+    style: iconStyle,
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+  };
+
+  // Update clear button and its icon
   if (clearButton.get_child()) {
     const clearIcon = clearButton.get_child();
-    clearIcon.set_size(iconSize, iconSize);
-    clearIcon.set_style("margin: 0 auto;");
-    clearIcon.set_x_align(Clutter.ActorAlign.CENTER);
-    clearIcon.set_y_align(Clutter.ActorAlign.CENTER);
+    clearIcon.set_size(iconProps.size, iconProps.size);
+    clearIcon.set_style(iconProps.style);
+    clearIcon.set_x_align(iconProps.x_align);
+    clearIcon.set_y_align(iconProps.y_align);
   }
 
-  // Update file button icon size
+  clearButton.set_width(buttonProps.width);
+  clearButton.set_height(buttonProps.height);
+  clearButton.set_style(buttonProps.style);
+  clearButton.set_x_align(buttonProps.x_align);
+  clearButton.set_y_align(buttonProps.y_align);
+
+  // Update file button and its icon
   if (fileButton && fileButton.get_child()) {
     const fileIcon = fileButton.get_child();
-    fileIcon.set_size(iconSize, iconSize);
-    fileIcon.set_style("margin: 0 auto;");
-    fileIcon.set_x_align(Clutter.ActorAlign.CENTER);
-    fileIcon.set_y_align(Clutter.ActorAlign.CENTER);
+    fileIcon.set_size(iconProps.size, iconProps.size);
+    fileIcon.set_style(iconProps.style);
+    fileIcon.set_x_align(iconProps.x_align);
+    fileIcon.set_y_align(iconProps.y_align);
   }
 
-  // Size and align the buttons
-  clearButton.set_width(buttonSize);
-  clearButton.set_height(buttonSize);
-  clearButton.set_style("padding: 0; margin: 0;");
-  clearButton.set_x_align(Clutter.ActorAlign.CENTER);
-  clearButton.set_y_align(Clutter.ActorAlign.CENTER);
-
   if (fileButton) {
-    fileButton.set_width(buttonSize);
-    fileButton.set_height(buttonSize);
-    fileButton.set_style("padding: 0; margin: 0;");
-    fileButton.set_x_align(Clutter.ActorAlign.CENTER);
-    fileButton.set_y_align(Clutter.ActorAlign.CENTER);
+    fileButton.set_width(buttonProps.width);
+    fileButton.set_height(buttonProps.height);
+    fileButton.set_style(buttonProps.style);
+    fileButton.set_x_align(buttonProps.x_align);
+    fileButton.set_y_align(buttonProps.y_align);
   }
 }
 
@@ -147,21 +187,18 @@ export function updateButtonsContainer(
  * @param {St.BoxLayout} outputContainer - The output container
  */
 export function updateOutputArea(outputScrollView, outputContainer) {
-  const { panelWidth, outputHeight, paddingY } = calculatePanelDimensions();
+  const { panelWidth, paddingY } = calculatePanelDimensions();
 
-  // Only update width - height will be managed dynamically based on available space
+  // Update width and position
   outputScrollView.set_width(panelWidth);
-
-  // Position at the top of the panel with padding
   outputScrollView.set_position(0, paddingY);
 
-  // Set appropriate padding for the output container
-  outputContainer.set_style(`padding: 0 ${Math.round(panelWidth * 0.03)}px;`);
+  // Set container padding proportional to panel width
+  const containerPadding = Math.round(panelWidth * 0.03);
+  outputContainer.set_style(`padding: 0 ${containerPadding}px;`);
 
   // Ensure the output area adapts to content
   outputContainer.set_y_expand(true);
-
-  // Ensure scroll view policy is set correctly
   outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 }
 
@@ -177,14 +214,13 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     horizontalPadding,
     buttonsHeight,
     paddingY,
-    outputHeight,
   } = calculatePanelDimensions();
 
-  // Base container size without files
+  // Calculate base container height
   let baseContainerHeight = inputFieldHeight + buttonsHeight + paddingY;
   let fileBoxHeight = 0;
 
-  // Check if file boxes container exists and has children
+  // Find file boxes container
   const fileBoxesContainer = inputButtonsContainer
     .get_children()
     .find(
@@ -192,36 +228,30 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
         child.style_class && child.style_class.includes("file-boxes-container")
     );
 
-  // Only consider the file box container if it exists and has content
+  // Calculate file box container height if it exists
   if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
-    // Get the file box container's height
     fileBoxHeight = fileBoxesContainer.get_height();
 
-    // Ensure we're not overtaking more than 60% of panel height
+    // Limit file box height if needed
     const maxContainerHeight = panelHeight * 0.6;
     const totalHeight = baseContainerHeight + fileBoxHeight;
 
     if (totalHeight > maxContainerHeight) {
-      // Limit file box height while preserving input and buttons at fixed position
+      // Adjust file box container height and enable scrolling
       const availableFileBoxHeight = maxContainerHeight - baseContainerHeight;
       fileBoxHeight = availableFileBoxHeight;
       fileBoxesContainer.set_height(availableFileBoxHeight);
-
-      // Ensure we show scrollbars when content is clipped
       fileBoxesContainer.set_style("overflow-y: auto;");
     } else {
-      // Preserve file box container's style class and ensure it doesn't have scrollbars
-      // when they're not needed
       fileBoxesContainer.set_style("overflow-y: visible;");
     }
 
-    // Make sure file boxes container is visible and properly positioned
     fileBoxesContainer.set_position(0, 0);
     fileBoxesContainer.show();
   }
 
   // Calculate total container height
-  let containerHeight = baseContainerHeight + fileBoxHeight;
+  const containerHeight = baseContainerHeight + fileBoxHeight;
 
   // Update output scrollview height based on remaining space
   const remainingHeight = panelHeight - containerHeight - paddingY * 2;
@@ -244,10 +274,10 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     containerHeight
   );
 
-  // Apply styling with higher z-index to keep it on top
+  // Apply styling
   inputButtonsContainer.set_style(`
     background-color: rgba(80, 80, 80, 0.2);
-    border-radius: 16px 16px 0 0; /* Rounded only at the top */
+    border-radius: 16px 16px 0 0;
     padding: 6px;
     z-index: 100;
   `);
@@ -268,16 +298,17 @@ export function updateInputArea(inputFieldBox, inputField, sendButton) {
     availableInputWidth,
     sendButtonSize,
   } = calculatePanelDimensions();
+
   const settings = getSettings();
 
-  // Position the input field box
+  // Position and size input field box
   inputFieldBox.set_size(availableInputWidth, inputFieldHeight);
   inputFieldBox.set_position(
     horizontalPadding,
     panelHeight - inputFieldHeight - horizontalPadding * 2
   );
 
-  // Configure input field with transparent background
+  // Configure input field
   inputField.set_width(availableInputWidth);
   inputField.set_height(inputFieldHeight);
   inputField.set_style(
@@ -291,11 +322,10 @@ export function updateInputArea(inputFieldBox, inputField, sendButton) {
     panelHeight - sendButtonSize - horizontalPadding * 2
   );
 
-  // If the button has a child (the icon), configure it
+  // Update send button icon
   if (sendButton.get_child()) {
     const sendButtonIconScale = settings.get_double("send-button-icon-scale");
     const sendIconSize = 24 * sendButtonIconScale;
-
     const sendIcon = sendButton.get_child();
     sendIcon.set_size(sendIconSize, sendIconSize);
   }
