@@ -12,10 +12,11 @@ GnomeLama is an integration between Ollama (the open source local ai project) an
 - Running bash commands
 - Settings to change things
 - ChatGpt Api
+- files
 
 ## Features In Progress
 
- - none
+ - file editing
 
 ## Installation
 
