@@ -219,23 +219,30 @@ export const Indicator = GObject.registerClass(
           this._fileHandler.cleanupFileUI();
         }
       } else {
-        // If opening, repopulate model menu and focus input field
-        if (this._modelManager) {
-          await this._modelManager.refreshModels();
+        // If opening panel, restore UI immediately
+
+        // First restore file UI if files were previously loaded - do this first for better UX
+        if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+          this._fileHandler.restoreFileUI();
+          // Force an immediate layout update for file UI
+          this._updateLayout();
         }
 
         // Restore conversation history
         this._updateHistory();
 
-        // Restore file UI if files were previously loaded
-        if (this._fileHandler) {
-          this._fileHandler.restoreFileUI();
-        }
-
+        // Give focus to input field right away
         global.stage.set_key_focus(this._inputField.clutter_text);
+
+        // Then refresh models (async operation) - don't block UI on this
+        if (this._modelManager) {
+          this._modelManager
+            .refreshModels()
+            .catch((e) => console.error("Error refreshing models:", e));
+        }
       }
 
-      // Update layout
+      // Final layout update
       this._updateLayout();
     }
 

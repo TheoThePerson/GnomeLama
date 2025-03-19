@@ -123,7 +123,6 @@ export class FileHandler {
 
       if (stdout && stdout.trim()) {
         const selectedFilePath = stdout.trim();
-        this._showFileSelectedMessage(selectedFilePath);
         this._readAndDisplayFile(selectedFilePath);
       } else if (stderr && stderr.trim()) {
         console.error(`Command error: ${stderr}`);
@@ -131,20 +130,6 @@ export class FileHandler {
     } catch (error) {
       this._handleError("Error processing command output", error);
     }
-  }
-
-  /**
-   * Shows a message that a file has been selected
-   *
-   * @private
-   * @param {string} filePath - Path to the selected file
-   */
-  _showFileSelectedMessage(filePath) {
-    MessageProcessor.addTemporaryMessage(
-      this._outputContainer,
-      `Selected file: ${filePath}`
-    );
-    console.log(`File selected: ${filePath}`);
   }
 
   /**
@@ -261,8 +246,10 @@ export class FileHandler {
       0
     );
 
-    // Adjust the height of the input buttons container to accommodate the file boxes
-    this._adjustInputContainerHeight();
+    // Set initial height to make it visible immediately
+    const boxHeight = 120; // Based on file box height + margins
+    this._fileBoxesContainer.set_height(boxHeight);
+    this._fileBoxesContainer.show();
   }
 
   /**
@@ -276,6 +263,7 @@ export class FileHandler {
       vertical: false,
       x_expand: true,
       y_expand: false,
+      height: 120, // Set initial height in constructor
     });
   }
 
@@ -544,7 +532,7 @@ export class FileHandler {
   cleanupFileUI() {
     this._cleanupFileBoxes();
 
-    // Force layout update to resize the input container immediately
+    // Force layout update immediately
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
     }
@@ -559,10 +547,25 @@ export class FileHandler {
       return;
     }
 
-    // Create file boxes for all loaded files
-    for (const [fileName, content] of this._loadedFiles.entries()) {
-      this._displayFileContentBox(content, fileName, false); // Don't re-add to _loadedFiles
-    }
+    // Create container first to avoid multiple container creations
+    this._setupFileBoxesContainer();
+
+    // Suspend redraws during bulk operations for better performance
+    const files = Array.from(this._loadedFiles.entries());
+
+    // Batch create all file boxes to minimize UI updates
+    files.forEach(([fileName, content]) => {
+      const fileBox = this._createFileBox();
+      const headerBox = this._createHeaderBox(fileName, fileBox);
+      const contentView = this._createContentView(content);
+
+      fileBox.add_child(headerBox);
+      fileBox.add_child(contentView);
+      this._fileBoxesContainer.add_child(fileBox);
+    });
+
+    // Perform a single layout update at the end
+    this._adjustInputContainerHeight();
   }
 
   /**
@@ -574,7 +577,7 @@ export class FileHandler {
     // Clear loaded files map
     this._loadedFiles.clear();
 
-    // Force layout update to resize the input container immediately
+    // Force layout update immediately
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
     }

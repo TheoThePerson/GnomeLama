@@ -243,12 +243,12 @@
   spacing: 10px;
   margin: 4px 4px 8px 4px;
   padding: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(40, 40, 40, 0.3);
+  border-bottom: none;
+  background-color: transparent;
   border-radius: 8px;
-  min-height: 110px;
   width: calc(100% - 8px);
 }
+
 
 /* File content box styles */
 .file-content-box {
@@ -257,8 +257,8 @@
   border-radius: 8px;
   padding: 6px;
   margin: 3px;
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
@@ -288,7 +288,6 @@
 
 /* File content scroll styles */
 .file-content-scroll {
-  min-height: 60px;
 }
 
 /* File content text styles */
