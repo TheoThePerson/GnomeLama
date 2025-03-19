@@ -267,4 +267,15 @@ export class ModelManager {
       this._modelMenu = null;
     }
   }
+
+  _getFileHandler() {
+    // Find the panel indicator that contains the file handler
+    // Get the extension UUID from metadata (or use the hardcoded value as fallback)
+    const extensionUuid = "linux-copilot@TheoThePerson";
+    const extension = Main.panel.statusArea[extensionUuid];
+    if (extension && extension._fileHandler) {
+      return extension._fileHandler;
+    }
+    return null;
+  }
 }

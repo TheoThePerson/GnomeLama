@@ -149,9 +149,20 @@ export function updateButtonsContainer(
 export function updateOutputArea(outputScrollView, outputContainer) {
   const { panelWidth, outputHeight, paddingY } = calculatePanelDimensions();
 
-  // Position the output area
-  outputScrollView.set_size(panelWidth, outputHeight);
+  // Only update width - height will be managed dynamically based on available space
+  outputScrollView.set_width(panelWidth);
+
+  // Position at the top of the panel with padding
   outputScrollView.set_position(0, paddingY);
+
+  // Set appropriate padding for the output container
+  outputContainer.set_style(`padding: 0 ${Math.round(panelWidth * 0.03)}px;`);
+
+  // Ensure the output area adapts to content
+  outputContainer.set_y_expand(true);
+
+  // Ensure scroll view policy is set correctly
+  outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 }
 
 /**
@@ -166,11 +177,12 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     horizontalPadding,
     buttonsHeight,
     paddingY,
+    outputHeight,
   } = calculatePanelDimensions();
 
-  // The container should go all the way to the bottom of the screen
-  // Use fixed spacing to ensure consistency regardless of content
-  let containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+  // Base container size without files
+  let baseContainerHeight = inputFieldHeight + buttonsHeight + paddingY;
+  let fileBoxHeight = 0;
 
   // Check if file boxes container exists and has children
   const fileBoxesContainer = inputButtonsContainer
@@ -180,31 +192,61 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
         child.style_class && child.style_class.includes("file-boxes-container")
     );
 
+  // Only consider the file box container if it exists and has content
   if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
-    // Add height for file boxes
-    containerHeight += fileBoxesContainer.get_height();
+    // Get the file box container's height
+    fileBoxHeight = fileBoxesContainer.get_height();
+
+    // Ensure we're not overtaking more than 60% of panel height
+    const maxContainerHeight = panelHeight * 0.6;
+    const totalHeight = baseContainerHeight + fileBoxHeight;
+
+    if (totalHeight > maxContainerHeight) {
+      // Limit file box height while preserving input and buttons at fixed position
+      const availableFileBoxHeight = maxContainerHeight - baseContainerHeight;
+      fileBoxHeight = availableFileBoxHeight;
+      fileBoxesContainer.set_height(availableFileBoxHeight);
+
+      // Ensure we show scrollbars when content is clipped
+      fileBoxesContainer.set_style("overflow-y: auto;");
+    }
   }
 
-  // Ensure immediate position update
-  inputButtonsContainer.set_height(containerHeight);
+  // Calculate total container height
+  let containerHeight = baseContainerHeight + fileBoxHeight;
 
-  // Position at the bottom with only horizontal padding
+  // Update output scrollview height based on remaining space
+  const remainingHeight = panelHeight - containerHeight - paddingY * 2;
+  if (
+    inputButtonsContainer.userData &&
+    inputButtonsContainer.userData.outputScrollView
+  ) {
+    const outputScrollView = inputButtonsContainer.userData.outputScrollView;
+    outputScrollView.set_height(remainingHeight);
+  }
+
+  // Set container size and position
+  inputButtonsContainer.set_height(containerHeight);
   inputButtonsContainer.set_position(
     horizontalPadding,
     panelHeight - containerHeight
   );
-
-  // Set the width to span most of the panel with padding on both sides
   inputButtonsContainer.set_size(
     panelWidth - horizontalPadding * 2,
     containerHeight
   );
 
-  // Apply rounded container styling but keep it transparent
+  // Set file box container to fixed position at the top of input container
+  if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
+    fileBoxesContainer.set_position(0, 0);
+  }
+
+  // Apply styling with higher z-index to keep it on top
   inputButtonsContainer.set_style(`
     background-color: rgba(80, 80, 80, 0.2);
     border-radius: 16px 16px 0 0; /* Rounded only at the top */
     padding: 6px;
+    z-index: 100;
   `);
 }
 

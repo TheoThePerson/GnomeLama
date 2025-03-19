@@ -240,39 +240,46 @@
 
 /* File boxes container styles */
 .file-boxes-container {
-  spacing: 10px;
-  margin: 4px 4px 8px 4px;
-  padding: 6px;
-  border-bottom: none;
+  padding: 12px 16px 6px 16px;
+  margin: 0;
   background-color: transparent;
-  border-radius: 8px;
-  width: calc(100% - 8px);
+  border-radius: 0;
+  overflow: auto; /* Allow scrolling if needed */
 }
-
 
 /* File content box styles */
 .file-content-box {
   background-color: #FFFFFF;
-  border: 1px solid #000000;
-  border-radius: 8px;
-  padding: 6px;
-  margin: 3px;
-  width: 80px;
-  height: 80px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  transition-duration: 200ms;
+  transition-property: transform, box-shadow;
+}
+
+.file-content-box:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  z-index: 10;
 }
 
 /* File content header styles */
 .file-content-header {
   width: 100%;
-  margin-bottom: 3px;
+  margin-bottom: 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* File content title styles */
 .file-content-title {
   font-weight: bold;
   color: #000000;
-  font-size: 10px;
+  font-size: 12px;
+  padding: 2px 4px;
 }
 
 /* File content close button styles */
@@ -282,17 +289,30 @@
   font-size: 12px;
   background: none;
   border: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.file-content-close-button:hover {
+  background-color: rgba(255, 0, 0, 0.15);
+  color: #cc0000;
 }
 
 /* File content scroll styles */
 .file-content-scroll {
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* File content text styles */
 .file-content-text {
   font-family: monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: #000000;
+  padding: 6px;
+  line-height: 1.4;
 } 

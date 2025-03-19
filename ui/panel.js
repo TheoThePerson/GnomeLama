@@ -92,6 +92,11 @@ export const Indicator = GObject.registerClass(
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
 
+      // Store output scrollview reference in inputButtonsContainer for dynamic layout adjustments
+      this._inputButtonsContainer.userData = {
+        outputScrollView: this._outputScrollView,
+      };
+
       const history = getConversationHistory();
       const isNewChat =
         history.length === 0 ||
