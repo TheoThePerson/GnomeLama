@@ -159,6 +159,18 @@ export const Indicator = GObject.registerClass(
             }
             lastPasteTime = currentTime;
 
+            // Capture the current text and cursor position before paste
+            const currentText = this._inputField.get_text() || "";
+            const cursorPos = actor.get_cursor_position();
+            let selectionStart = -1;
+            let selectionEnd = -1;
+
+            // Check if there's a text selection
+            if (actor.get_selection_bound() >= 0) {
+              selectionStart = Math.min(actor.get_selection_bound(), cursorPos);
+              selectionEnd = Math.max(actor.get_selection_bound(), cursorPos);
+            }
+
             // Get clipboard content
             const clipboard = St.Clipboard.get_default();
 
@@ -192,8 +204,8 @@ export const Indicator = GObject.registerClass(
                       `Pasted ${pastedTextCount}`
                     );
 
-                    // Clear any text that might be in the input field
-                    this._inputField.set_text("");
+                    // Keep any existing text, just don't add the pasted text
+                    // (no need to modify the input field - we prevented the paste)
 
                     // Ensure layout is updated
                     this._updateLayout();
@@ -209,24 +221,6 @@ export const Indicator = GObject.registerClass(
                   }
                 } else {
                   // For shorter text, manually insert at cursor position
-                  const cursorPos = actor.get_cursor_position();
-                  const currentText = this._inputField.get_text() || "";
-
-                  // Get selection bounds if there's a selection
-                  let selectionStart = -1;
-                  let selectionEnd = -1;
-                  if (actor.get_selection_bound() >= 0) {
-                    selectionStart = Math.min(
-                      actor.get_selection_bound(),
-                      cursorPos
-                    );
-                    selectionEnd = Math.max(
-                      actor.get_selection_bound(),
-                      cursorPos
-                    );
-                  }
-
-                  // Insert text, replacing selection if there is one
                   let newText;
                   if (selectionStart >= 0) {
                     // Replace selected text with paste
@@ -251,11 +245,9 @@ export const Indicator = GObject.registerClass(
                     this._inputField.set_text(newText);
                     actor.set_cursor_position(newCursorPos);
                   }
-
-                  isProcessingPaste = false;
                 }
 
-                // Reset the processing flag after a delay (just in case it wasn't reset)
+                // Reset the processing flag after a delay
                 imports.gi.GLib.timeout_add(
                   imports.gi.GLib.PRIORITY_DEFAULT,
                   500,
@@ -276,7 +268,7 @@ export const Indicator = GObject.registerClass(
         }
       );
 
-      // Handle text changes, potentially from other paste sources
+      // Handle text changes, potentially from other paste sources (like right-click menu)
       this._inputField.clutter_text.connect("text-changed", () => {
         // If we're processing a paste via Ctrl+V, skip this handler
         if (isProcessingPaste) {
@@ -295,35 +287,49 @@ export const Indicator = GObject.registerClass(
         }
 
         // Only process sudden text changes with multiple words (likely pastes)
-        // Count words and see if it exceeds threshold
         const wordCount = currentText
           .split(/\s+/)
           .filter((word) => word.length > 0).length;
 
         if (wordCount > 100) {
-          // Set flag to prevent double processing
+          // The problem here is that we need to identify which part of the text was pasted
+          // Since we can't directly know, we'll look for chunks that have many words together
           isProcessingPaste = true;
-          lastProcessedText = currentText;
 
-          // Increment counter for unique naming
-          pastedTextCount++;
+          // Get the text before this change event
+          const previousTextSnapshot = lastProcessedText || "";
 
-          // Create file box
-          if (this._fileHandler) {
-            this._fileHandler.createFileBoxFromText(
-              currentText,
-              `Pasted ${pastedTextCount}`
-            );
+          // Find the largest new chunk of text (likely the paste)
+          const pastedContent = findLikelyPastedContent(
+            previousTextSnapshot,
+            currentText
+          );
 
-            // Clear the input field
-            this._inputField.set_text("");
+          if (pastedContent) {
+            // Update lastProcessedText to current to prevent re-processing
+            lastProcessedText = currentText;
 
-            // Update layout and show confirmation
-            this._updateLayout();
-            MessageProcessor.addTemporaryMessage(
-              this._outputContainer,
-              `Long text added as file box "Pasted ${pastedTextCount}"`
-            );
+            // Increment counter for unique naming
+            pastedTextCount++;
+
+            // Create file box for the detected chunk
+            if (this._fileHandler) {
+              this._fileHandler.createFileBoxFromText(
+                pastedContent,
+                `Pasted ${pastedTextCount}`
+              );
+
+              // Remove just the pasted content from the input field
+              const updatedText = currentText.replace(pastedContent, "");
+              this._inputField.set_text(updatedText);
+
+              // Update layout and show confirmation
+              this._updateLayout();
+              MessageProcessor.addTemporaryMessage(
+                this._outputContainer,
+                `Long text added as file box "Pasted ${pastedTextCount}"`
+              );
+            }
           }
 
           // Reset processing flag after delay
@@ -335,8 +341,55 @@ export const Indicator = GObject.registerClass(
               return false;
             }
           );
+        } else {
+          // For shorter text, update lastProcessedText to prevent repeat processing
+          lastProcessedText = currentText;
         }
       });
+
+      // Helper function to find likely pasted content by comparing before/after text
+      function findLikelyPastedContent(previousText, currentText) {
+        // If no previous text, the entire current text was likely pasted
+        if (!previousText) {
+          return currentText;
+        }
+
+        // If they're identical, nothing was pasted
+        if (previousText === currentText) {
+          return null;
+        }
+
+        // Find the likely pasted content by checking for large chunks of new text
+        // First, try to find where they start to differ
+        let differenceIndex = 0;
+        while (
+          differenceIndex < previousText.length &&
+          differenceIndex < currentText.length &&
+          previousText[differenceIndex] === currentText[differenceIndex]
+        ) {
+          differenceIndex++;
+        }
+
+        // Then find where they start to be the same again after the difference
+        // (looking from the end backward)
+        let endMatchIndex = 0;
+        while (
+          endMatchIndex < previousText.length &&
+          endMatchIndex < currentText.length &&
+          previousText[previousText.length - 1 - endMatchIndex] ===
+            currentText[currentText.length - 1 - endMatchIndex]
+        ) {
+          endMatchIndex++;
+        }
+
+        // Extract the differing portion (likely the paste)
+        const pastedContent = currentText.substring(
+          differenceIndex,
+          currentText.length - endMatchIndex
+        );
+
+        return pastedContent;
+      }
 
       // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
