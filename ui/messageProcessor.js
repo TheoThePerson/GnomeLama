@@ -6,7 +6,7 @@ import Clutter from "gi://Clutter";
 import St from "gi://St";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
-import { parseMessageContent } from "../lib/messageFormater.js";
+import { parseMessageContent } from "../lib/messageFormatter.js";
 import * as UIComponents from "./components.js";
 import * as PanelElements from "./panelElements.js";
 import { sendMessage } from "../services/messaging.js";
@@ -157,13 +157,56 @@ export function updateResponseContainer(container, responseText) {
   // Otherwise, parse and add content normally
   const parts = parseMessageContent(responseText);
 
-  // Create a content element for each part
-  parts.forEach((part, index) => {
+  // Create a container for inline elements to prevent line breaks between formatted texts
+  const contentContainer = new St.BoxLayout({
+    vertical: true,
+    x_expand: true,
+  });
+
+  // Use a flow container for each line to keep inline elements together
+  let currentLineFlow = new St.BoxLayout({
+    x_expand: true,
+  });
+  contentContainer.add_child(currentLineFlow);
+
+  // Process each part
+  parts.forEach((part) => {
     const contentElement = createContentElement(part);
-    if (contentElement) {
-      container.insert_child_at_index(contentElement, index);
+    if (!contentElement) return;
+
+    // Block-level elements get their own line
+    if (
+      part.type === "code" ||
+      part.type === "blockquote" ||
+      part.type === "heading" ||
+      part.type === "orderedList" ||
+      part.type === "unorderedList" ||
+      part.type === "horizontalRule"
+    ) {
+      // If there's content in the current line, start a new line
+      if (currentLineFlow.get_children().length > 0) {
+        currentLineFlow = new St.BoxLayout({
+          x_expand: true,
+        });
+        contentContainer.add_child(currentLineFlow);
+      }
+
+      // Add block element directly to container
+      contentContainer.add_child(contentElement);
+
+      // Start a new line for content after the block
+      currentLineFlow = new St.BoxLayout({
+        x_expand: true,
+      });
+      contentContainer.add_child(currentLineFlow);
+    } else {
+      // For inline elements (text, formatted, inlineCode, links), add to the current line
+      currentLineFlow.add_child(contentElement);
     }
   });
+
+  // Add the content container to the response container
+  container.add_child(contentContainer);
 }
 
 /**
@@ -553,6 +596,30 @@ function createContentElement(part) {
 
     case "text":
       return UIComponents.createTextLabel(part.content);
+
+    case "inlineCode":
+      return UIComponents.createInlineCodeElement(part.content);
+
+    case "link":
+      return UIComponents.createLinkElement(part.content, part.url, part.title);
+
+    case "image":
+      return UIComponents.createImageElement(part.alt, part.url, part.title);
+
+    case "blockquote":
+      return UIComponents.createBlockquoteElement(part.content);
+
+    case "heading":
+      return UIComponents.createHeadingElement(part.content, part.level);
+
+    case "orderedList":
+      return UIComponents.createListElement(part.items, "orderedList");
+
+    case "unorderedList":
+      return UIComponents.createListElement(part.items, "unorderedList");
+
+    case "horizontalRule":
+      return UIComponents.createHorizontalRuleElement();
 
     default:
       return null;

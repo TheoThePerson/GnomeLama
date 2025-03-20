@@ -6,6 +6,7 @@ import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Pango from "gi://Pango";
 import GLib from "gi://GLib";
+import Gio from "gi://Gio";
 import { getSettings } from "../lib/settings.js";
 
 /**
@@ -237,10 +238,12 @@ export function createTextLabel(text) {
   const textLabel = new St.Label({
     text: text,
     style_class: "text-label",
-    x_expand: true,
+    style: "display: inline;", // Keep text inline with formatted elements
+    x_expand: false,
   });
 
-  textLabel.clutter_text.set_line_wrap(true);
+  // We'll control line wrapping at the container level
+  textLabel.clutter_text.set_line_wrap(false);
   textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
   textLabel.clutter_text.set_selectable(true);
 
@@ -248,28 +251,42 @@ export function createTextLabel(text) {
 }
 
 /**
- * Creates a formatted text label (bold or italic)
+ * Creates a formatted text label
  * @param {string} text - The text content
- * @param {string} format - The format type ('bold' or 'italic')
+ * @param {string} format - The format type (bold, italic, strikethrough)
  * @returns {St.Label} The created formatted text label
  */
 export function createFormattedTextLabel(text, format) {
+  let styleClass = "text-label";
   let styleAttribute = "";
 
-  if (format === "bold") {
-    styleAttribute = "font-weight: bold;";
-  } else if (format === "italic") {
-    styleAttribute = "font-style: italic;";
+  switch (format) {
+    case "bold":
+      styleAttribute = "font-weight: 700; display: inline;";
+      styleClass += " bold-text";
+      break;
+    case "italic":
+      styleAttribute = "font-style: italic; display: inline;";
+      styleClass += " italic-text";
+      break;
+    case "strikethrough":
+      styleAttribute = "text-decoration: line-through; display: inline;";
+      styleClass += " strikethrough-text";
+      break;
+    default:
+      break;
   }
 
   const formattedLabel = new St.Label({
     text: text,
-    style_class: "text-label formatted-text",
+    style_class: styleClass,
     style: styleAttribute,
-    x_expand: true,
+    x_expand: false, // Don't expand to take up more space than needed
   });
 
-  formattedLabel.clutter_text.set_line_wrap(true);
+  // We don't want automatic line wrapping for individual formatted elements
+  // as they should flow with surrounding text
+  formattedLabel.clutter_text.set_line_wrap(false);
   formattedLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
   formattedLabel.clutter_text.set_selectable(true);
 
@@ -283,13 +300,230 @@ export function createFormattedTextLabel(text, format) {
  */
 export function createTemporaryMessageLabel(text) {
   const tempLabel = new St.Label({
-    text,
+    text: text,
     style_class: "temporary-message",
-    x_align: Clutter.ActorAlign.START,
+    style:
+      "background-color: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 8px; margin: 8px 0;",
+  });
+  tempLabel.clutter_text.set_line_wrap(true);
+  return tempLabel;
+}
+
+/**
+ * Creates an inline code element
+ * @param {string} code - The inline code content
+ * @returns {St.Bin} The created inline code element
+ */
+export function createInlineCodeElement(code) {
+  // Container to style the inline code
+  const codeContainer = new St.Bin({
+    style_class: "inline-code",
+    style:
+      "background-color: #2a2a2a; border-radius: 4px; padding: 0px 4px; margin: 0 2px; display: inline;",
+    x_expand: false,
   });
 
-  tempLabel.clutter_text.set_line_wrap(true);
-  tempLabel.clutter_text.set_selectable(true);
+  // The actual text label
+  const codeLabel = new St.Label({
+    text: code,
+    style: "font-family: monospace; font-size: 0.95em; display: inline;",
+  });
 
-  return tempLabel;
+  codeLabel.clutter_text.set_line_wrap(false);
+  codeLabel.clutter_text.set_selectable(true);
+  codeContainer.set_child(codeLabel);
+
+  return codeContainer;
+}
+
+/**
+ * Creates a link element
+ * @param {string} text - The link text
+ * @param {string} url - The URL
+ * @param {string|null} title - Optional title attribute
+ * @returns {St.Button} The created link element
+ */
+export function createLinkElement(text, url, title = null) {
+  const linkButton = new St.Button({
+    style_class: "link-button",
+    style:
+      "color: #0366d6; text-decoration: underline; background: none; border: none; padding: 0 2px;",
+    label: text,
+    tooltip_text: title || url,
+  });
+
+  linkButton.connect("clicked", () => {
+    try {
+      Gio.AppInfo.launch_default_for_uri(url, null);
+    } catch (e) {
+      logError(e, "Failed to open URL: " + url);
+    }
+  });
+
+  return linkButton;
+}
+
+/**
+ * Creates an image element
+ * @param {string} alt - Alt text for the image
+ * @param {string} url - The image URL
+ * @param {string|null} title - Optional title attribute
+ * @returns {St.BoxLayout} The created image container
+ */
+export function createImageElement(alt, url, title = null) {
+  const imageContainer = new St.BoxLayout({
+    vertical: true,
+    style_class: "image-container",
+    style:
+      "padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f8f8;",
+  });
+
+  // Placeholder for the image
+  const imagePlaceholder = new St.Label({
+    style_class: "image-placeholder",
+    style:
+      "padding: 16px; background-color: #eee; border-radius: 4px; margin-bottom: 8px;",
+    text: "🖼️ Image: " + (alt || url),
+  });
+
+  imageContainer.add_child(imagePlaceholder);
+
+  // Caption with URL
+  if (title) {
+    const caption = new St.Label({
+      text: title,
+      style: "font-style: italic; font-size: 0.9em; color: #666;",
+    });
+    caption.clutter_text.set_line_wrap(true);
+    imageContainer.add_child(caption);
+  }
+
+  // URL as a clickable link
+  const urlButton = createLinkElement("Open Image", url);
+  imageContainer.add_child(urlButton);
+
+  return imageContainer;
+}
+
+/**
+ * Creates a blockquote element
+ * @param {string} content - The blockquote content
+ * @returns {St.BoxLayout} The created blockquote element
+ */
+export function createBlockquoteElement(content) {
+  const blockquote = new St.BoxLayout({
+    vertical: true,
+    style_class: "blockquote",
+    style:
+      "border-left: 4px solid #888; padding-left: 12px; margin: 10px 0; background-color: rgba(0,0,0,0.03);",
+    x_expand: true,
+  });
+
+  const label = new St.Label({
+    text: content,
+    style_class: "blockquote-text",
+    x_expand: true,
+  });
+
+  label.clutter_text.set_line_wrap(true);
+  label.clutter_text.set_selectable(true);
+  blockquote.add_child(label);
+
+  return blockquote;
+}
+
+/**
+ * Creates a heading element
+ * @param {string} content - The heading content
+ * @param {number} level - The heading level (1-6)
+ * @returns {St.Label} The created heading element
+ */
+export function createHeadingElement(content, level) {
+  // Calculate font size based on heading level
+  const fontSize = 18 - (level - 1) * 2;
+
+  const heading = new St.Label({
+    text: content,
+    style_class: `heading heading-${level}`,
+    style: `font-size: ${fontSize}px; font-weight: bold; margin: ${
+      level === 1 ? "16px 0 8px" : "12px 0 8px"
+    }; padding-bottom: 4px; ${
+      level <= 2 ? "border-bottom: 1px solid #ddd;" : ""
+    }`,
+    x_expand: true,
+  });
+
+  heading.clutter_text.set_line_wrap(true);
+  heading.clutter_text.set_selectable(true);
+
+  return heading;
+}
+
+/**
+ * Creates a list element (ordered or unordered)
+ * @param {Array} items - Array of list item objects with content and prefix
+ * @param {string} type - Type of list ('orderedList' or 'unorderedList')
+ * @returns {St.BoxLayout} The created list element
+ */
+export function createListElement(items, type) {
+  const listContainer = new St.BoxLayout({
+    vertical: true,
+    style_class: type === "orderedList" ? "ordered-list" : "unordered-list",
+    style: "margin: 8px 0;",
+    x_expand: true,
+  });
+
+  items.forEach((item) => {
+    const listItem = new St.BoxLayout({
+      style_class: "list-item",
+      x_expand: true,
+      style: "margin: 2px 0;",
+    });
+
+    // Use proper bullet for unordered lists based on prefix character
+    let bulletText;
+    if (type === "orderedList") {
+      bulletText = `${item.prefix} `;
+    } else {
+      // Use Unicode bullet character regardless of the original prefix
+      bulletText = "• ";
+    }
+
+    // Add bullet or number
+    const prefix = new St.Label({
+      text: bulletText,
+      style:
+        "min-width: 25px; font-weight: " +
+        (type === "orderedList" ? "normal" : "bold") +
+        ";",
+    });
+    listItem.add_child(prefix);
+
+    // Add content
+    const content = new St.Label({
+      text: item.content,
+      x_expand: true,
+    });
+    content.clutter_text.set_line_wrap(true);
+    content.clutter_text.set_selectable(true);
+    listItem.add_child(content);
+
+    listContainer.add_child(listItem);
+  });
+
+  return listContainer;
+}
+
+/**
+ * Creates a horizontal rule element
+ * @returns {St.BoxLayout} The created horizontal rule
+ */
+export function createHorizontalRuleElement() {
+  const rule = new St.BoxLayout({
+    style_class: "horizontal-rule",
+    style: "background-color: #ddd; height: 1px; margin: 16px 0;",
+    x_expand: true,
+  });
+
+  return rule;
 }
