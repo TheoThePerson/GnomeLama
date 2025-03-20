@@ -2,14 +2,6 @@
 .panel-overlay {
   background-color: #1a1a1a;
   border-radius: 0px;
-  clip-to-allocation: false;
-}
-
-.top-bar {
-  background-color: rgba(50, 50, 50, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0;
-  margin: 0;
 }
 
 /* Button styles */
@@ -36,8 +28,6 @@
 
 /* Message container styles */
 .message-box {
-  min-width: 20px;
-  min-height: 20px;
   padding: 14px 18px;
   margin: 8px 4px;
   border-radius: 16px;
@@ -212,7 +202,6 @@
 .output-scrollview {
   padding: 0;
   margin: 0;
-  overflow-y: visible;
 }
 
 .code-content {
@@ -225,18 +214,6 @@
   color: #eee;
   background-color: #222  ;
   border-radius: 0 0 8px 8px;
-}
-
-.scroll-view-clip {
-  clip-to-allocation: true;
-}
-
-/* Expanded container styles */
-.expanded-container {
-  background-color: rgb(60, 60, 60);
-  border-radius: 16px 16px 0 0;
-  padding: 0;
-  z-index: 1
 }
 
 /* File boxes container styles */
@@ -300,13 +277,6 @@
 .file-content-close-button:hover {
   background-color: rgba(255, 0, 0, 0.15);
   color: #cc0000;
-}
-
-/* File content scroll styles */
-.file-content-scroll {
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: 6px;
-  border: none;
 }
 
 /* File content text styles */
