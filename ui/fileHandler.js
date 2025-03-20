@@ -78,6 +78,7 @@ export class FileHandler {
 
     // Track loaded file content
     this._loadedFiles = new Map(); // Map to store filename -> content
+    this._filePaths = new Map(); // Map to store filename -> full path
   }
 
   /**
@@ -154,7 +155,7 @@ export class FileHandler {
       }
 
       const fileName = file.get_basename();
-      this._loadFileContents(file, fileName);
+      this._loadFileContents(file, fileName, filePath);
     } catch (error) {
       this._handleError(`Error processing file: ${filePath}`, error);
     }
@@ -186,8 +187,9 @@ export class FileHandler {
    * @private
    * @param {Gio.File} file - The file to load
    * @param {string} fileName - Name of the file
+   * @param {string} filePath - Full path to the file
    */
-  _loadFileContents(file, fileName) {
+  _loadFileContents(file, fileName, filePath) {
     try {
       const [success, content] = file.load_contents(null);
 
@@ -195,6 +197,9 @@ export class FileHandler {
         const fileContent = this._decodeFileContent(content);
         const truncatedContent = this._truncateContent(fileContent);
         this._displayFileContentBox(truncatedContent, fileName);
+
+        // Store the full path
+        this._filePaths.set(fileName, filePath);
       } else {
         MessageProcessor.addTemporaryMessage(
           this._outputContainer,
@@ -616,6 +621,7 @@ export class FileHandler {
   cleanupFileContentBox() {
     this._cleanupFileBoxes();
     this._loadedFiles.clear();
+    this._filePaths.clear(); // Clear the paths as well
 
     if (this._updateLayoutCallback) {
       this._updateLayoutCallback();
@@ -656,9 +662,11 @@ export class FileHandler {
     // Create files array for JSON structure
     const files = [];
     for (const [fileName, content] of this._loadedFiles.entries()) {
+      const filePath = this._filePaths.get(fileName) || ""; // Get the full path
       files.push({
         filename: fileName,
         content: content,
+        path: filePath, // Include the path in the JSON
       });
     }
 
@@ -792,5 +800,14 @@ export class FileHandler {
 
     // Display the content in a file box
     this._displayFileContentBox(text, uniqueTitle);
+  }
+
+  /**
+   * Get the full path for a filename
+   * @param {string} fileName - The filename to look up
+   * @returns {string|null} - The full path or null if not found
+   */
+  getFilePath(fileName) {
+    return this._filePaths.get(fileName) || null;
   }
 }

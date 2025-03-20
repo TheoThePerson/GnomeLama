@@ -558,8 +558,12 @@ export const Indicator = GObject.registerClass(
       const history = getConversationHistory();
 
       // Add messages from history
-      history.forEach((message) => {
+      let hadFilesAttached = false;
+
+      history.forEach((message, index) => {
         if (message.type === "user") {
+          // Check if this message had files attached
+          hadFilesAttached = message.text.includes("[files attached]");
           MessageProcessor.appendUserMessage(
             this._outputContainer,
             message.text
@@ -569,6 +573,18 @@ export const Indicator = GObject.registerClass(
             this._settings.get_string("ai-message-color")
           );
           this._outputContainer.add_child(responseContainer);
+
+          // If previous user message had files, set the flag before rendering
+          if (
+            index > 0 &&
+            history[index - 1].type === "user" &&
+            history[index - 1].text.includes("[files attached]")
+          ) {
+            MessageProcessor.setLastMessageHadFiles(true);
+          } else {
+            MessageProcessor.setLastMessageHadFiles(false);
+          }
+
           MessageProcessor.updateResponseContainer(
             responseContainer,
             message.text

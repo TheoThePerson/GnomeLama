@@ -92,6 +92,9 @@ export class MessageSender {
           messageToSend = JSON.stringify(jsonData, null, 2);
           fileContentAdded = true;
           displayMessage += " [files attached]";
+
+          // Register file paths for lookup during apply operations
+          MessageProcessor.registerFilePaths(fileContent);
         } catch (error) {
           console.error("Error parsing JSON file content:", error);
           // Fallback in case of error
