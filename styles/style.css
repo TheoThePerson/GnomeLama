@@ -2,7 +2,7 @@
 .panel-overlay {
   background-color: #1a1a1a;
   border-radius: 0px;
-  clip-to-allocation: true;
+  clip-to-allocation: false;
 }
 
 .top-bar {
@@ -212,6 +212,7 @@
 .output-scrollview {
   padding: 0;
   margin: 0;
+  overflow-y: visible;
 }
 
 .code-content {
