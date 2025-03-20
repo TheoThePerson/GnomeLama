@@ -239,11 +239,11 @@ export function createTextLabel(text) {
     text: text,
     style_class: "text-label",
     style: "display: inline;", // Keep text inline with formatted elements
-    x_expand: false,
+    x_expand: true,
   });
 
-  // We'll control line wrapping at the container level
-  textLabel.clutter_text.set_line_wrap(false);
+  // Enable line wrapping instead of disabling it
+  textLabel.clutter_text.set_line_wrap(true);
   textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
   textLabel.clutter_text.set_selectable(true);
 
@@ -281,12 +281,11 @@ export function createFormattedTextLabel(text, format) {
     text: text,
     style_class: styleClass,
     style: styleAttribute,
-    x_expand: false, // Don't expand to take up more space than needed
+    x_expand: true, // Allow expanding to take available space
   });
 
-  // We don't want automatic line wrapping for individual formatted elements
-  // as they should flow with surrounding text
-  formattedLabel.clutter_text.set_line_wrap(false);
+  // Enable line wrapping for formatted text
+  formattedLabel.clutter_text.set_line_wrap(true);
   formattedLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
   formattedLabel.clutter_text.set_selectable(true);
 
@@ -320,7 +319,7 @@ export function createInlineCodeElement(code) {
     style_class: "inline-code",
     style:
       "background-color: #2a2a2a; border-radius: 4px; padding: 0px 4px; margin: 0 2px; display: inline;",
-    x_expand: false,
+    x_expand: true,
   });
 
   // The actual text label
@@ -329,7 +328,7 @@ export function createInlineCodeElement(code) {
     style: "font-family: monospace; font-size: 0.95em; display: inline;",
   });
 
-  codeLabel.clutter_text.set_line_wrap(false);
+  codeLabel.clutter_text.set_line_wrap(true);
   codeLabel.clutter_text.set_selectable(true);
   codeContainer.set_child(codeLabel);
 
