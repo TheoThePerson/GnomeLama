@@ -75,21 +75,32 @@ export class MessageSender {
     // Clear input field immediately
     this._inputField.set_text("");
 
-    // Prepare message text, adding file content if available
-    let messageToSend = "Prompt: " + userMessage;
-    let fileContentAdded = false;
-
     // Create display message for UI and history (simpler version)
     let displayMessage = userMessage;
+    let messageToSend = "";
+    let fileContentAdded = false;
 
     if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-      // Get formatted file content with two line breaks
-      const fileContent = this._fileHandler.getFormattedFileContent();
+      // Get JSON formatted file content
+      let fileContent = this._fileHandler.getFormattedFileContent();
+
       if (fileContent) {
-        messageToSend += "\n\n" + fileContent;
-        fileContentAdded = true;
-        displayMessage += " [files attached]";
+        // Parse the JSON to add the prompt
+        try {
+          const jsonData = JSON.parse(fileContent);
+          jsonData.prompt = userMessage;
+          messageToSend = JSON.stringify(jsonData, null, 2);
+          fileContentAdded = true;
+          displayMessage += " [files attached]";
+        } catch (error) {
+          console.error("Error parsing JSON file content:", error);
+          // Fallback in case of error
+          messageToSend = "Prompt: " + userMessage + "\n\n" + fileContent;
+        }
       }
+    } else {
+      // No files, just use the standard format
+      messageToSend = "Prompt: " + userMessage;
     }
 
     // Clean up file boxes if fileHandler is available

@@ -653,12 +653,26 @@ export class FileHandler {
       return "";
     }
 
-    let result = "";
+    // Create files array for JSON structure
+    const files = [];
     for (const [fileName, content] of this._loadedFiles.entries()) {
-      result += `Name: ${fileName}\nContent:\n"${content}"\n\n`;
+      files.push({
+        filename: fileName,
+        content: content,
+      });
     }
 
-    return result.replace(/\n+$/, "");
+    // Return JSON formatted structure
+    return JSON.stringify(
+      {
+        instructions:
+          "When modifying files, respond in JSON format. If no files are modified, do NOT respond in JSON. The response must if a file is modified start with a 'summary' key if modifying the fille; describing the changes. Only include modified files under 'files'.",
+        prompt: "", // This will be filled in by messageSender.js
+        files: files,
+      },
+      null,
+      2
+    ); // Pretty print with 2 spaces
   }
 
   /**
