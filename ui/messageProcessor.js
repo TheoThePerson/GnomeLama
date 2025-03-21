@@ -157,51 +157,104 @@ export function updateResponseContainer(container, responseText) {
   // Otherwise, parse and add content normally
   const parts = parseMessageContent(responseText);
 
-  // Create a container for inline elements to prevent line breaks between formatted texts
+  // Create a container for content
   const contentContainer = new St.BoxLayout({
     vertical: true,
     x_expand: true,
   });
 
-  // Use a flow container for each line to keep inline elements together
-  let currentLineFlow = new St.BoxLayout({
-    x_expand: true,
-  });
-  contentContainer.add_child(currentLineFlow);
+  // Group parts into paragraphs
+  const paragraphs = [];
+  let currentParagraph = [];
 
-  // Process each part
+  // Group consecutive inline elements
   parts.forEach((part) => {
-    const contentElement = createContentElement(part);
-    if (!contentElement) return;
-
-    // Block-level elements get their own line
-    if (
+    const isBlockElement =
       part.type === "code" ||
       part.type === "blockquote" ||
       part.type === "heading" ||
       part.type === "orderedList" ||
       part.type === "unorderedList" ||
-      part.type === "horizontalRule"
-    ) {
-      // If there's content in the current line, start a new line
-      if (currentLineFlow.get_children().length > 0) {
-        currentLineFlow = new St.BoxLayout({
-          x_expand: true,
-        });
-        contentContainer.add_child(currentLineFlow);
+      part.type === "horizontalRule";
+
+    const hasMultipleParas =
+      part.type === "text" && part.content.includes("\n\n");
+
+    if (isBlockElement) {
+      // If we have inline elements, add them as a paragraph
+      if (currentParagraph.length > 0) {
+        paragraphs.push({ type: "inline", parts: currentParagraph });
+        currentParagraph = [];
+      }
+      // Add the block element as its own paragraph
+      paragraphs.push({ type: "block", part: part });
+    } else if (hasMultipleParas) {
+      // If we have inline elements, add them as a paragraph
+      if (currentParagraph.length > 0) {
+        paragraphs.push({ type: "inline", parts: currentParagraph });
+        currentParagraph = [];
       }
 
-      // Add block element directly to container
-      contentContainer.add_child(contentElement);
-
-      // Start a new line for content after the block
-      currentLineFlow = new St.BoxLayout({
-        x_expand: true,
+      // Split text by double newlines and create separate paragraphs
+      const paraTexts = part.content.split("\n\n");
+      paraTexts.forEach((paraText) => {
+        if (paraText.trim() !== "") {
+          paragraphs.push({
+            type: "text",
+            content: paraText,
+          });
+        }
       });
-      contentContainer.add_child(currentLineFlow);
     } else {
-      // For inline elements (text, formatted, inlineCode, links), add to the current line
-      currentLineFlow.add_child(contentElement);
+      // Add to current paragraph
+      currentParagraph.push(part);
+    }
+  });
+
+  // Add any remaining inline elements
+  if (currentParagraph.length > 0) {
+    paragraphs.push({ type: "inline", parts: currentParagraph });
+  }
+
+  // Render each paragraph
+  paragraphs.forEach((paragraph) => {
+    if (paragraph.type === "block") {
+      // Render block element directly
+      const element = createContentElement(paragraph.part);
+      if (element) {
+        contentContainer.add_child(element);
+      }
+    } else if (paragraph.type === "text") {
+      // Render single text paragraph
+      const textLabel = UIComponents.createTextLabel(paragraph.content);
+      contentContainer.add_child(textLabel);
+    } else if (paragraph.type === "inline") {
+      // For inline elements, create a label-only box where text can flow naturally
+      const textBox = new St.BoxLayout({
+        style_class: "text-paragraph",
+        x_expand: true,
+        vertical: true,
+      });
+
+      // Create a single flow container for each paragraph
+      const flowContainer = new St.BoxLayout({
+        style_class: "text-flow-container",
+        x_expand: true,
+        vertical: false,
+        style: "flex-wrap: wrap; width: 100%;",
+      });
+
+      textBox.add_child(flowContainer);
+
+      // Add each text element to the flow container
+      paragraph.parts.forEach((part) => {
+        if (part.type === "text") {
+          const textLabel = UIComponents.createTextLabel(part.content);
+          flowContainer.add_child(textLabel);
+        }
+      });
+
+      contentContainer.add_child(textBox);
     }
   });
 
@@ -591,20 +644,8 @@ function createContentElement(part) {
       codeElement.add_style_class_name("code-block-part");
       return codeElement;
 
-    case "formatted":
-      return UIComponents.createFormattedTextLabel(part.content, part.format);
-
     case "text":
       return UIComponents.createTextLabel(part.content);
-
-    case "inlineCode":
-      return UIComponents.createInlineCodeElement(part.content);
-
-    case "link":
-      return UIComponents.createLinkElement(part.content, part.url, part.title);
-
-    case "image":
-      return UIComponents.createImageElement(part.alt, part.url, part.title);
 
     case "blockquote":
       return UIComponents.createBlockquoteElement(part.content);

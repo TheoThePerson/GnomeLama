@@ -238,58 +238,17 @@ export function createTextLabel(text) {
   const textLabel = new St.Label({
     text: text,
     style_class: "text-label",
-    style: "display: inline;", // Keep text inline with formatted elements
+    style: "display: inline-block;",
     x_expand: true,
   });
 
-  // Enable line wrapping instead of disabling it
+  // Enable line wrapping and preserve whitespace
   textLabel.clutter_text.set_line_wrap(true);
+  textLabel.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
   textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
   textLabel.clutter_text.set_selectable(true);
 
   return textLabel;
-}
-
-/**
- * Creates a formatted text label
- * @param {string} text - The text content
- * @param {string} format - The format type (bold, italic, strikethrough)
- * @returns {St.Label} The created formatted text label
- */
-export function createFormattedTextLabel(text, format) {
-  let styleClass = "text-label";
-  let styleAttribute = "";
-
-  switch (format) {
-    case "bold":
-      styleAttribute = "font-weight: 700; display: inline;";
-      styleClass += " bold-text";
-      break;
-    case "italic":
-      styleAttribute = "font-style: italic; display: inline;";
-      styleClass += " italic-text";
-      break;
-    case "strikethrough":
-      styleAttribute = "text-decoration: line-through; display: inline;";
-      styleClass += " strikethrough-text";
-      break;
-    default:
-      break;
-  }
-
-  const formattedLabel = new St.Label({
-    text: text,
-    style_class: styleClass,
-    style: styleAttribute,
-    x_expand: true, // Allow expanding to take available space
-  });
-
-  // Enable line wrapping for formatted text
-  formattedLabel.clutter_text.set_line_wrap(true);
-  formattedLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
-  formattedLabel.clutter_text.set_selectable(true);
-
-  return formattedLabel;
 }
 
 /**
@@ -301,107 +260,14 @@ export function createTemporaryMessageLabel(text) {
   const tempLabel = new St.Label({
     text: text,
     style_class: "temporary-message",
-    style:
-      "background-color: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 8px; margin: 8px 0;",
-  });
-  tempLabel.clutter_text.set_line_wrap(true);
-  return tempLabel;
-}
-
-/**
- * Creates an inline code element
- * @param {string} code - The inline code content
- * @returns {St.Bin} The created inline code element
- */
-export function createInlineCodeElement(code) {
-  // Container to style the inline code
-  const codeContainer = new St.Bin({
-    style_class: "inline-code",
-    style:
-      "background-color: #2a2a2a; border-radius: 4px; padding: 0px 4px; margin: 0 2px; display: inline;",
+    style: "font-style: italic; color: #aaa;",
     x_expand: true,
   });
 
-  // The actual text label
-  const codeLabel = new St.Label({
-    text: code,
-    style: "font-family: monospace; font-size: 0.95em; display: inline;",
-  });
+  tempLabel.clutter_text.set_line_wrap(true);
+  tempLabel.clutter_text.set_selectable(true);
 
-  codeLabel.clutter_text.set_line_wrap(true);
-  codeLabel.clutter_text.set_selectable(true);
-  codeContainer.set_child(codeLabel);
-
-  return codeContainer;
-}
-
-/**
- * Creates a link element
- * @param {string} text - The link text
- * @param {string} url - The URL
- * @param {string|null} title - Optional title attribute
- * @returns {St.Button} The created link element
- */
-export function createLinkElement(text, url, title = null) {
-  const linkButton = new St.Button({
-    style_class: "link-button",
-    style:
-      "color: #0366d6; text-decoration: underline; background: none; border: none; padding: 0 2px;",
-    label: text,
-    tooltip_text: title || url,
-  });
-
-  linkButton.connect("clicked", () => {
-    try {
-      Gio.AppInfo.launch_default_for_uri(url, null);
-    } catch (e) {
-      logError(e, "Failed to open URL: " + url);
-    }
-  });
-
-  return linkButton;
-}
-
-/**
- * Creates an image element
- * @param {string} alt - Alt text for the image
- * @param {string} url - The image URL
- * @param {string|null} title - Optional title attribute
- * @returns {St.BoxLayout} The created image container
- */
-export function createImageElement(alt, url, title = null) {
-  const imageContainer = new St.BoxLayout({
-    vertical: true,
-    style_class: "image-container",
-    style:
-      "padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f8f8;",
-  });
-
-  // Placeholder for the image
-  const imagePlaceholder = new St.Label({
-    style_class: "image-placeholder",
-    style:
-      "padding: 16px; background-color: #eee; border-radius: 4px; margin-bottom: 8px;",
-    text: "🖼️ Image: " + (alt || url),
-  });
-
-  imageContainer.add_child(imagePlaceholder);
-
-  // Caption with URL
-  if (title) {
-    const caption = new St.Label({
-      text: title,
-      style: "font-style: italic; font-size: 0.9em; color: #666;",
-    });
-    caption.clutter_text.set_line_wrap(true);
-    imageContainer.add_child(caption);
-  }
-
-  // URL as a clickable link
-  const urlButton = createLinkElement("Open Image", url);
-  imageContainer.add_child(urlButton);
-
-  return imageContainer;
+  return tempLabel;
 }
 
 /**
