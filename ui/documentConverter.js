@@ -204,6 +204,240 @@ function extractPdfTextAlternative(filePath) {
 }
 
 /**
+ * Cleans up extracted Word document text
+ *
+ * @param {string} text - Raw extracted text
+ * @returns {string} - Cleaned text
+ */
+function cleanupWordText(text) {
+  if (!text) return "";
+
+  return (
+    text
+      // Remove XML artifacts
+      .replace(/<\/.*?>/g, " ")
+      .replace(/<.*?>/g, " ")
+      // Remove repeated spaces
+      .replace(/\s+/g, " ")
+      // Remove strange characters often found in Word docs
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "")
+      // Fix paragraph breaks
+      .replace(/(\w) (\w)/g, "$1 $2")
+      .replace(/(\w)(\n+)(\w)/g, "$1\n\n$3")
+      // Remove empty lines
+      .replace(/^\s*[\r\n]/gm, "")
+      .trim()
+  );
+}
+
+/**
+ * Alternative method for converting Word documents
+ * Tries multiple approaches in sequence
+ *
+ * @param {string} filePath - Path to the Word document
+ * @param {string} extension - Document extension (doc or docx)
+ * @returns {Promise<string>} - Promise resolving to extracted text
+ */
+function extractWordTextAlternative(filePath, extension) {
+  return new Promise((resolve, reject) => {
+    try {
+      // Define different approaches based on document type
+      let approaches = [];
+
+      if (extension === "docx") {
+        approaches = [
+          // Primary approach: docx2txt
+          {
+            command: "docx2txt",
+            args: [filePath],
+          },
+          // Better XML content extraction - focus on extracting just paragraphs
+          {
+            command: "sh",
+            args: [
+              "-c",
+              `unzip -p "${filePath}" word/document.xml | grep -o '<w:p>.*</w:p>' | sed 's/<[^>]*>//g' | sed '/^[[:space:]]*$/d'`,
+            ],
+          },
+          // Alternative XML content extraction - simpler but more reliable
+          {
+            command: "sh",
+            args: [
+              "-c",
+              `unzip -p "${filePath}" word/document.xml | grep -o '<w:t>[^<]*</w:t>' | sed 's/<[^>]*>//g' | grep -v '^[[:space:]]*$'`,
+            ],
+          },
+          // Extract just document.xml and don't try to parse it
+          {
+            command: "sh",
+            args: [
+              "-c",
+              `unzip -p "${filePath}" word/document.xml | sed 's/<[^>]*>//g' | grep -v '^[[:space:]]*$'`,
+            ],
+          },
+          // Last resort: direct strings extraction (avoid directory listing)
+          {
+            command: "sh",
+            args: [
+              "-c",
+              `strings "${filePath}" | grep -v "^[[:space:]]*$" | grep -v "<?xml" | grep -v "</" | grep -v "^\\[" | head -100`,
+            ],
+          },
+        ];
+      } else if (extension === "doc") {
+        approaches = [
+          // Primary approach: catdoc
+          {
+            command: "catdoc",
+            args: [filePath],
+          },
+          // Alternative approach: try antiword if available
+          {
+            command: "antiword",
+            args: [filePath],
+          },
+          // Last resort: strings command to extract text
+          {
+            command: "sh",
+            args: [
+              "-c",
+              `strings "${filePath}" | grep -v "^[[:space:]]*$" | grep -v "<?xml" | grep -v "</" | grep -v "^\\[" | head -100`,
+            ],
+          },
+        ];
+      } else {
+        reject(new Error(`Unsupported Word document type: ${extension}`));
+        return;
+      }
+
+      // Try approaches in sequence
+      let approachIndex = 0;
+
+      const tryNextApproach = () => {
+        if (approachIndex >= approaches.length) {
+          reject(
+            new Error(
+              `Failed to extract text from ${extension.toUpperCase()} document after trying all methods`
+            )
+          );
+          return;
+        }
+
+        const currentApproach = approaches[approachIndex];
+        console.log(
+          `Trying ${extension} extraction approach ${approachIndex + 1}/${
+            approaches.length
+          }: ${currentApproach.command}`
+        );
+
+        const subprocess = new Gio.Subprocess({
+          argv: [currentApproach.command, ...currentApproach.args],
+          flags:
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+        });
+
+        try {
+          subprocess.init(null);
+
+          subprocess.communicate_utf8_async(null, null, (proc, result) => {
+            try {
+              const [, stdout, stderr] = proc.communicate_utf8_finish(result);
+              const exitStatus = proc.get_exit_status();
+
+              console.log(
+                `${extension} extraction approach ${
+                  approachIndex + 1
+                } exit status: ${exitStatus}`
+              );
+
+              if (exitStatus === 0 && stdout && stdout.trim()) {
+                console.log(
+                  `${extension} extraction successful with approach ${
+                    approachIndex + 1
+                  }`
+                );
+
+                // Clean up the output text
+                const cleanedText = cleanupWordText(stdout);
+
+                // Only resolve if we have meaningful text (more than just a few characters)
+                if (cleanedText.length > 20) {
+                  // For certain approaches, add a note that this is partial extraction
+                  if (
+                    currentApproach.command === "sh" &&
+                    (currentApproach.args[1].includes("strings") ||
+                      approachIndex > 1) // If we're using anything beyond the first two approaches
+                  ) {
+                    resolve(
+                      cleanedText +
+                        "\n\n[Note: This is partial text extraction using a fallback method. For better results, install docx2txt/catdoc.]"
+                    );
+                  } else {
+                    resolve(cleanedText);
+                  }
+                } else {
+                  console.log(
+                    `Output too short (${cleanedText.length} chars), trying next approach`
+                  );
+                  approachIndex++;
+                  tryNextApproach();
+                }
+              } else {
+                // Special handling for common errors
+                let errorMsg = stderr || "No output";
+
+                if (
+                  currentApproach.command === "docx2txt" &&
+                  errorMsg.includes("command not found")
+                ) {
+                  console.log(
+                    "docx2txt not installed, trying alternative approaches"
+                  );
+                } else if (
+                  currentApproach.command === "unzip" &&
+                  errorMsg.includes("cannot find")
+                ) {
+                  console.log(
+                    "unzip not installed or document structure unexpected"
+                  );
+                } else if (errorMsg.includes("No such file")) {
+                  console.log(
+                    "Document may be corrupted or in an unexpected format"
+                  );
+                }
+
+                console.log(
+                  `${extension} extraction approach ${
+                    approachIndex + 1
+                  } failed: ${errorMsg}`
+                );
+                approachIndex++;
+                tryNextApproach();
+              }
+            } catch (error) {
+              console.error(`Error with approach ${approachIndex + 1}:`, error);
+              approachIndex++;
+              tryNextApproach();
+            }
+          });
+        } catch (error) {
+          console.error(
+            `Failed to initiate approach ${approachIndex + 1}:`,
+            error
+          );
+          approachIndex++;
+          tryNextApproach();
+        }
+      };
+
+      tryNextApproach();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
  * Converts document to text format
  *
  * @param {string} filePath - Path to the document
@@ -245,6 +479,28 @@ export function convertToText(filePath, fileType) {
           .then((text) => resolve(text))
           .catch((error) => {
             console.error("Alternative PDF extraction failed:", error);
+
+            // Fall back to standard method
+            const command = fileType.converter.replace(
+              "FILE",
+              GLib.shell_quote(filePath)
+            );
+            executeCommand(command, filePath)
+              .then((result) => resolve(result))
+              .catch((err) => reject(err));
+          });
+        return;
+      }
+
+      // Special handling for Word documents
+      if (fileType.extension === "docx" || fileType.extension === "doc") {
+        extractWordTextAlternative(filePath, fileType.extension)
+          .then((text) => resolve(text))
+          .catch((error) => {
+            console.error(
+              `Alternative ${fileType.extension} extraction failed:`,
+              error
+            );
 
             // Fall back to standard method
             const command = fileType.converter.replace(
@@ -308,6 +564,10 @@ function executeCommand(commandTemplate, filePath) {
       // Filter out empty strings
       commandParts = commandParts.filter((part) => part.trim() !== "");
 
+      // Log conversion attempts for all document types for debugging
+      console.log(`Conversion attempt for: ${filePath}`);
+      console.log(`Command: ${commandParts.join(" ")}`);
+
       const subprocess = new Gio.Subprocess({
         argv: commandParts,
         flags:
@@ -321,17 +581,18 @@ function executeCommand(commandTemplate, filePath) {
           const [, stdout, stderr] = proc.communicate_utf8_finish(result);
           const exitStatus = proc.get_exit_status();
 
-          // Log PDF conversion attempts for debugging
-          if (commandParts[0] === "pdftotext") {
-            console.log(`PDF conversion attempt for: ${filePath}`);
-            console.log(`Command: ${commandParts.join(" ")}`);
-            console.log(`Exit status: ${exitStatus}`);
-            console.log(`Stderr: ${stderr || "none"}`);
-            console.log(`Stdout length: ${stdout ? stdout.length : 0} chars`);
-          }
+          // Log conversion results for debugging
+          const converterName = commandParts[0];
+          console.log(`${converterName} conversion exit status: ${exitStatus}`);
+          console.log(`${converterName} stderr: ${stderr || "none"}`);
+          console.log(
+            `${converterName} stdout length: ${
+              stdout ? stdout.length : 0
+            } chars`
+          );
 
           // Special handling for PDF conversion
-          if (commandParts[0] === "pdftotext" && exitStatus !== 0) {
+          if (converterName === "pdftotext" && exitStatus !== 0) {
             // Check if PDF might be password protected
             if (stderr && stderr.includes("password")) {
               reject(
@@ -366,6 +627,29 @@ function executeCommand(commandTemplate, filePath) {
             return;
           }
 
+          // Special handling for Word document conversion errors
+          if (
+            (converterName === "docx2txt" || converterName === "catdoc") &&
+            (exitStatus !== 0 || !stdout || !stdout.trim())
+          ) {
+            if (stderr && stderr.includes("not found")) {
+              reject(
+                new Error(
+                  `Word converter '${converterName}' not found or not properly installed.`
+                )
+              );
+            } else if (stderr) {
+              reject(new Error(`Word conversion failed: ${stderr}`));
+            } else {
+              reject(
+                new Error(
+                  `Word conversion produced no output. The file may be empty, corrupted, or password-protected.`
+                )
+              );
+            }
+            return;
+          }
+
           if (exitStatus !== 0) {
             console.error(`Command failed: ${stderr}`);
             reject(
@@ -378,7 +662,7 @@ function executeCommand(commandTemplate, filePath) {
             resolve(stdout);
           } else {
             // For some converters like PDF, empty output might be valid but unusual
-            if (commandParts[0] === "pdftotext") {
+            if (converterName === "pdftotext") {
               // Try again with raw mode if layout mode failed
               if (commandParts.includes("-layout")) {
                 console.log("Retrying PDF conversion with raw mode...");
@@ -423,6 +707,16 @@ function executeCommand(commandTemplate, filePath) {
                   "(The PDF appears to contain no extractable text or may be an image-based document)"
                 );
               }
+            } else if (
+              converterName === "docx2txt" ||
+              converterName === "catdoc"
+            ) {
+              // Empty output from Word converters is unusual
+              reject(
+                new Error(
+                  `The Word document appears to be empty or could not be processed`
+                )
+              );
             } else {
               reject(new Error("No output from converter"));
             }
@@ -449,6 +743,10 @@ export function checkRequiredTools() {
     catdoc: false,
     unrtf: false,
     pdftotext: false,
+    // Additional tools that help with alternative extraction methods
+    unzip: false,
+    antiword: false,
+    strings: false,
   };
 
   const promises = Object.keys(tools).map((tool) => {
