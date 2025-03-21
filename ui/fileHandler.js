@@ -8,6 +8,7 @@ import Clutter from "gi://Clutter";
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
+import * as DocumentConverter from "./documentConverter.js";
 
 // UI Constants
 const UI = {
@@ -79,6 +80,26 @@ export class FileHandler {
     // Track loaded file content
     this._loadedFiles = new Map(); // Map to store filename -> content
     this._filePaths = new Map(); // Map to store filename -> full path
+
+    // Check for document conversion tools
+    this._checkDocumentTools();
+  }
+
+  /**
+   * Check for installed document conversion tools
+   *
+   * @private
+   */
+  _checkDocumentTools() {
+    DocumentConverter.checkRequiredTools()
+      .then((tools) => {
+        this._availableTools = tools;
+        console.log("Document conversion tools availability:", tools);
+      })
+      .catch((error) => {
+        console.error("Error checking document tools:", error);
+        this._availableTools = {};
+      });
   }
 
   /**
@@ -86,7 +107,16 @@ export class FileHandler {
    */
   openFileSelector() {
     try {
-      const command = ["zenity", "--file-selection", "--title=Select a file"];
+      // Replace with a file dialog that allows all supported file types
+      const fileTypes = Object.keys(DocumentConverter.SUPPORTED_FORMATS)
+        .map((ext) => `*.${ext}`)
+        .join(" ");
+      const command = [
+        "zenity",
+        "--file-selection",
+        "--title=Select a file",
+        `--file-filter=${fileTypes}`,
+      ];
       this._executeCommand(command);
     } catch (error) {
       this._handleError("Error opening file selector", error);
@@ -141,6 +171,34 @@ export class FileHandler {
   }
 
   /**
+   * Provides installation instructions for missing tools
+   *
+   * @private
+   * @param {string} toolName - Name of the missing tool
+   * @returns {string} - Installation instructions
+   */
+  _getToolInstallationInstructions(toolName) {
+    const toolsInfo = {
+      docx2txt: "Convert .docx files",
+      odt2txt: "Convert .odt files",
+      catdoc: "Convert .doc files",
+      unrtf: "Convert .rtf files",
+      pdftotext: "Convert .pdf files (part of poppler-utils)",
+    };
+
+    const purpose = toolsInfo[toolName] || "Convert documents";
+
+    return (
+      `Missing ${toolName} (${purpose}).\n` +
+      `Please install it using your package manager:\n` +
+      `sudo apt install ${
+        toolName === "pdftotext" ? "poppler-utils" : toolName
+      }\n` +
+      `or refer to the README for installation instructions.`
+    );
+  }
+
+  /**
    * Reads and displays the contents of a file
    *
    * @private
@@ -155,10 +213,72 @@ export class FileHandler {
       }
 
       const fileName = file.get_basename();
-      this._loadFileContents(file, fileName, filePath);
+
+      // Detect file type
+      const fileType = DocumentConverter.detectFileType(filePath);
+
+      if (!fileType) {
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          `Unsupported file format: ${fileName}`
+        );
+        return;
+      }
+
+      // Check if document converter is available for this file type
+      if (fileType.type === "document" && fileType.converter) {
+        const toolName = fileType.converter.split(" ")[0];
+        if (this._availableTools && !this._availableTools[toolName]) {
+          MessageProcessor.addTemporaryMessage(
+            this._outputContainer,
+            this._getToolInstallationInstructions(toolName)
+          );
+          return;
+        }
+      }
+
+      // Convert and load the file
+      this._convertAndLoadFile(filePath, fileName, fileType);
     } catch (error) {
       this._handleError(`Error processing file: ${filePath}`, error);
     }
+  }
+
+  /**
+   * Converts and loads a file
+   *
+   * @private
+   * @param {string} filePath - Path to the file
+   * @param {string} fileName - Name of the file
+   * @param {object} fileType - Information about the file type
+   */
+  _convertAndLoadFile(filePath, fileName, fileType) {
+    const progressMessage = MessageProcessor.addTemporaryMessage(
+      this._outputContainer,
+      `Converting ${fileName}...`
+    );
+
+    DocumentConverter.convertToText(filePath, fileType)
+      .then((content) => {
+        // Remove progress message
+        if (progressMessage && progressMessage.close) {
+          progressMessage.close();
+        }
+
+        const truncatedContent = this._truncateContent(content);
+        this._displayFileContentBox(truncatedContent, fileName);
+
+        // Store the full path
+        this._filePaths.set(fileName, filePath);
+      })
+      .catch((error) => {
+        // Remove progress message
+        if (progressMessage && progressMessage.close) {
+          progressMessage.close();
+        }
+
+        this._handleError(`Failed to convert ${fileName}`, error);
+      });
   }
 
   /**
@@ -191,20 +311,28 @@ export class FileHandler {
    */
   _loadFileContents(file, fileName, filePath) {
     try {
-      const [success, content] = file.load_contents(null);
+      const fileType = DocumentConverter.detectFileType(filePath);
 
-      if (success) {
-        const fileContent = this._decodeFileContent(content);
-        const truncatedContent = this._truncateContent(fileContent);
-        this._displayFileContentBox(truncatedContent, fileName);
+      if (fileType && fileType.type === "text") {
+        // For text files, use the existing method
+        const [success, content] = file.load_contents(null);
 
-        // Store the full path
-        this._filePaths.set(fileName, filePath);
+        if (success) {
+          const fileContent = this._decodeFileContent(content);
+          const truncatedContent = this._truncateContent(fileContent);
+          this._displayFileContentBox(truncatedContent, fileName);
+
+          // Store the full path
+          this._filePaths.set(fileName, filePath);
+        } else {
+          MessageProcessor.addTemporaryMessage(
+            this._outputContainer,
+            "Failed to read file content"
+          );
+        }
       } else {
-        MessageProcessor.addTemporaryMessage(
-          this._outputContainer,
-          "Failed to read file content"
-        );
+        // For other files, use the converter
+        this._convertAndLoadFile(filePath, fileName, fileType);
       }
     } catch (error) {
       this._handleError("Error reading file", error);
