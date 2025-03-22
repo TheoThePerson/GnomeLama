@@ -17,6 +17,7 @@ import * as LayoutManager from "./layoutManager.js";
 import { FileHandler } from "./fileHandler.js";
 import { ModelManager } from "./modelManager.js";
 import { MessageSender } from "./messageSender.js";
+import { PasteHandler } from "./pasteHandler.js";
 
 // Import styling
 import Gio from "gi://Gio";
@@ -133,145 +134,24 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Flag to prevent double processing of pastes
-      let isProcessingPaste = false;
-      let lastProcessedText = "";
-      let lastPasteTime = 0;
-      let pastedTextCount = 0; // Counter for naming pasted text boxes
+      // Initialize paste handler
+      this._pasteHandler = new PasteHandler(
+        this._inputField,
+        this._fileHandler,
+        this._outputContainer,
+        () => this._updateLayout()
+      );
 
-      // Set up paste detection via key press event (Ctrl+V)
+      // Connect input field to paste handler
       this._inputField.clutter_text.connect(
         "key-press-event",
-        (actor, event) => {
-          // Check if Ctrl+V was pressed (paste shortcut)
-          const symbol = event.get_key_symbol();
-          const state = event.get_state();
-          const ctrlPressed = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
-
-          if (
-            ctrlPressed &&
-            (symbol === Clutter.KEY_v || symbol === Clutter.KEY_V)
-          ) {
-            // Get current time to prevent double processing
-            const currentTime = Date.now();
-            if (currentTime - lastPasteTime < 500) {
-              return Clutter.EVENT_PROPAGATE; // Prevent double processing
-            }
-            lastPasteTime = currentTime;
-
-            // Capture the current text and cursor position before paste
-            const currentText = this._inputField.get_text() || "";
-            const cursorPos = actor.get_cursor_position();
-            let selectionStart = -1;
-            let selectionEnd = -1;
-
-            // Check if there's a text selection
-            if (actor.get_selection_bound() >= 0) {
-              selectionStart = Math.min(actor.get_selection_bound(), cursorPos);
-              selectionEnd = Math.max(actor.get_selection_bound(), cursorPos);
-            }
-
-            // Get clipboard content
-            const clipboard = St.Clipboard.get_default();
-
-            // Set this flag before the async operation to prevent text-changed from triggering
-            isProcessingPaste = true;
-
-            clipboard.get_text(
-              St.ClipboardType.CLIPBOARD,
-              (clipboard, text) => {
-                if (!text || text === lastProcessedText) {
-                  isProcessingPaste = false;
-                  return;
-                }
-
-                // Count words in pasted text
-                const wordCount = text
-                  .split(/\s+/)
-                  .filter((word) => word.length > 0).length;
-
-                // If text is longer than a threshold, create a file box
-                if (wordCount > 100) {
-                  lastProcessedText = text;
-
-                  // Increment the pasted text counter
-                  pastedTextCount++;
-
-                  // Create a file box with the pasted text and sequential title
-                  if (this._fileHandler) {
-                    this._fileHandler.createFileBoxFromText(
-                      text,
-                      `Pasted ${pastedTextCount}`
-                    );
-
-                    // Keep any existing text, just don't add the pasted text
-                    // (no need to modify the input field - we prevented the paste)
-
-                    // Ensure layout is updated
-                    this._updateLayout();
-
-                    // Return focus to input field
-                    global.stage.set_key_focus(this._inputField.clutter_text);
-
-                    // Show a temporary confirmation message
-                    MessageProcessor.addTemporaryMessage(
-                      this._outputContainer,
-                      `Long text added as file box "Pasted ${pastedTextCount}"`
-                    );
-                  }
-                } else {
-                  // For shorter text, manually insert at cursor position
-                  let newText;
-                  if (selectionStart >= 0) {
-                    // Replace selected text with paste
-                    newText =
-                      currentText.substring(0, selectionStart) +
-                      text +
-                      currentText.substring(selectionEnd);
-
-                    // Set cursor position after pasted text
-                    const newCursorPos = selectionStart + text.length;
-                    this._inputField.set_text(newText);
-                    actor.set_cursor_position(newCursorPos);
-                  } else {
-                    // Insert at current cursor position
-                    newText =
-                      currentText.substring(0, cursorPos) +
-                      text +
-                      currentText.substring(cursorPos);
-
-                    // Set cursor position after pasted text
-                    const newCursorPos = cursorPos + text.length;
-                    this._inputField.set_text(newText);
-                    actor.set_cursor_position(newCursorPos);
-                  }
-                }
-
-                // Reset the processing flag after a delay
-                imports.gi.GLib.timeout_add(
-                  imports.gi.GLib.PRIORITY_DEFAULT,
-                  500,
-                  () => {
-                    isProcessingPaste = false;
-                    return false; // Don't repeat
-                  }
-                );
-              }
-            );
-
-            // Return Clutter.EVENT_STOP to prevent the default paste operation
-            // We've manually handled both short and long text above
-            return Clutter.EVENT_STOP;
-          }
-
-          return Clutter.EVENT_PROPAGATE;
-        }
+        this._pasteHandler.handleKeyPress.bind(this._pasteHandler)
       );
 
       // Handle text changes, potentially from other paste sources (like right-click menu)
       this._inputField.clutter_text.connect("text-changed", () => {
         // If we're processing a paste via Ctrl+V, skip this handler
-        if (isProcessingPaste) {
+        if (this._pasteHandler.isProcessingPaste) {
           return;
         }
 
@@ -281,7 +161,7 @@ export const Indicator = GObject.registerClass(
         if (
           !currentText ||
           currentText.length === 0 ||
-          currentText === lastProcessedText
+          currentText === this._pasteHandler.lastProcessedText
         ) {
           return;
         }
@@ -294,29 +174,30 @@ export const Indicator = GObject.registerClass(
         if (wordCount > 100) {
           // The problem here is that we need to identify which part of the text was pasted
           // Since we can't directly know, we'll look for chunks that have many words together
-          isProcessingPaste = true;
+          this._pasteHandler.isProcessingPaste = true;
 
           // Get the text before this change event
-          const previousTextSnapshot = lastProcessedText || "";
+          const previousTextSnapshot =
+            this._pasteHandler.lastProcessedText || "";
 
           // Find the largest new chunk of text (likely the paste)
-          const pastedContent = findLikelyPastedContent(
+          const pastedContent = this._pasteHandler.findLikelyPastedContent(
             previousTextSnapshot,
             currentText
           );
 
           if (pastedContent) {
             // Update lastProcessedText to current to prevent re-processing
-            lastProcessedText = currentText;
+            this._pasteHandler.lastProcessedText = currentText;
 
             // Increment counter for unique naming
-            pastedTextCount++;
+            this._pasteHandler.pastedTextCount++;
 
             // Create file box for the detected chunk
             if (this._fileHandler) {
               this._fileHandler.createFileBoxFromText(
                 pastedContent,
-                `Pasted ${pastedTextCount}`
+                `Pasted ${this._pasteHandler.pastedTextCount}`
               );
 
               // Remove just the pasted content from the input field
@@ -327,7 +208,7 @@ export const Indicator = GObject.registerClass(
               this._updateLayout();
               MessageProcessor.addTemporaryMessage(
                 this._outputContainer,
-                `Long text added as file box "Pasted ${pastedTextCount}"`
+                `Long text added as file box "Pasted ${this._pasteHandler.pastedTextCount}"`
               );
             }
           }
@@ -337,59 +218,15 @@ export const Indicator = GObject.registerClass(
             imports.gi.GLib.PRIORITY_DEFAULT,
             500,
             () => {
-              isProcessingPaste = false;
+              this._pasteHandler.isProcessingPaste = false;
               return false;
             }
           );
         } else {
           // For shorter text, update lastProcessedText to prevent repeat processing
-          lastProcessedText = currentText;
+          this._pasteHandler.lastProcessedText = currentText;
         }
       });
-
-      // Helper function to find likely pasted content by comparing before/after text
-      function findLikelyPastedContent(previousText, currentText) {
-        // If no previous text, the entire current text was likely pasted
-        if (!previousText) {
-          return currentText;
-        }
-
-        // If they're identical, nothing was pasted
-        if (previousText === currentText) {
-          return null;
-        }
-
-        // Find the likely pasted content by checking for large chunks of new text
-        // First, try to find where they start to differ
-        let differenceIndex = 0;
-        while (
-          differenceIndex < previousText.length &&
-          differenceIndex < currentText.length &&
-          previousText[differenceIndex] === currentText[differenceIndex]
-        ) {
-          differenceIndex++;
-        }
-
-        // Then find where they start to be the same again after the difference
-        // (looking from the end backward)
-        let endMatchIndex = 0;
-        while (
-          endMatchIndex < previousText.length &&
-          endMatchIndex < currentText.length &&
-          previousText[previousText.length - 1 - endMatchIndex] ===
-            currentText[currentText.length - 1 - endMatchIndex]
-        ) {
-          endMatchIndex++;
-        }
-
-        // Extract the differing portion (likely the paste)
-        const pastedContent = currentText.substring(
-          differenceIndex,
-          currentText.length - endMatchIndex
-        );
-
-        return pastedContent;
-      }
 
       // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
@@ -498,13 +335,28 @@ export const Indicator = GObject.registerClass(
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
     }
 
+    /**
+     * Toggle the panel overlay with improved animation
+     * @returns {Promise<void>}
+     */
     async _togglePanelOverlay() {
-      // Toggle visibility
-      this._panelOverlay.visible = !this._panelOverlay.visible;
+      // Prevent multiple rapid toggles
+      if (this._isTogglingPanel) {
+        return;
+      }
+      this._isTogglingPanel = true;
 
-      if (!this._panelOverlay.visible) {
+      // Toggle visibility flag
+      const isOpening = !this._panelOverlay.visible;
+      this._panelOverlay.visible = isOpening;
+
+      if (!isOpening) {
         // If closing the panel
         this._inputField.set_text("");
+
+        // Immediately hide sensitive UI elements for faster perceived performance
+        this._inputField.opacity = 0;
+        this._buttonsContainer.opacity = 0;
 
         // Close model menu
         if (this._modelManager) {
@@ -517,20 +369,22 @@ export const Indicator = GObject.registerClass(
         }
       } else {
         // If opening panel
+        // Reset opacity of UI elements that were hidden when closing
+        this._inputField.opacity = 255;
+        this._buttonsContainer.opacity = 255;
 
         // Restore file UI if files were previously loaded
         if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
           this._fileHandler.restoreFileUI();
-          this._updateLayout();
         }
 
-        // Restore conversation history
-        this._updateHistory();
+        // Start loading history in background
+        this._loadHistoryAsync();
 
         // Give focus to input field
         global.stage.set_key_focus(this._inputField.clutter_text);
 
-        // Refresh models (async operation)
+        // Refresh models in background (don't block UI)
         if (this._modelManager) {
           this._modelManager
             .refreshModels()
@@ -538,8 +392,26 @@ export const Indicator = GObject.registerClass(
         }
       }
 
-      // Final layout update
+      // Update layout
       this._updateLayout();
+
+      // Reset toggle flag after a small delay
+      imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
+        this._isTogglingPanel = false;
+        return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
+      });
+    }
+
+    /**
+     * Load conversation history asynchronously to improve UI responsiveness
+     * @private
+     */
+    _loadHistoryAsync() {
+      // Use a low priority idle callback to update history without blocking UI
+      imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_LOW, () => {
+        this._updateHistory();
+        return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
+      });
     }
 
     _updateHistory() {
@@ -626,26 +498,30 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateLayout() {
-      // Update each component's layout
-      LayoutManager.updatePanelOverlay(this._panelOverlay);
-      LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
-      LayoutManager.updateButtonsContainer(
-        this._buttonsContainer,
-        this._modelButton,
-        this._clearButton,
-        this._fileButton
-      );
-      LayoutManager.updateOutputArea(
-        this._outputScrollView,
-        this._outputContainer
-      );
-      LayoutManager.updateInputArea(
-        this._inputFieldBox,
-        this._inputField,
-        this._sendButton
-      );
+      try {
+        // Update each component's layout
+        LayoutManager.updatePanelOverlay(this._panelOverlay);
+        LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+        LayoutManager.updateButtonsContainer(
+          this._buttonsContainer,
+          this._modelButton,
+          this._clearButton,
+          this._fileButton
+        );
+        LayoutManager.updateOutputArea(
+          this._outputScrollView,
+          this._outputContainer
+        );
+        LayoutManager.updateInputArea(
+          this._inputFieldBox,
+          this._inputField,
+          this._sendButton
+        );
 
-      PanelElements.scrollToBottom(this._outputScrollView);
+        PanelElements.scrollToBottom(this._outputScrollView);
+      } catch (error) {
+        console.error("Error updating layout:", error);
+      }
     }
 
     destroy() {

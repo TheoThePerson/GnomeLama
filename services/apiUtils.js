@@ -5,6 +5,10 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 
+// Constants for performance tuning
+const CHUNK_PROCESSING_BATCH_SIZE = 5; // Process this many chunks before yielding to UI
+const CHUNK_PROCESSING_YIELD_MS = 10; // Time to yield to UI thread between batches
+
 /**
  * Creates a cancellable HTTP request session
  * @returns {Object} Object containing session and cancellation methods
@@ -16,6 +20,49 @@ export function createCancellableSession() {
   let activeDataInputStream = null;
   let isCancelled = false;
   let accumulatedResponse = "";
+
+  /**
+   * Process chunks in batches to avoid blocking UI
+   * @param {Array<string>} chunks - Array of chunks to process
+   * @param {Function} processChunk - Function to process each chunk
+   * @returns {Promise<string>} The accumulated text from all chunks
+   */
+  async function processBatchedChunks(chunks, processChunk) {
+    let result = "";
+    let batchCount = 0;
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (isCancelled) break;
+
+      try {
+        const chunk = await processChunk(chunks[i]);
+        if (chunk) {
+          result += chunk;
+          accumulatedResponse += chunk;
+        }
+      } catch (error) {
+        console.error("Error processing chunk:", error);
+      }
+
+      // After processing a batch, yield to UI thread
+      batchCount++;
+      if (batchCount % CHUNK_PROCESSING_BATCH_SIZE === 0) {
+        // Use a promise with timeout to yield to the main thread
+        await new Promise((resolve) =>
+          GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            CHUNK_PROCESSING_YIELD_MS,
+            () => {
+              resolve();
+              return GLib.SOURCE_REMOVE;
+            }
+          )
+        );
+      }
+    }
+
+    return result;
+  }
 
   /**
    * Sends a request and handles streaming response
@@ -92,7 +139,9 @@ export function createCancellableSession() {
 
       activeDataInputStream = dataInputStream;
 
-      let fullResponse = "";
+      // Collect all lines first to process in batches
+      const lines = [];
+
       while (!isCancelled) {
         if (cancellable && cancellable.is_cancelled()) {
           break;
@@ -107,16 +156,12 @@ export function createCancellableSession() {
           if (!line) break;
 
           const lineText = new TextDecoder().decode(line);
+          lines.push(lineText);
 
-          try {
-            const chunk = await processChunk(lineText);
-
-            if (chunk) {
-              fullResponse += chunk;
-              accumulatedResponse += chunk;
-            }
-          } catch (parseError) {
-            console.error("Error processing chunk:", parseError);
+          // Process in small batches if we've accumulated enough lines
+          if (lines.length >= CHUNK_PROCESSING_BATCH_SIZE * 2) {
+            const batchLines = lines.splice(0, lines.length);
+            await processBatchedChunks(batchLines, processChunk);
           }
         } catch (readError) {
           if (isCancelled || (cancellable && cancellable.is_cancelled())) {
@@ -127,9 +172,14 @@ export function createCancellableSession() {
         }
       }
 
+      // Process any remaining lines
+      if (lines.length > 0 && !isCancelled) {
+        await processBatchedChunks(lines, processChunk);
+      }
+
       cleanupResources();
 
-      return { response: fullResponse };
+      return { response: accumulatedResponse };
     } catch (error) {
       console.error("API request error:", error);
       cleanupResources();
