@@ -128,7 +128,7 @@ export async function sendMessageToAPI(
   };
 
   try {
-    const result = await apiSession.sendRequest(
+    const requestHandler = await apiSession.sendRequest(
       "POST",
       OPENAI_API_URL,
       {
@@ -139,10 +139,27 @@ export async function sendMessageToAPI(
       processChunk
     );
 
-    const response = result.response;
-    apiSession = null;
+    // Return the promise and cancel function
+    return {
+      result: requestHandler.result.then((result) => {
+        const response = result.response;
 
-    return { response };
+        // Reset the API session once completed successfully
+        setTimeout(() => {
+          apiSession = null;
+        }, 0);
+
+        return { response };
+      }),
+      cancel: () => {
+        if (apiSession) {
+          const partial = apiSession.cancelRequest();
+          apiSession = null;
+          return partial;
+        }
+        return "";
+      },
+    };
   } catch (error) {
     console.error("API request error:", error);
 
@@ -152,7 +169,10 @@ export async function sendMessageToAPI(
     apiSession = null;
 
     if (accumulatedResponse) {
-      return { response: accumulatedResponse };
+      return {
+        result: Promise.resolve({ response: accumulatedResponse }),
+        cancel: () => accumulatedResponse,
+      };
     }
 
     throw error;

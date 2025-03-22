@@ -59,7 +59,7 @@ export async function fetchModelNames() {
  * @param {string} modelName - Model to use
  * @param {string} context - Optional context from previous interactions
  * @param {Function} onData - Callback for streaming data
- * @returns {Promise<{response: string, context: string}>} Complete response and context
+ * @returns {Promise<{result: Promise<{response: string, context: string}>, cancel: Function}>} Response promise and cancel function
  */
 export async function sendMessageToAPI(
   messageText,
@@ -110,7 +110,7 @@ export async function sendMessageToAPI(
   };
 
   try {
-    const result = await apiSession.sendRequest(
+    const requestHandler = await apiSession.sendRequest(
       "POST",
       endpoint,
       { "Content-Type": "application/json" },
@@ -118,11 +118,28 @@ export async function sendMessageToAPI(
       processChunk
     );
 
-    const response = result.response;
-    const responseContext = currentContext;
-    apiSession = null;
+    // Transform the API response to match our provider interface
+    return {
+      result: requestHandler.result.then((result) => {
+        const response = result.response;
+        const responseContext = currentContext;
 
-    return { response, context: responseContext };
+        // Reset the API session once completed successfully
+        setTimeout(() => {
+          apiSession = null;
+        }, 0);
+
+        return { response, context: responseContext };
+      }),
+      cancel: () => {
+        if (apiSession) {
+          const partial = apiSession.cancelRequest();
+          apiSession = null;
+          return partial;
+        }
+        return "";
+      },
+    };
   } catch (error) {
     handleError(
       "sendMessageToAPI",
@@ -137,7 +154,13 @@ export async function sendMessageToAPI(
     apiSession = null;
 
     if (accumulatedResponse) {
-      return { response: accumulatedResponse, context: currentContext };
+      return {
+        result: Promise.resolve({
+          response: accumulatedResponse,
+          context: currentContext,
+        }),
+        cancel: () => accumulatedResponse,
+      };
     }
 
     throw error;

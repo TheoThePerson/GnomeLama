@@ -71,7 +71,7 @@ export function createCancellableSession() {
    * @param {Object} headers - Request headers
    * @param {string|null} body - Request body (for POST requests)
    * @param {Function} processChunk - Function to process each chunk of data
-   * @returns {Promise<{response: string}>} The accumulated response
+   * @returns {Promise<{result: Promise<{response: string}>, cancel: Function}>} The response promise and cancel function
    */
   async function sendRequest(
     method,
@@ -97,97 +97,118 @@ export function createCancellableSession() {
         );
       }
 
-      const inputStream = await new Promise((resolve, reject) => {
-        session.send_async(
-          message,
-          GLib.PRIORITY_DEFAULT,
-          cancellable,
-          (session, result) => {
-            try {
-              if (isCancelled || (cancellable && cancellable.is_cancelled())) {
-                resolve(null);
-                return;
+      // Return both the result promise and a cancel function
+      return {
+        result: new Promise(async (resolve, reject) => {
+          try {
+            const inputStream = await new Promise(
+              (streamResolve, streamReject) => {
+                session.send_async(
+                  message,
+                  GLib.PRIORITY_DEFAULT,
+                  cancellable,
+                  (session, result) => {
+                    try {
+                      if (
+                        isCancelled ||
+                        (cancellable && cancellable.is_cancelled())
+                      ) {
+                        streamResolve(null);
+                        return;
+                      }
+
+                      if (message.get_status() !== Soup.Status.OK) {
+                        throw new Error(`HTTP error: ${message.get_status()}`);
+                      }
+
+                      const stream = session.send_finish(result);
+                      if (!stream) {
+                        throw new Error("No response stream available");
+                      }
+
+                      activeInputStream = stream;
+                      streamResolve(stream);
+                    } catch (error) {
+                      console.error("Error sending request:", error);
+                      streamReject(error);
+                    }
+                  }
+                );
+              }
+            );
+
+            if (isCancelled || !inputStream) {
+              // If cancelled during initial connection, just return current response
+              resolve({ response: accumulatedResponse });
+              return;
+            }
+
+            const dataInputStream = new Gio.DataInputStream({
+              base_stream: inputStream,
+              close_base_stream: true,
+            });
+
+            activeDataInputStream = dataInputStream;
+
+            // Collect all lines first to process in batches
+            const lines = [];
+
+            while (!isCancelled) {
+              if (cancellable && cancellable.is_cancelled()) {
+                break;
               }
 
-              if (message.get_status() !== Soup.Status.OK) {
-                throw new Error(`HTTP error: ${message.get_status()}`);
-              }
+              try {
+                const [line] = await dataInputStream.read_line_async(
+                  GLib.PRIORITY_DEFAULT,
+                  cancellable
+                );
 
-              const stream = session.send_finish(result);
-              if (!stream) {
-                throw new Error("No response stream available");
-              }
+                if (!line) break;
 
-              activeInputStream = stream;
-              resolve(stream);
-            } catch (error) {
-              console.error("Error sending request:", error);
+                const lineText = new TextDecoder().decode(line);
+                lines.push(lineText);
+
+                // Process in small batches if we've accumulated enough lines
+                if (lines.length >= CHUNK_PROCESSING_BATCH_SIZE * 2) {
+                  const batchLines = lines.splice(0, lines.length);
+                  await processBatchedChunks(batchLines, processChunk);
+                }
+              } catch (readError) {
+                if (
+                  isCancelled ||
+                  (cancellable && cancellable.is_cancelled())
+                ) {
+                  break;
+                }
+                console.error("Error reading from stream:", readError);
+                break;
+              }
+            }
+
+            // Process any remaining lines
+            if (lines.length > 0 && !isCancelled) {
+              await processBatchedChunks(lines, processChunk);
+            }
+
+            cleanupResources();
+            resolve({ response: accumulatedResponse });
+          } catch (error) {
+            console.error("API request error inside promise:", error);
+            cleanupResources();
+
+            if (isCancelled && accumulatedResponse) {
+              resolve({ response: accumulatedResponse });
+            } else {
               reject(error);
             }
           }
-        );
-      });
-
-      if (isCancelled || !inputStream) {
-        return { response: accumulatedResponse };
-      }
-
-      const dataInputStream = new Gio.DataInputStream({
-        base_stream: inputStream,
-        close_base_stream: true,
-      });
-
-      activeDataInputStream = dataInputStream;
-
-      // Collect all lines first to process in batches
-      const lines = [];
-
-      while (!isCancelled) {
-        if (cancellable && cancellable.is_cancelled()) {
-          break;
-        }
-
-        try {
-          const [line] = await dataInputStream.read_line_async(
-            GLib.PRIORITY_DEFAULT,
-            cancellable
-          );
-
-          if (!line) break;
-
-          const lineText = new TextDecoder().decode(line);
-          lines.push(lineText);
-
-          // Process in small batches if we've accumulated enough lines
-          if (lines.length >= CHUNK_PROCESSING_BATCH_SIZE * 2) {
-            const batchLines = lines.splice(0, lines.length);
-            await processBatchedChunks(batchLines, processChunk);
-          }
-        } catch (readError) {
-          if (isCancelled || (cancellable && cancellable.is_cancelled())) {
-            break;
-          }
-          console.error("Error reading from stream:", readError);
-          break;
-        }
-      }
-
-      // Process any remaining lines
-      if (lines.length > 0 && !isCancelled) {
-        await processBatchedChunks(lines, processChunk);
-      }
-
-      cleanupResources();
-
-      return { response: accumulatedResponse };
+        }),
+        cancel: cancelRequest,
+      };
     } catch (error) {
-      console.error("API request error:", error);
+      console.error("API request setup error:", error);
       cleanupResources();
-
-      if (isCancelled && accumulatedResponse) {
-        return { response: accumulatedResponse };
-      }
-
       throw error;
     }
   }

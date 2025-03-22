@@ -5,6 +5,7 @@
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as LayoutManager from "./layoutManager.js";
 
@@ -30,7 +31,12 @@ export function createPanelOverlay(dimensions) {
   // Force hardware acceleration
   panelOverlay.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
 
-  Main.layoutManager.uiGroup.add_child(panelOverlay);
+  // Add to UI group asynchronously to avoid blocking the UI
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    Main.layoutManager.uiGroup.add_child(panelOverlay);
+    return GLib.SOURCE_REMOVE;
+  });
+
   return panelOverlay;
 }
 
@@ -78,14 +84,21 @@ export function createModelButton(label = "No models found") {
 export function createClearButton(extensionPath, iconScale = 1.0) {
   const iconSize = 24 * iconScale;
 
+  // Load icon asynchronously
   const clearIcon = new St.Icon({
-    gicon: Gio.icon_new_for_string(`${extensionPath}/icons/trash-icon.svg`),
     style_class: "system-status-icon",
     style: "margin: 0 auto;",
     x_align: Clutter.ActorAlign.CENTER,
     y_align: Clutter.ActorAlign.CENTER,
     width: iconSize,
     height: iconSize,
+  });
+
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    clearIcon.gicon = Gio.icon_new_for_string(
+      `${extensionPath}/icons/trash-icon.svg`
+    );
+    return GLib.SOURCE_REMOVE;
   });
 
   const clearButton = new St.Button({
@@ -105,14 +118,21 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
 export function createFileButton(extensionPath, iconScale = 1.0) {
   const iconSize = 24 * iconScale;
 
+  // Load icon asynchronously
   const fileIcon = new St.Icon({
-    gicon: Gio.icon_new_for_string(`${extensionPath}/icons/file-icon.svg`),
     style_class: "system-status-icon",
     style: "margin: 0 auto;",
     x_align: Clutter.ActorAlign.CENTER,
     y_align: Clutter.ActorAlign.CENTER,
     width: iconSize,
     height: iconSize,
+  });
+
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    fileIcon.gicon = Gio.icon_new_for_string(
+      `${extensionPath}/icons/file-icon.svg`
+    );
+    return GLib.SOURCE_REMOVE;
   });
 
   const fileButton = new St.Button({
@@ -154,17 +174,30 @@ export function createOutputArea(dimensions) {
     const adjustment = vscroll.adjustment;
     if (adjustment) {
       adjustment.connect("notify::value", () => {
-        outputScrollView.queue_redraw();
-        vscroll.queue_redraw();
+        // Use idle_add to defer redraw to prevent UI blocking
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          outputScrollView.queue_redraw();
+          vscroll.queue_redraw();
+          return GLib.SOURCE_REMOVE;
+        });
       });
     }
   }
 
-  // Connect to scroll events
+  // Connect to scroll events with throttling to improve performance
+  let lastScrollTime = 0;
   outputScrollView.connect("scroll-event", () => {
-    outputScrollView.queue_redraw();
-    if (vscroll) {
-      vscroll.queue_redraw();
+    const currentTime = Date.now();
+    if (currentTime - lastScrollTime > 16) {
+      // ~60fps, limit redraw frequency
+      lastScrollTime = currentTime;
+      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        outputScrollView.queue_redraw();
+        if (vscroll) {
+          vscroll.queue_redraw();
+        }
+        return GLib.SOURCE_REMOVE;
+      });
     }
   });
 
@@ -213,9 +246,16 @@ export function createInputArea(extensionPath, isNewChat = true) {
       "background-color: transparent; border: none; caret-color: white; color: white;",
   });
 
+  // Load icon asynchronously
   const sendIcon = new St.Icon({
-    gicon: Gio.icon_new_for_string(`${extensionPath}/icons/send-icon.svg`),
     style_class: "system-status-icon",
+  });
+
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    sendIcon.gicon = Gio.icon_new_for_string(
+      `${extensionPath}/icons/send-icon.svg`
+    );
+    return GLib.SOURCE_REMOVE;
   });
 
   const sendButton = new St.Button({
@@ -235,9 +275,12 @@ export function createInputArea(extensionPath, isNewChat = true) {
  */
 export function updateInputFieldHint(inputField, isNewChat) {
   if (inputField) {
-    inputField.hint_text = isNewChat
-      ? "Start your conversation..."
-      : "Your response...";
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      inputField.hint_text = isNewChat
+        ? "Start your conversation..."
+        : "Your response...";
+      return GLib.SOURCE_REMOVE;
+    });
   }
 }
 
@@ -262,9 +305,16 @@ export function createResponseContainer(bgColor) {
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
-  const adjustment = scrollView.vscroll.adjustment;
-  if (adjustment) {
-    const targetValue = adjustment.upper - adjustment.page_size;
-    adjustment.set_value(targetValue);
-  }
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    const adjustment = scrollView.vscroll.adjustment;
+    if (adjustment) {
+      const targetValue = adjustment.upper - adjustment.page_size;
+      // Use smooth animation when scrolling
+      adjustment.ease(targetValue, {
+        duration: 250,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+      });
+    }
+    return GLib.SOURCE_REMOVE;
+  });
 }
