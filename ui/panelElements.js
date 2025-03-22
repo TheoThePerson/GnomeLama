@@ -24,7 +24,6 @@ function loadCachedIcon(path) {
       iconCache.set(path, Gio.icon_new_for_string(path));
     } catch (error) {
       console.error(`Error loading icon from ${path}:`, error);
-      // Return a fallback icon
       return Gio.ThemedIcon.new("dialog-error-symbolic");
     }
   }
@@ -53,24 +52,12 @@ export function createPanelOverlay(dimensions) {
   // Force hardware acceleration
   panelOverlay.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
 
-  // Add to UI group asynchronously to avoid blocking the UI
+  // Add to UI group on next idle cycle
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     try {
       Main.layoutManager.uiGroup.add_child(panelOverlay);
     } catch (error) {
       console.error("Error adding panel overlay to UI group:", error);
-      // Try again with a delay if the UI group might not be ready
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
-        try {
-          Main.layoutManager.uiGroup.add_child(panelOverlay);
-        } catch (retryError) {
-          console.error(
-            "Error during retry of adding panel overlay:",
-            retryError
-          );
-        }
-        return GLib.SOURCE_REMOVE;
-      });
     }
     return GLib.SOURCE_REMOVE;
   });
@@ -96,16 +83,7 @@ function createIconButton(iconPath, styleClass, iconScale = 1.0) {
     y_align: Clutter.ActorAlign.CENTER,
     width: iconSize,
     height: iconSize,
-  });
-
-  // Load icon asynchronously
-  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    try {
-      icon.gicon = loadCachedIcon(iconPath);
-    } catch (error) {
-      console.error(`Error setting icon from ${iconPath}:`, error);
-    }
-    return GLib.SOURCE_REMOVE;
+    gicon: loadCachedIcon(iconPath),
   });
 
   // Create button with icon
@@ -187,15 +165,9 @@ export function createFileButton(extensionPath, iconScale = 1.0) {
 // Debounce function for scroll handling
 function debounce(func, wait) {
   let timeout;
-
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-
+  return function (...args) {
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(() => func(...args), wait);
   };
 }
 
@@ -402,7 +374,7 @@ export function createResponseContainer(bgColor) {
 }
 
 /**
- * Scrolls a scroll view to the bottom
+ * Scrolls the provided scrollView to the bottom
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
@@ -421,16 +393,6 @@ export function scrollToBottom(scrollView) {
       }
     } catch (error) {
       console.error("Error scrolling to bottom:", error);
-      // Fallback method if animation fails
-      try {
-        const adjustment = scrollView.vscroll.adjustment;
-        if (adjustment) {
-          const targetValue = adjustment.upper - adjustment.page_size;
-          adjustment.set_value(targetValue);
-        }
-      } catch (fallbackError) {
-        console.error("Error in scroll fallback:", fallbackError);
-      }
     }
     return GLib.SOURCE_REMOVE;
   });
