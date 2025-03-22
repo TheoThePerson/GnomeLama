@@ -249,7 +249,7 @@ export function updateInputFieldHint(inputField, isNewChat) {
 export function createResponseContainer(bgColor) {
   return new St.BoxLayout({
     style_class: "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 12px;`,
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 6px;`,
     x_align: Clutter.ActorAlign.START,
     vertical: true,
     x_expand: true,

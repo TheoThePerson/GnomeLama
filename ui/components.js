@@ -26,7 +26,7 @@ export function createMessageContainer(text, isUser, alignment) {
   const messageBox = new St.BoxLayout({
     style_class: isUser ? "message-box user-message" : "message-box ai-message",
     style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
-      isUser ? "24px 24px 12px 24px" : "24px 24px 24px 12px"
+      isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px"
     };`,
     x_align: alignment,
     vertical: true,
