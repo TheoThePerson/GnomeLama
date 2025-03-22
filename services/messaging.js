@@ -7,6 +7,8 @@ import * as openaiProvider from "./providers/openaiProvider.js";
 
 let conversationHistory = [];
 let currentModel = null;
+let lastError = null;
+let isMessageInProgress = false;
 
 /**
  * Sets the current AI model
@@ -16,6 +18,28 @@ export function setModel(modelName) {
   currentModel = modelName;
   const settings = getSettings();
   settings.set_string("default-model", modelName);
+}
+
+/**
+ * Gets the current AI model
+ * @returns {string} Current model name
+ */
+export function getCurrentModel() {
+  if (!currentModel) {
+    currentModel = getSettings().get_string("default-model");
+  }
+  return currentModel;
+}
+
+/**
+ * Get the appropriate provider for the current model
+ * @param {string} modelName - Model name to get provider for
+ * @returns {Object} Provider object with standardized interface
+ */
+function getProviderForModel(modelName) {
+  return openaiProvider.isOpenAIModel(modelName)
+    ? openaiProvider
+    : ollamaProvider;
 }
 
 /**
@@ -31,7 +55,7 @@ export async function fetchModelNames() {
 
   if (models.length === 0) {
     error =
-      "No models found. Please check if Ollama is running with models installed,or that you have an API key in settings.";
+      "No models found. Please check if Ollama is running with models installed, or that you have an API key in settings.";
   }
 
   return { models, error };
@@ -60,6 +84,8 @@ export function clearConversationHistory() {
 export function cleanupOnDisable() {
   conversationHistory = [];
   currentModel = null;
+  lastError = null;
+  isMessageInProgress = false;
   ollamaProvider.resetContext();
 }
 
@@ -70,6 +96,22 @@ export function cleanupOnDisable() {
  */
 function addMessageToHistory(text, type) {
   conversationHistory.push({ text, type });
+}
+
+/**
+ * Checks if a message is currently being processed
+ * @returns {boolean} True if a message is being processed
+ */
+export function isProcessingMessage() {
+  return isMessageInProgress;
+}
+
+/**
+ * Gets the last error that occurred during message processing
+ * @returns {string|null} Last error message or null if no error
+ */
+export function getLastError() {
+  return lastError;
 }
 
 /**
@@ -85,45 +127,55 @@ export async function sendMessage(message, context, onData, displayMessage) {
     currentModel = getSettings().get_string("default-model");
   }
 
+  // Reset error state
+  lastError = null;
+  isMessageInProgress = true;
+
   // Use displayMessage for history if provided, otherwise use the full message
   addMessageToHistory(displayMessage || message, "user");
 
   try {
-    let result;
+    const provider = getProviderForModel(currentModel);
+    const contextToUse =
+      context ||
+      (provider === ollamaProvider ? ollamaProvider.getCurrentContext() : null);
 
-    if (openaiProvider.isOpenAIModel(currentModel)) {
-      result = await openaiProvider.sendMessageToAPI(
-        message,
-        currentModel,
-        conversationHistory,
-        onData
-      );
-    } else {
-      const currentContext = context || ollamaProvider.getCurrentContext();
-      result = await ollamaProvider.sendMessageToAPI(
-        message,
-        currentModel,
-        currentContext,
-        onData
-      );
-    }
+    const result = await provider.sendMessageToAPI(
+      message,
+      currentModel,
+      provider === openaiProvider ? conversationHistory : contextToUse,
+      onData
+    );
 
     addMessageToHistory(result.response, "assistant");
+    isMessageInProgress = false;
     return result.response;
   } catch (e) {
     console.error("Error sending message to API:", e);
-    const errorMsg = openaiProvider.isOpenAIModel(currentModel)
-      ? "Error communicating with OpenAI. Please check your API key in settings."
-      : "Error communicating with Ollama. Please check if Ollama is installed and running.";
-    if (onData) onData(errorMsg);
-    return errorMsg;
+
+    // Set error message based on provider
+    const provider = getProviderForModel(currentModel);
+    lastError =
+      provider === openaiProvider
+        ? "Error communicating with OpenAI. Please check your API key in settings."
+        : "Error communicating with Ollama. Please check if Ollama is installed and running.";
+
+    if (onData) onData(lastError);
+    isMessageInProgress = false;
+    return lastError;
   }
 }
 
+/**
+ * Stops the current AI message generation
+ * @returns {string|null} Partial response or null if no message was in progress
+ */
 export function stopAiMessage() {
-  if (openaiProvider.isOpenAIModel(currentModel)) {
-    openaiProvider.stopMessage();
-  } else {
-    ollamaProvider.stopMessage();
+  if (!isMessageInProgress) {
+    return null;
   }
+
+  isMessageInProgress = false;
+  const provider = getProviderForModel(currentModel);
+  return provider.stopMessage();
 }

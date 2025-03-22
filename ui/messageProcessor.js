@@ -64,6 +64,7 @@ export async function processUserMessage({
   // Variables for response processing
   let responseContainer = null;
   let fullResponse = "";
+  let errorOccurred = false;
 
   try {
     // Process AI response with streaming
@@ -71,6 +72,22 @@ export async function processUserMessage({
       userMessage,
       context,
       (chunk) => {
+        // Skip empty chunks
+        if (!chunk) return;
+
+        // Check if this is an error message (no streaming chunks)
+        if (!responseContainer && chunk.includes("Error communicating with")) {
+          errorOccurred = true;
+          handleResponseError(
+            new Error(chunk),
+            null,
+            outputContainer,
+            bgColor,
+            scrollView
+          );
+          return;
+        }
+
         fullResponse += chunk;
 
         // Create response container if needed
@@ -87,8 +104,8 @@ export async function processUserMessage({
       displayMessage // Pass display message for history
     );
 
-    // Notify response completion
-    if (onResponseEnd) onResponseEnd();
+    // Notify response completion only if we didn't encounter an error message
+    if (!errorOccurred && onResponseEnd) onResponseEnd();
   } catch (error) {
     console.error("Error processing AI response:", error);
     handleResponseError(
@@ -98,6 +115,9 @@ export async function processUserMessage({
       bgColor,
       scrollView
     );
+  } finally {
+    // Always call onResponseEnd, even in case of errors
+    if (errorOccurred && onResponseEnd) onResponseEnd();
   }
 }
 
@@ -686,7 +706,7 @@ export function addTemporaryMessage(outputContainer, text) {
  * Remove all temporary messages from the output container
  * @param {St.BoxLayout} outputContainer - The container to clear temporary messages from
  */
-function removeTemporaryMessages(outputContainer) {
+export function removeTemporaryMessages(outputContainer) {
   temporaryMessages.forEach((message) => {
     if (message.get_parent() === outputContainer) {
       message.destroy();

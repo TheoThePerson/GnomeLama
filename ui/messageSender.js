@@ -12,6 +12,8 @@ import * as MessageProcessor from "./messageProcessor.js";
 import {
   stopAiMessage,
   getConversationHistory,
+  isProcessingMessage as isServiceProcessingMessage,
+  getLastError,
 } from "../services/messaging.js";
 
 export class MessageSender {
@@ -66,19 +68,13 @@ export class MessageSender {
   }
 
   /**
-   * Send a message
+   * Prepare message content for sending
+   * @param {string} userInput - Raw user input text
+   * @returns {Object} Object containing messageToSend and displayMessage
    */
-  async sendMessage() {
-    const userMessage = this._inputField.get_text().trim();
-    if (!userMessage || this._isProcessingMessage) return;
-
-    // Clear input field immediately
-    this._inputField.set_text("");
-
-    // Create display message for UI and history (simpler version)
-    let displayMessage = userMessage;
+  _prepareMessageContent(userInput) {
+    let displayMessage = userInput;
     let messageToSend = "";
-    let fileContentAdded = false;
 
     if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
       // Get JSON formatted file content
@@ -88,9 +84,8 @@ export class MessageSender {
         // Parse the JSON to add the prompt
         try {
           const jsonData = JSON.parse(fileContent);
-          jsonData.prompt = userMessage;
+          jsonData.prompt = userInput;
           messageToSend = JSON.stringify(jsonData, null, 2);
-          fileContentAdded = true;
           displayMessage += " [files attached]";
 
           // Register file paths for lookup during apply operations
@@ -98,17 +93,24 @@ export class MessageSender {
         } catch (error) {
           console.error("Error parsing JSON file content:", error);
           // Fallback in case of error
-          messageToSend = "Prompt: " + userMessage + "\n\n" + fileContent;
+          messageToSend = "Prompt: " + userInput + "\n\n" + fileContent;
         }
       }
     } else {
       // No files, just use the standard format
-      messageToSend = "Prompt: " + userMessage;
+      messageToSend = "Prompt: " + userInput;
     }
 
+    return { messageToSend, displayMessage };
+  }
+
+  /**
+   * Handle pre-send UI updates
+   */
+  _handlePreSendUpdates() {
     // Clean up file boxes if fileHandler is available
     if (this._fileHandler) {
-      this._fileHandler.cleanupFileContentBox(); // This clears both UI and file data after sending
+      this._fileHandler.cleanupFileContentBox();
     }
 
     // Update input field hint to "Your response..." immediately after sending
@@ -117,41 +119,28 @@ export class MessageSender {
     // Set processing state
     this._isProcessingMessage = true;
     this._updateSendButtonState(false);
+  }
 
-    try {
-      // Show the simplified message in UI
-      MessageProcessor.appendUserMessage(this._outputContainer, displayMessage);
+  /**
+   * Handle post-send UI updates and error recovery
+   * @param {Error} error - Optional error object if an error occurred
+   */
+  _handlePostSendUpdates(error = null) {
+    // Reset processing state
+    this._isProcessingMessage = false;
+    this._updateSendButtonState(true);
 
-      // Process the user message with files included, but store the display message in history
-      await MessageProcessor.processUserMessage({
-        userMessage: messageToSend,
-        displayMessage: displayMessage, // Add display message for history
-        context: this._context,
-        outputContainer: this._outputContainer,
-        scrollView: this._outputScrollView,
-        onResponseStart: () => {
-          // Update send button to show stop icon
-          this._updateSendButtonState(false);
-        },
-        onResponseEnd: () => {
-          // Reset processing state
-          this._isProcessingMessage = false;
-          this._updateSendButtonState(true);
-        },
-        skipAppendUserMessage: true, // Skip appending again since we did it above
-      });
-    } catch (error) {
-      console.error("Error processing message:", error);
+    // Update input field hint
+    this._updateInputFieldHint();
+
+    // If there was an error, show it - prioritize service errors
+    const serviceError = getLastError();
+    if (serviceError || error) {
+      console.error("Error processing message:", serviceError || error);
       MessageProcessor.addTemporaryMessage(
         this._outputContainer,
-        "Error processing your message. Please try again."
+        serviceError || "Error processing your message. Please try again."
       );
-
-      // Reset processing flag on error
-      this._isProcessingMessage = false;
-      this._updateSendButtonState(true);
-      // Update input field hint
-      this._updateInputFieldHint();
     }
 
     // Give focus back to input field
@@ -159,12 +148,64 @@ export class MessageSender {
   }
 
   /**
+   * Send a message
+   */
+  async sendMessage() {
+    const userInput = this._inputField.get_text().trim();
+    if (
+      !userInput ||
+      this._isProcessingMessage ||
+      isServiceProcessingMessage()
+    ) {
+      return;
+    }
+
+    // Clear input field immediately
+    this._inputField.set_text("");
+
+    // Prepare the message content
+    const { messageToSend, displayMessage } =
+      this._prepareMessageContent(userInput);
+
+    // Update UI for sending
+    this._handlePreSendUpdates();
+
+    try {
+      // Show the simplified message in UI
+      MessageProcessor.appendUserMessage(this._outputContainer, displayMessage);
+      MessageProcessor.removeTemporaryMessages(this._outputContainer);
+
+      // Process the user message with files included, but store the display message in history
+      await MessageProcessor.processUserMessage({
+        userMessage: messageToSend,
+        displayMessage: displayMessage,
+        context: this._context,
+        outputContainer: this._outputContainer,
+        scrollView: this._outputScrollView,
+        onResponseStart: () => this._updateSendButtonState(false),
+        onResponseEnd: () => this._handlePostSendUpdates(),
+        skipAppendUserMessage: true, // Skip appending again since we did it above
+      });
+    } catch (error) {
+      this._handlePostSendUpdates(error);
+    }
+  }
+
+  /**
    * Stop the current AI message generation
    */
   stopMessage() {
-    stopAiMessage();
-    this._isProcessingMessage = false;
-    this._updateSendButtonState(true);
+    if (!this._isProcessingMessage && !isServiceProcessingMessage()) {
+      return;
+    }
+
+    const partialResponse = stopAiMessage();
+    console.log(
+      "Message stopped with partial response:",
+      partialResponse ? partialResponse.length : 0,
+      "characters"
+    );
+    this._handlePostSendUpdates();
   }
 
   /**
@@ -197,7 +238,7 @@ export class MessageSender {
    * Check if a message is currently being processed
    */
   isProcessingMessage() {
-    return this._isProcessingMessage;
+    return this._isProcessingMessage || isServiceProcessingMessage();
   }
 
   /**
@@ -208,22 +249,28 @@ export class MessageSender {
     const isNewChat =
       history.length === 0 ||
       (history.length > 0 && history[history.length - 1].type === "user");
+
     PanelElements.updateInputFieldHint(this._inputField, isNewChat);
   }
 
   /**
-   * Clean up resources when destroying this object
+   * Cleanup resources when the component is destroyed
    */
   destroy() {
     if (this._sendButtonClickId) {
       this._sendButton.disconnect(this._sendButtonClickId);
       this._sendButtonClickId = null;
     }
+
+    // Ensure any in-progress messages are stopped
+    if (this._isProcessingMessage || isServiceProcessingMessage()) {
+      stopAiMessage();
+    }
   }
 
   /**
    * Set the file handler
-   * @param {FileHandler} fileHandler - The file handler instance
+   * @param {Object} fileHandler - The file handler object
    */
   setFileHandler(fileHandler) {
     this._fileHandler = fileHandler;
