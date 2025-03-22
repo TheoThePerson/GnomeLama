@@ -8,6 +8,7 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as LayoutManager from "./layoutManager.js";
+import { getSettings } from "../lib/settings.js";
 
 // Cache for loaded icons to prevent reloading
 const iconCache = new Map();
@@ -78,6 +79,45 @@ export function createPanelOverlay(dimensions) {
 }
 
 /**
+ * Creates an icon-based button with standardized styling
+ * @param {string} iconPath - Path to the icon
+ * @param {string} styleClass - CSS class for the button
+ * @param {number} iconScale - Scale factor for the icon
+ * @returns {object} - Object containing button and icon elements
+ */
+function createIconButton(iconPath, styleClass, iconScale = 1.0) {
+  const iconSize = 24 * iconScale;
+
+  // Create icon
+  const icon = new St.Icon({
+    style_class: "system-status-icon",
+    style: "margin: 0 auto;",
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+    width: iconSize,
+    height: iconSize,
+  });
+
+  // Load icon asynchronously
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    try {
+      icon.gicon = loadCachedIcon(iconPath);
+    } catch (error) {
+      console.error(`Error setting icon from ${iconPath}:`, error);
+    }
+    return GLib.SOURCE_REMOVE;
+  });
+
+  // Create button with icon
+  const button = new St.Button({
+    child: icon,
+    style_class: styleClass,
+  });
+
+  return { button, icon };
+}
+
+/**
  * Creates a model button with label
  * @param {string} label - Initial button label text
  * @returns {object} - Object containing button and label elements
@@ -119,32 +159,11 @@ export function createModelButton(label = "No models found") {
  * @returns {object} - Object containing button and icon elements
  */
 export function createClearButton(extensionPath, iconScale = 1.0) {
-  const iconSize = 24 * iconScale;
-  const iconPath = `${extensionPath}/icons/trash-icon.svg`;
-
-  // Load icon asynchronously
-  const clearIcon = new St.Icon({
-    style_class: "system-status-icon",
-    style: "margin: 0 auto;",
-    x_align: Clutter.ActorAlign.CENTER,
-    y_align: Clutter.ActorAlign.CENTER,
-    width: iconSize,
-    height: iconSize,
-  });
-
-  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    try {
-      clearIcon.gicon = loadCachedIcon(iconPath);
-    } catch (error) {
-      console.error(`Error setting trash icon:`, error);
-    }
-    return GLib.SOURCE_REMOVE;
-  });
-
-  const clearButton = new St.Button({
-    child: clearIcon,
-    style_class: "clear-button",
-  });
+  const { button: clearButton, icon: clearIcon } = createIconButton(
+    `${extensionPath}/icons/trash-icon.svg`,
+    "clear-button",
+    iconScale
+  );
 
   return { clearButton, clearIcon };
 }
@@ -156,32 +175,11 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
  * @returns {object} - Object containing button and icon elements
  */
 export function createFileButton(extensionPath, iconScale = 1.0) {
-  const iconSize = 24 * iconScale;
-  const iconPath = `${extensionPath}/icons/file-icon.svg`;
-
-  // Load icon asynchronously
-  const fileIcon = new St.Icon({
-    style_class: "system-status-icon",
-    style: "margin: 0 auto;",
-    x_align: Clutter.ActorAlign.CENTER,
-    y_align: Clutter.ActorAlign.CENTER,
-    width: iconSize,
-    height: iconSize,
-  });
-
-  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    try {
-      fileIcon.gicon = loadCachedIcon(iconPath);
-    } catch (error) {
-      console.error(`Error setting file icon:`, error);
-    }
-    return GLib.SOURCE_REMOVE;
-  });
-
-  const fileButton = new St.Button({
-    child: fileIcon,
-    style_class: "file-button",
-  });
+  const { button: fileButton, icon: fileIcon } = createIconButton(
+    `${extensionPath}/icons/file-icon.svg`,
+    "file-button",
+    iconScale
+  );
 
   return { fileButton, fileIcon };
 }
@@ -329,24 +327,12 @@ export function createInputArea(extensionPath, isNewChat = true) {
       "background-color: transparent; border: none; caret-color: white; color: white;",
   });
 
-  // Load icon asynchronously
-  const sendIcon = new St.Icon({
-    style_class: "system-status-icon",
-  });
-
-  const iconPath = `${extensionPath}/icons/send-icon.svg`;
-  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    try {
-      sendIcon.gicon = loadCachedIcon(iconPath);
-    } catch (error) {
-      console.error(`Error setting send icon:`, error);
-    }
-    return GLib.SOURCE_REMOVE;
-  });
-
-  const sendButton = new St.Button({
-    child: sendIcon,
-  });
+  // Create send button with icon
+  const { button: sendButton, icon: sendIcon } = createIconButton(
+    `${extensionPath}/icons/send-icon.svg`,
+    "send-button",
+    1.0
+  );
 
   // Only add the input field to the box, the send button will be in the buttons container
   inputFieldBox.add_child(inputField);
@@ -375,19 +361,44 @@ export function updateInputFieldHint(inputField, isNewChat) {
 }
 
 /**
- * Creates a container for AI responses
- * @param {string} bgColor - Background color for the container
+ * Creates a message container with unified styling
+ * @param {string} [bgColor] - Background color for the container
+ * @param {boolean} [isUser=false] - Whether this is a user message
+ * @param {Clutter.ActorAlign} [alignment=Clutter.ActorAlign.START] - Container alignment
  * @returns {St.BoxLayout} - The created container
  */
-export function createResponseContainer(bgColor) {
+export function createMessageContainer(
+  bgColor,
+  isUser = false,
+  alignment = Clutter.ActorAlign.START
+) {
+  // If no bgColor provided, get from settings
+  if (!bgColor) {
+    const settings = getSettings();
+    bgColor = isUser
+      ? settings.get_string("user-message-color")
+      : settings.get_string("ai-message-color");
+  }
+
   return new St.BoxLayout({
-    style_class: "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 6px;`,
-    x_align: Clutter.ActorAlign.START,
+    style_class: isUser ? "message-box user-message" : "message-box ai-message",
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
+      isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px"
+    };`,
+    x_align: alignment,
     vertical: true,
     x_expand: true,
     pack_start: false,
   });
+}
+
+/**
+ * Creates a container for AI responses (convenience function)
+ * @param {string} [bgColor] - Background color for the container
+ * @returns {St.BoxLayout} - The created container
+ */
+export function createResponseContainer(bgColor) {
+  return createMessageContainer(bgColor, false, Clutter.ActorAlign.START);
 }
 
 /**
