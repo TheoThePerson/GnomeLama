@@ -6,8 +6,74 @@ import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 
 // Constants for performance tuning
-const CHUNK_PROCESSING_BATCH_SIZE = 5; // Process this many chunks before yielding to UI
-const CHUNK_PROCESSING_YIELD_MS = 10; // Time to yield to UI thread between batches
+const CHUNK_PROCESSING_BATCH_SIZE = 8; // Increased batch size for better throughput
+const CHUNK_PROCESSING_YIELD_MS = 5; // Reduced time to yield to UI thread for more responsive UI
+const MAX_CACHE_SIZE = 20; // Maximum number of cached responses
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // Cache expiry time (5 minutes)
+
+// Simple cache for GET requests
+const requestCache = new Map();
+let cacheSize = 0;
+
+/**
+ * Cleans expired items from the cache
+ * @private
+ */
+function cleanCache() {
+  const now = Date.now();
+  const expiredKeys = [];
+
+  // Find expired items
+  requestCache.forEach((item, key) => {
+    if (now - item.timestamp > CACHE_EXPIRY_MS) {
+      expiredKeys.push(key);
+    }
+  });
+
+  // Remove expired items
+  expiredKeys.forEach((key) => {
+    requestCache.delete(key);
+    cacheSize--;
+  });
+}
+
+/**
+ * Adds an item to the cache
+ * @param {string} key - Cache key
+ * @param {Object} value - Value to cache
+ * @private
+ */
+function addToCache(key, value) {
+  // Clean cache if it's reached the limit
+  if (cacheSize >= MAX_CACHE_SIZE) {
+    cleanCache();
+
+    // If still at limit, remove oldest entry
+    if (cacheSize >= MAX_CACHE_SIZE) {
+      let oldestKey = null;
+      let oldestTime = Date.now();
+
+      requestCache.forEach((item, key) => {
+        if (item.timestamp < oldestTime) {
+          oldestTime = item.timestamp;
+          oldestKey = key;
+        }
+      });
+
+      if (oldestKey) {
+        requestCache.delete(oldestKey);
+        cacheSize--;
+      }
+    }
+  }
+
+  // Add new item
+  requestCache.set(key, {
+    data: value,
+    timestamp: Date.now(),
+  });
+  cacheSize++;
+}
 
 /**
  * Creates a cancellable HTTP request session
@@ -15,6 +81,8 @@ const CHUNK_PROCESSING_YIELD_MS = 10; // Time to yield to UI thread between batc
  */
 export function createCancellableSession() {
   const session = new Soup.Session();
+  session.timeout = 30; // 30 second timeout for requests
+
   const cancellable = new Gio.Cancellable();
   let activeInputStream = null;
   let activeDataInputStream = null;
@@ -214,21 +282,46 @@ export function createCancellableSession() {
   }
 
   /**
-   * Performs a GET request to the API
+   * Performs a GET request to the API with caching
    * @param {string} url - API endpoint URL
    * @param {Object} headers - Request headers
+   * @param {boolean} useCache - Whether to use cache (default: true)
    * @returns {Promise<Object>} JSON response
    */
-  async function get(url, headers = {}) {
+  async function get(url, headers = {}, useCache = true) {
+    // Generate cache key from URL and headers
+    const headerKeys = Object.keys(headers).sort();
+    const headerString = headerKeys
+      .map((key) => `${key}:${headers[key]}`)
+      .join("|");
+    const cacheKey = `${url}|${headerString}`;
+
+    // Check cache first if enabled
+    if (useCache && requestCache.has(cacheKey)) {
+      const cachedItem = requestCache.get(cacheKey);
+      const now = Date.now();
+
+      // Return cached item if not expired
+      if (now - cachedItem.timestamp < CACHE_EXPIRY_MS) {
+        return cachedItem.data;
+      } else {
+        // Remove expired item
+        requestCache.delete(cacheKey);
+        cacheSize--;
+      }
+    }
+
     try {
       const session = new Soup.Session();
+      session.timeout = 30; // 30 second timeout for GET requests
+
       const message = Soup.Message.new("GET", url);
 
       Object.entries(headers).forEach(([key, value]) => {
         message.request_headers.append(key, value);
       });
 
-      return new Promise((resolve, reject) => {
+      const response = await new Promise((resolve, reject) => {
         session.send_and_read_async(
           message,
           GLib.PRIORITY_DEFAULT,
@@ -244,8 +337,9 @@ export function createCancellableSession() {
                 throw new Error("No response data received");
               }
 
-              const response = new TextDecoder().decode(bytes.get_data());
-              resolve(JSON.parse(response));
+              const responseText = new TextDecoder().decode(bytes.get_data());
+              const responseData = JSON.parse(responseText);
+              resolve(responseData);
             } catch (e) {
               console.error("Error processing response:", e);
               reject(e);
@@ -253,6 +347,13 @@ export function createCancellableSession() {
           }
         );
       });
+
+      // Cache successful response if caching is enabled
+      if (useCache) {
+        addToCache(cacheKey, response);
+      }
+
+      return response;
     } catch (e) {
       console.error("Error in GET request:", e);
       throw e;
@@ -323,4 +424,13 @@ export async function invokeCallback(callback, data) {
       console.error("Error in callback:", e);
     }
   }
+}
+
+/**
+ * Clears the API request cache
+ * Useful when needing fresh data or to free memory
+ */
+export function clearCache() {
+  requestCache.clear();
+  cacheSize = 0;
 }

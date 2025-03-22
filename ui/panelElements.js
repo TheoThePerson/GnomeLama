@@ -9,6 +9,27 @@ import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as LayoutManager from "./layoutManager.js";
 
+// Cache for loaded icons to prevent reloading
+const iconCache = new Map();
+
+/**
+ * Loads an icon from path with caching
+ * @param {string} path - Path to the icon file
+ * @returns {Gio.Icon} The loaded icon
+ */
+function loadCachedIcon(path) {
+  if (!iconCache.has(path)) {
+    try {
+      iconCache.set(path, Gio.icon_new_for_string(path));
+    } catch (error) {
+      console.error(`Error loading icon from ${path}:`, error);
+      // Return a fallback icon
+      return Gio.ThemedIcon.new("dialog-error-symbolic");
+    }
+  }
+  return iconCache.get(path);
+}
+
 /**
  * Creates a panel overlay widget
  * @param {object} dimensions - Layout dimensions
@@ -33,7 +54,23 @@ export function createPanelOverlay(dimensions) {
 
   // Add to UI group asynchronously to avoid blocking the UI
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    Main.layoutManager.uiGroup.add_child(panelOverlay);
+    try {
+      Main.layoutManager.uiGroup.add_child(panelOverlay);
+    } catch (error) {
+      console.error("Error adding panel overlay to UI group:", error);
+      // Try again with a delay if the UI group might not be ready
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+        try {
+          Main.layoutManager.uiGroup.add_child(panelOverlay);
+        } catch (retryError) {
+          console.error(
+            "Error during retry of adding panel overlay:",
+            retryError
+          );
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+    }
     return GLib.SOURCE_REMOVE;
   });
 
@@ -83,6 +120,7 @@ export function createModelButton(label = "No models found") {
  */
 export function createClearButton(extensionPath, iconScale = 1.0) {
   const iconSize = 24 * iconScale;
+  const iconPath = `${extensionPath}/icons/trash-icon.svg`;
 
   // Load icon asynchronously
   const clearIcon = new St.Icon({
@@ -95,9 +133,11 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
   });
 
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    clearIcon.gicon = Gio.icon_new_for_string(
-      `${extensionPath}/icons/trash-icon.svg`
-    );
+    try {
+      clearIcon.gicon = loadCachedIcon(iconPath);
+    } catch (error) {
+      console.error(`Error setting trash icon:`, error);
+    }
     return GLib.SOURCE_REMOVE;
   });
 
@@ -117,6 +157,7 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
  */
 export function createFileButton(extensionPath, iconScale = 1.0) {
   const iconSize = 24 * iconScale;
+  const iconPath = `${extensionPath}/icons/file-icon.svg`;
 
   // Load icon asynchronously
   const fileIcon = new St.Icon({
@@ -129,9 +170,11 @@ export function createFileButton(extensionPath, iconScale = 1.0) {
   });
 
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    fileIcon.gicon = Gio.icon_new_for_string(
-      `${extensionPath}/icons/file-icon.svg`
-    );
+    try {
+      fileIcon.gicon = loadCachedIcon(iconPath);
+    } catch (error) {
+      console.error(`Error setting file icon:`, error);
+    }
     return GLib.SOURCE_REMOVE;
   });
 
@@ -141,6 +184,21 @@ export function createFileButton(extensionPath, iconScale = 1.0) {
   });
 
   return { fileButton, fileIcon };
+}
+
+// Debounce function for scroll handling
+function debounce(func, wait) {
+  let timeout;
+
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
 
 /**
@@ -173,14 +231,16 @@ export function createOutputArea(dimensions) {
     // Connect to scroll events to force updates
     const adjustment = vscroll.adjustment;
     if (adjustment) {
-      adjustment.connect("notify::value", () => {
-        // Use idle_add to defer redraw to prevent UI blocking
+      // Debounced scroll handler for better performance
+      const debouncedRedraw = debounce(() => {
         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
           outputScrollView.queue_redraw();
           vscroll.queue_redraw();
           return GLib.SOURCE_REMOVE;
         });
-      });
+      }, 16); // ~60fps
+
+      adjustment.connect("notify::value", debouncedRedraw);
     }
   }
 
@@ -192,9 +252,13 @@ export function createOutputArea(dimensions) {
       // ~60fps, limit redraw frequency
       lastScrollTime = currentTime;
       GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-        outputScrollView.queue_redraw();
-        if (vscroll) {
-          vscroll.queue_redraw();
+        try {
+          outputScrollView.queue_redraw();
+          if (vscroll) {
+            vscroll.queue_redraw();
+          }
+        } catch (error) {
+          console.error("Error during scroll redraw:", error);
         }
         return GLib.SOURCE_REMOVE;
       });
@@ -221,7 +285,26 @@ export function createOutputArea(dimensions) {
   // Set scroll policy
   outputScrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
 
-  outputScrollView.set_child(outputContainer);
+  // Set content box for scroll view
+  try {
+    outputScrollView.set_child(outputContainer);
+  } catch (error) {
+    console.error("Error setting scroll view child:", error);
+
+    // Try again with delay
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+      try {
+        outputScrollView.set_child(outputContainer);
+      } catch (retryError) {
+        console.error(
+          "Error during retry of setting scroll view child:",
+          retryError
+        );
+      }
+      return GLib.SOURCE_REMOVE;
+    });
+  }
+
   return { outputScrollView, outputContainer };
 }
 
@@ -251,10 +334,13 @@ export function createInputArea(extensionPath, isNewChat = true) {
     style_class: "system-status-icon",
   });
 
+  const iconPath = `${extensionPath}/icons/send-icon.svg`;
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    sendIcon.gicon = Gio.icon_new_for_string(
-      `${extensionPath}/icons/send-icon.svg`
-    );
+    try {
+      sendIcon.gicon = loadCachedIcon(iconPath);
+    } catch (error) {
+      console.error(`Error setting send icon:`, error);
+    }
     return GLib.SOURCE_REMOVE;
   });
 
@@ -276,9 +362,13 @@ export function createInputArea(extensionPath, isNewChat = true) {
 export function updateInputFieldHint(inputField, isNewChat) {
   if (inputField) {
     GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-      inputField.hint_text = isNewChat
-        ? "Start your conversation..."
-        : "Your response...";
+      try {
+        inputField.hint_text = isNewChat
+          ? "Start your conversation..."
+          : "Your response...";
+      } catch (error) {
+        console.error("Error updating input field hint:", error);
+      }
       return GLib.SOURCE_REMOVE;
     });
   }
@@ -305,16 +395,40 @@ export function createResponseContainer(bgColor) {
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
+  if (!scrollView) return;
+
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    const adjustment = scrollView.vscroll.adjustment;
-    if (adjustment) {
-      const targetValue = adjustment.upper - adjustment.page_size;
-      // Use smooth animation when scrolling
-      adjustment.ease(targetValue, {
-        duration: 250,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-      });
+    try {
+      const adjustment = scrollView.vscroll.adjustment;
+      if (adjustment) {
+        const targetValue = adjustment.upper - adjustment.page_size;
+        // Use smooth animation when scrolling
+        adjustment.ease(targetValue, {
+          duration: 250,
+          mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+      }
+    } catch (error) {
+      console.error("Error scrolling to bottom:", error);
+      // Fallback method if animation fails
+      try {
+        const adjustment = scrollView.vscroll.adjustment;
+        if (adjustment) {
+          const targetValue = adjustment.upper - adjustment.page_size;
+          adjustment.set_value(targetValue);
+        }
+      } catch (fallbackError) {
+        console.error("Error in scroll fallback:", fallbackError);
+      }
     }
     return GLib.SOURCE_REMOVE;
   });
+}
+
+/**
+ * Clears the UI element caches
+ * Call when unloading the extension to free memory
+ */
+export function clearCaches() {
+  iconCache.clear();
 }
