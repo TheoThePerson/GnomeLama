@@ -206,7 +206,7 @@ export class ModelManager {
       style_class: "temporary-message",
       style:
         "background-color: rgba(255, 200, 0, 0.2); " +
-        "border-radius: 8px; " +
+        "border-radius: 16px; " +
         "padding: 10px 15px; " +
         "margin: 5px 0; " +
         "border-left: 3px solid rgba(255, 200, 0, 0.7);",

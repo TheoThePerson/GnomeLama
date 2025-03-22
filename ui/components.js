@@ -26,7 +26,7 @@ export function createMessageContainer(text, isUser, alignment) {
   const messageBox = new St.BoxLayout({
     style_class: isUser ? "message-box user-message" : "message-box ai-message",
     style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
-      isUser ? "16px 16px 6px 16px" : "16px 16px 16px 6px"
+      isUser ? "24px 24px 12px 24px" : "24px 24px 24px 12px"
     };`,
     x_align: alignment,
     vertical: true,
@@ -60,7 +60,7 @@ export function createAIMessageContainer(alignment) {
   // Create a container with explicit styling
   const container = new St.BoxLayout({
     style_class: "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 16px 16px 16px 6px;`,
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 12px;`,
     x_align: alignment,
     vertical: true,
     x_expand: true,
