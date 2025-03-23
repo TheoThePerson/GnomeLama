@@ -3,9 +3,9 @@
  * Manages Ollama model interactions and streaming responses
  */
 
+import { ErrorType, handleError } from "../../lib/errorHandler.js";
 import { getSettings } from "../../lib/settings.js";
 import { createCancellableSession, invokeCallback } from "../apiUtils.js";
-import { handleError, ErrorType } from "../../lib/errorHandler.js";
 
 // Module state
 let currentContext = null; // Store the context from previous interactions

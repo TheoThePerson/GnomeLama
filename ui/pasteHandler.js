@@ -1,9 +1,9 @@
 /**
  * PasteHandler - Manages clipboard paste operations
  */
-import St from "gi://St";
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
+import St from "gi://St";
 import * as MessageProcessor from "./messageProcessor.js";
 
 export class PasteHandler {

@@ -1,10 +1,10 @@
 /**
  * Model manager functionality for the panel UI
  */
-import St from "gi://St";
 import Clutter from "gi://Clutter";
-import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+import St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 // Import layout manager
 import * as LayoutManager from "./layoutManager.js";

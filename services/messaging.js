@@ -1,10 +1,10 @@
 /**
  * Services for communicating with the AI backend
  */
+import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
-import GLib from "gi://GLib";
 
 let conversationHistory = [];
 let currentModel = null;

@@ -3,14 +3,13 @@
  */
 
 import Clutter from "gi://Clutter";
-import St from "gi://St";
 import GLib from "gi://GLib";
-import Gio from "gi://Gio";
+import St from "gi://St";
 import { parseMessageContent } from "../lib/messageFormatter.js";
+import { getSettings } from "../lib/settings.js";
+import { sendMessage } from "../services/messaging.js";
 import * as UIComponents from "./components.js";
 import * as PanelElements from "./panelElements.js";
-import { sendMessage } from "../services/messaging.js";
-import { getSettings } from "../lib/settings.js";
 
 // Track temporary messages
 let temporaryMessages = new Set();

@@ -1,15 +1,15 @@
 /**
  * File handling functionality for the panel UI
  */
-import St from "gi://St";
-import Gio from "gi://Gio";
 import Clutter from "gi://Clutter";
+import Gio from "gi://Gio";
+import St from "gi://St";
 
 // Import from reorganized modules
-import * as MessageProcessor from "./messageProcessor.js";
-import * as LayoutManager from "./layoutManager.js";
-import * as DocumentConverter from "./documentConverter.js";
 import { getSettings } from "../lib/settings.js";
+import * as DocumentConverter from "./documentConverter.js";
+import * as LayoutManager from "./layoutManager.js";
+import * as MessageProcessor from "./messageProcessor.js";
 
 // UI Constants
 const UI = {

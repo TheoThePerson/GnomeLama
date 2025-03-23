@@ -2,9 +2,9 @@
  * Functions for calculating and applying UI layouts
  */
 
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import St from "gi://St";
 import Clutter from "gi://Clutter";
+import St from "gi://St";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { getSettings } from "../lib/settings.js";
 
 // Cache calculated dimensions to avoid recalculation

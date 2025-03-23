@@ -2,10 +2,10 @@
  * UI element creation functions for panel components
  */
 
-import St from "gi://St";
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 /**

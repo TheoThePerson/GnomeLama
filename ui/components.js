@@ -2,11 +2,10 @@
  * UI component creation and rendering utilities
  */
 
-import St from "gi://St";
 import Clutter from "gi://Clutter";
-import Pango from "gi://Pango";
 import GLib from "gi://GLib";
-import Gio from "gi://Gio";
+import Pango from "gi://Pango";
+import St from "gi://St";
 import { getSettings } from "../lib/settings.js";
 
 /**

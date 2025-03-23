@@ -1,22 +1,21 @@
 /**
  * Panel UI implementation
  */
+import Clutter from "gi://Clutter";
 import GObject from "gi://GObject";
 import St from "gi://St";
-import Clutter from "gi://Clutter";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
-import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
 
 // Import from reorganized modules
-import * as PanelElements from "./panelElements.js";
-import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
+import * as MessageProcessor from "./messageProcessor.js";
+import * as PanelElements from "./panelElements.js";
 
 // Import new modular components
 import { FileHandler } from "./fileHandler.js";
-import { ModelManager } from "./modelManager.js";
 import { MessageSender } from "./messageSender.js";
+import { ModelManager } from "./modelManager.js";
 import { PasteHandler } from "./pasteHandler.js";
 
 // Import styling
@@ -24,8 +23,8 @@ import Gio from "gi://Gio";
 
 // Import messaging
 import {
-  getConversationHistory,
   clearConversationHistory,
+  getConversationHistory,
 } from "../services/messaging.js";
 
 export const Indicator = GObject.registerClass(

@@ -1,19 +1,19 @@
 /**
  * Message sender functionality for the panel UI
  */
-import Gio from "gi://Gio";
 import Clutter from "gi://Clutter";
+import Gio from "gi://Gio";
 
 // Import from reorganized modules
-import * as PanelElements from "./panelElements.js";
 import * as MessageProcessor from "./messageProcessor.js";
+import * as PanelElements from "./panelElements.js";
 
 // Import from services
 import {
-  stopAiMessage,
   getConversationHistory,
-  isProcessingMessage as isServiceProcessingMessage,
   getLastError,
+  isProcessingMessage as isServiceProcessingMessage,
+  stopAiMessage,
 } from "../services/messaging.js";
 
 export class MessageSender {

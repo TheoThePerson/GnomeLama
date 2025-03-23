@@ -8,11 +8,11 @@
  * @license MIT
  */
 
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
-import { Indicator } from "./ui/panel.js";
-import { cleanupOnDisable } from "./services/messaging.js";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as ExtensionManager from "./lib/extensionManager.js";
+import { cleanupOnDisable } from "./services/messaging.js";
+import { Indicator } from "./ui/panel.js";
 
 /**
  * Main extension class that handles initialization and cleanup
