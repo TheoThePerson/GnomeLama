@@ -49,7 +49,7 @@ export async function fetchModelNames() {
     });
 
     const selectedModels = [];
-    for (const [baseName, variants] of modelGroups) {
+    for (const [, variants] of modelGroups) {
       const previewVariants = variants.filter((v) => v.includes("-preview"));
       const nonPreviewVariants = variants.filter(
         (v) => !v.includes("-preview")

@@ -2,11 +2,19 @@
  * UI component creation and rendering utilities
  */
 
-import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import Pango from "gi://Pango";
 import St from "gi://St";
 import { getSettings } from "../lib/settings.js";
+
+/**
+ * Utility function for logging errors
+ * @param {string} message - Error message
+ * @param {Error} error - Error object
+ */
+function logError(message, error) {
+  console.error(message, error);
+}
 
 /**
  * Creates a message container (user or AI)
@@ -83,20 +91,17 @@ function copyToClipboard(text) {
  */
 function executeBashScript(script) {
   if (!script || script.trim() === "") {
-    logError(new Error("Empty script"), "Cannot execute empty script");
-    return;
+    return; // no script to execute
   }
 
   try {
     // Trim script to remove unwanted spaces and newlines
     const trimmedScript = script.trim().replace(/(["`$])/g, "\\$1"); // Escape special characters
-
     // Use double quotes instead of single quotes
     const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
-
     GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
-    logError(e, "Error launching terminal");
+    logError("Error launching terminal:", e);
   }
 }
 
