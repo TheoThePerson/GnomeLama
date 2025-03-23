@@ -150,18 +150,12 @@ function handleResponseError(
  * @param {string} message - The message to append
  */
 export function appendUserMessage(outputContainer, message) {
-  // Use the UIComponents.createMessageContainer to create a user message container
   const userContainer = UIComponents.createMessageContainer(
     message,
-    true, // true for user message
+    true, // isUser
     Clutter.ActorAlign.END
   );
-
-  // Add the message container to the output
   outputContainer.add_child(userContainer);
-
-  // Scroll to show the new message
-  PanelElements.scrollToBottom(outputContainer.get_parent());
 }
 
 /**

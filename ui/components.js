@@ -8,7 +8,6 @@ import Pango from "gi://Pango";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import { getSettings } from "../lib/settings.js";
-import * as PanelElements from "./panelElements.js";
 
 /**
  * Creates a message container (user or AI)
@@ -18,26 +17,35 @@ import * as PanelElements from "./panelElements.js";
  * @returns {St.BoxLayout} The created message container
  */
 export function createMessageContainer(text, isUser, alignment) {
-  // Use the unified container creation from PanelElements
-  const container = PanelElements.createMessageContainer(
-    null,
-    isUser,
-    alignment
-  );
+  const settings = getSettings();
+  const bgColor = isUser
+    ? settings.get_string("user-message-color")
+    : settings.get_string("ai-message-color");
 
-  // Add the text label
+  // Create the outer container with specific styling class and explicit style
+  const messageBox = new St.BoxLayout({
+    style_class: isUser ? "message-box user-message" : "message-box ai-message",
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
+      isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px"
+    };`,
+    x_align: alignment,
+    vertical: true,
+  });
+
+  // Create label with text content
   const label = new St.Label({
     text: text,
-    style_class: "message-text",
+    style_class: "text-label",
+    style: "padding: 0; margin: 0;",
     x_expand: true,
   });
 
-  label.clutter_text.line_wrap = true;
-  label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+  label.clutter_text.set_line_wrap(true);
+  label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+  label.clutter_text.set_selectable(true);
 
-  container.add_child(label);
-  return container;
+  messageBox.add_child(label);
+  return messageBox;
 }
 
 /**
@@ -46,8 +54,19 @@ export function createMessageContainer(text, isUser, alignment) {
  * @returns {St.BoxLayout} The created message container
  */
 export function createAIMessageContainer(alignment) {
-  // Use the unified container creation from PanelElements
-  return PanelElements.createMessageContainer(null, false, alignment);
+  const settings = getSettings();
+  const bgColor = settings.get_string("ai-message-color");
+
+  // Create a container with explicit styling
+  const container = new St.BoxLayout({
+    style_class: "message-box ai-message",
+    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 12px;`,
+    x_align: alignment,
+    vertical: true,
+    x_expand: true,
+  });
+
+  return container;
 }
 
 /**
@@ -69,45 +88,40 @@ function executeBashScript(script) {
     return;
   }
 
-  const trimmedScript = script.trim().replace(/(["`$])/g, "\\$1"); // Escape special characters
-
-  // Create full command to open in terminal
-  const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
-
   try {
-    const [success, pid] = GLib.spawn_command_line_async(fullCommand);
-    if (!success) {
-      logError(
-        new Error("Failed to execute script"),
-        "spawn_command_line_async returned false"
-      );
-    }
+    // Trim script to remove unwanted spaces and newlines
+    const trimmedScript = script.trim().replace(/(["`$])/g, "\\$1"); // Escape special characters
+
+    // Use double quotes instead of single quotes
+    const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
+
+    GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
-    logError(e, "Failed to execute script");
+    logError(e, "Error launching terminal");
   }
 }
 
 /**
- * Creates a code container with syntax highlighting styles
- * @param {string} code - Code content
- * @param {string} language - Programming language for styling
+ * Creates a code block container
+ * @param {string} code - The code content
+ * @param {string} language - The language of the code block
  * @returns {St.BoxLayout} The created code container
  */
 export function createCodeContainer(code, language = "code") {
+  // Main container with dark grey background
   const codeBox = new St.BoxLayout({
+    vertical: true,
     style_class: "code-container",
     style:
-      "background-color: #282A36; border-radius: 8px; margin: 8px 0; width: 100%;",
-    vertical: true,
+      "background-color: #222; border: 1px solid #444; border-radius: 8px; margin: 8px 0;",
     x_expand: true,
   });
 
-  // Create header with language label and copy button
+  // Create a header box with darker background
   const headerBox = new St.BoxLayout({
     style_class: "code-header",
     style:
-      "background-color: #1E1F29; border-radius: 8px 8px 0 0; padding: 6px 10px;",
-    vertical: false,
+      "background-color: #333; padding: 6px 8px; border-radius: 8px 8px 0 0;",
     x_expand: true,
   });
 
@@ -115,83 +129,80 @@ export function createCodeContainer(code, language = "code") {
   const languageLabel = new St.Label({
     text: language,
     style_class: "code-language",
-    style:
-      "color: #BD93F9; font-size: 12px; font-family: monospace; padding: 0 4px;",
+    style: "color: #ddd; font-size: 12px; font-weight: bold;",
     x_expand: true,
-    y_align: Clutter.ActorAlign.CENTER,
   });
 
+  languageLabel.clutter_text.set_selectable(true);
   headerBox.add_child(languageLabel);
 
-  // Add copy button
+  // Add copy button with grey styling - more compact
   const copyButton = new St.Button({
-    label: "Copy",
-    style_class: "code-copy-button",
+    style_class: "code-button",
     style:
-      "color: #8BE9FD; background-color: #44475A; border-radius: 4px; padding: 2px 8px; font-size: 12px;",
-    x_align: Clutter.ActorAlign.END,
+      "background-color: #555; color: white; border-radius: 3px; padding: 2px 8px; font-size: 10px;",
+    label: "Copy",
   });
 
   let copyTimeoutId = null;
   copyButton.connect("clicked", () => {
-    // Copy code to clipboard
     copyToClipboard(code);
+    copyButton.set_label("Copied!");
 
-    // Change button label temporarily to indicate success
-    const originalLabel = copyButton.label;
-    copyButton.label = "Copied!";
-    copyButton.style =
-      "color: #50FA7B; background-color: #44475A; border-radius: 4px; padding: 2px 8px; font-size: 12px;";
-
-    // Restore original label after 2 seconds
     if (copyTimeoutId) {
-      GLib.source_remove(copyTimeoutId);
+      GLib.Source.remove(copyTimeoutId);
     }
 
-    copyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
-      copyButton.label = originalLabel;
-      copyButton.style =
-        "color: #8BE9FD; background-color: #44475A; border-radius: 4px; padding: 2px 8px; font-size: 12px;";
+    copyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+      if (!copyButton.destroyed) {
+        copyButton.set_label("Copy");
+      }
       copyTimeoutId = null;
       return GLib.SOURCE_REMOVE;
+    });
+
+    copyButton.connect("destroy", () => {
+      if (copyTimeoutId) {
+        GLib.Source.remove(copyTimeoutId);
+        copyTimeoutId = null;
+      }
     });
   });
 
   headerBox.add_child(copyButton);
 
-  // Add execute button for bash scripts
+  // Add execute button for bash scripts with green styling - more compact
   const isBashScript = language === "bash" || language === "sh";
-
   if (isBashScript) {
     const executeButton = new St.Button({
-      label: "Run",
-      style_class: "code-execute-button",
+      style_class: "execute-button",
       style:
-        "color: #FFB86C; background-color: #44475A; border-radius: 4px; padding: 2px 8px; margin-left: 8px; font-size: 12px;",
+        "background-color: #2e7d32; color: white; border-radius: 3px; padding: 2px 8px; font-size: 10px;",
+      label: "Execute",
     });
 
     let executeTimeoutId = null;
     executeButton.connect("clicked", () => {
-      // Execute bash script in terminal
       executeBashScript(code);
+      executeButton.set_label("Executing...");
 
-      // Change button label temporarily to indicate execution
-      const originalLabel = executeButton.label;
-      executeButton.label = "Running...";
-      executeButton.style =
-        "color: #FF5555; background-color: #44475A; border-radius: 4px; padding: 2px 8px; margin-left: 8px; font-size: 12px;";
-
-      // Restore original label after 2 seconds
       if (executeTimeoutId) {
-        GLib.source_remove(executeTimeoutId);
+        GLib.Source.remove(executeTimeoutId);
       }
 
-      executeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
-        executeButton.label = originalLabel;
-        executeButton.style =
-          "color: #FFB86C; background-color: #44475A; border-radius: 4px; padding: 2px 8px; margin-left: 8px; font-size: 12px;";
+      executeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+        if (!executeButton.destroyed) {
+          executeButton.set_label("Execute");
+        }
         executeTimeoutId = null;
         return GLib.SOURCE_REMOVE;
+      });
+
+      executeButton.connect("destroy", () => {
+        if (executeTimeoutId) {
+          GLib.Source.remove(executeTimeoutId);
+          executeTimeoutId = null;
+        }
       });
     });
 
@@ -200,18 +211,18 @@ export function createCodeContainer(code, language = "code") {
 
   codeBox.add_child(headerBox);
 
-  // Add code content with syntax highlighting styles
+  // Create a container for the code content with specific styling
   const codeContent = new St.Label({
     text: code,
     style_class: "code-content",
     style:
-      "font-family: monospace; color: #F8F8F2; background-color: #282A36; padding: 12px; border-radius: 0 0 8px 8px; font-size: 14px;",
+      "background-color: #222; color: #eee; padding: 12px; font-family: monospace;",
     x_expand: true,
   });
 
-  codeContent.clutter_text.line_wrap = true;
-  codeContent.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  codeContent.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+  codeContent.clutter_text.set_line_wrap(true);
+  codeContent.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+  codeContent.clutter_text.set_selectable(true);
 
   codeBox.add_child(codeContent);
 
@@ -219,144 +230,149 @@ export function createCodeContainer(code, language = "code") {
 }
 
 /**
- * Creates a text label for normal text content
- * @param {string} text - Text content
+ * Creates a text label
+ * @param {string} text - The text content
  * @returns {St.Label} The created text label
  */
 export function createTextLabel(text) {
   const textLabel = new St.Label({
     text: text,
-    style_class: "response-text",
-    style: "margin: 4px 0;",
+    style_class: "text-label",
+    style: "display: inline-block;",
     x_expand: true,
   });
 
-  textLabel.clutter_text.line_wrap = true;
-  textLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  textLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+  // Enable line wrapping and preserve whitespace
+  textLabel.clutter_text.set_line_wrap(true);
+  textLabel.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+  textLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+  textLabel.clutter_text.set_selectable(true);
 
   return textLabel;
 }
 
 /**
- * Creates a temporary message label (e.g., for status messages)
- * @param {string} text - Message text
+ * Creates a temporary message label
+ * @param {string} text - The message text
  * @returns {St.Label} The created temporary message label
  */
 export function createTemporaryMessageLabel(text) {
   const tempLabel = new St.Label({
     text: text,
     style_class: "temporary-message",
-    style: "font-style: italic; color: #888888; margin: 8px 0;",
+    style: "font-style: italic; color: #aaa;",
     x_expand: true,
-    x_align: Clutter.ActorAlign.CENTER,
   });
 
-  tempLabel.clutter_text.line_wrap = true;
-  tempLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  tempLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+  tempLabel.clutter_text.set_line_wrap(true);
+  tempLabel.clutter_text.set_selectable(true);
 
   return tempLabel;
 }
 
 /**
- * Creates a blockquote element for quoted text
- * @param {string} content - Text content
+ * Creates a blockquote element
+ * @param {string} content - The blockquote content
  * @returns {St.BoxLayout} The created blockquote element
  */
 export function createBlockquoteElement(content) {
   const blockquote = new St.BoxLayout({
+    vertical: true,
     style_class: "blockquote",
     style:
-      "border-left: 4px solid #50FA7B; padding: 0 0 0 12px; margin: 8px 0;",
-    vertical: true,
+      "border-left: 4px solid #888; padding-left: 12px; margin: 10px 0; background-color: rgba(0,0,0,0.03);",
     x_expand: true,
   });
 
   const label = new St.Label({
     text: content,
-    style: "font-style: italic; color: #BBBBBB;",
+    style_class: "blockquote-text",
     x_expand: true,
   });
 
-  label.clutter_text.line_wrap = true;
-  label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-
+  label.clutter_text.set_line_wrap(true);
+  label.clutter_text.set_selectable(true);
   blockquote.add_child(label);
 
   return blockquote;
 }
 
 /**
- * Creates a heading element with appropriate sizing
- * @param {string} content - Heading text
- * @param {number} level - Heading level (1-6)
- * @returns {St.Label} The created heading label
+ * Creates a heading element
+ * @param {string} content - The heading content
+ * @param {number} level - The heading level (1-6)
+ * @returns {St.Label} The created heading element
  */
 export function createHeadingElement(content, level) {
-  // Adjust font size based on heading level
+  // Calculate font size based on heading level
   const fontSize = 18 - (level - 1) * 2;
 
   const heading = new St.Label({
     text: content,
     style_class: `heading heading-${level}`,
-    style: `font-size: ${fontSize}px; font-weight: bold; margin: 16px 0 8px 0;`,
+    style: `font-size: ${fontSize}px; font-weight: bold; margin: ${
+      level === 1 ? "16px 0 8px" : "12px 0 8px"
+    }; padding-bottom: 4px; ${
+      level <= 2 ? "border-bottom: 1px solid #ddd;" : ""
+    }`,
     x_expand: true,
   });
 
-  heading.clutter_text.line_wrap = true;
-  heading.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-  heading.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+  heading.clutter_text.set_line_wrap(true);
+  heading.clutter_text.set_selectable(true);
 
   return heading;
 }
 
 /**
  * Creates a list element (ordered or unordered)
- * @param {string[]} items - Array of list items
- * @param {string} type - List type ('ordered' or 'unordered')
- * @returns {St.BoxLayout} The created list container
+ * @param {Array} items - Array of list item objects with content and prefix
+ * @param {string} type - Type of list ('orderedList' or 'unorderedList')
+ * @returns {St.BoxLayout} The created list element
  */
 export function createListElement(items, type) {
   const listContainer = new St.BoxLayout({
-    style_class: `list-container ${type}-list`,
-    style: "margin: 8px 0;",
     vertical: true,
+    style_class: type === "orderedList" ? "ordered-list" : "unordered-list",
+    style: "margin: 8px 0;",
     x_expand: true,
   });
 
-  items.forEach((item, index) => {
-    // Create a container for each list item
+  items.forEach((item) => {
     const listItem = new St.BoxLayout({
       style_class: "list-item",
-      style: "padding: 2px 0;",
-      vertical: false,
       x_expand: true,
+      style: "margin: 2px 0;",
     });
 
-    // Create appropriate prefix based on list type
+    // Use proper bullet for unordered lists based on prefix character
+    let bulletText;
+    if (type === "orderedList") {
+      bulletText = `${item.prefix} `;
+    } else {
+      // Use Unicode bullet character regardless of the original prefix
+      bulletText = "• ";
+    }
+
+    // Add bullet or number
     const prefix = new St.Label({
-      text: type === "ordered" ? `${index + 1}.` : "•",
-      style_class: "list-prefix",
-      style: "min-width: 24px; color: #BD93F9;",
-      y_align: Clutter.ActorAlign.START,
+      text: bulletText,
+      style:
+        "min-width: 25px; font-weight: " +
+        (type === "orderedList" ? "normal" : "bold") +
+        ";",
     });
-
     listItem.add_child(prefix);
 
-    // Create the content for the list item
+    // Add content
     const content = new St.Label({
-      text: item,
-      style_class: "list-content",
+      text: item.content,
       x_expand: true,
     });
-
-    content.clutter_text.line_wrap = true;
-    content.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-    content.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-
+    content.clutter_text.set_line_wrap(true);
+    content.clutter_text.set_selectable(true);
     listItem.add_child(content);
+
     listContainer.add_child(listItem);
   });
 
@@ -364,13 +380,13 @@ export function createListElement(items, type) {
 }
 
 /**
- * Creates a horizontal rule (divider) element
+ * Creates a horizontal rule element
  * @returns {St.BoxLayout} The created horizontal rule
  */
 export function createHorizontalRuleElement() {
   const rule = new St.BoxLayout({
     style_class: "horizontal-rule",
-    style: "background-color: #44475A; height: 1px; margin: 16px 0;",
+    style: "background-color: #ddd; height: 1px; margin: 16px 0;",
     x_expand: true,
   });
 
