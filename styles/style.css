@@ -4,6 +4,47 @@
   border-radius: 0px;
 }
 
+/* Model menu popup styles */
+.model-menu-popup {
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  width: auto;
+  min-width: 150px;
+  border: none;
+}
+
+.model-menu-box {
+  border-radius: 8px;
+  padding: 8px 8px;
+  margin: 0;
+  spacing: 2px;
+  background-color: #2a2a2a;
+  border: none;
+}
+
+.model-menu-item {
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+  color: white;
+  background-color: #2a2a2a;
+}
+
+.model-menu-item:hover {
+  background-color: #444;
+}
+
+.popup-menu-ornament {
+  width: 16px;
+  text-align: center;
+}
+
+.model-selection-dot {
+  width: 10px;
+  height: 10px;
+}
+
 /* Button styles */
 .model-button {
   background-color: transparent;
@@ -56,9 +97,7 @@
   border-radius: 20px;
   padding: 8px 16px;
   caret-color: white;
-  background-color: #333;
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   -st-hint-text-color: #808080;
 }
 

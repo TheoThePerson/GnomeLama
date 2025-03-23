@@ -75,6 +75,14 @@ export class ModelManager {
     Main.uiGroup.add_child(this._modelMenu.actor);
     this._modelMenu.actor.hide();
 
+    // Apply CSS class to the menu actor
+    this._modelMenu.actor.add_style_class_name("model-menu-popup");
+
+    // Add CSS class to the menu box
+    if (this._modelMenu.box) {
+      this._modelMenu.box.add_style_class_name("model-menu-box");
+    }
+
     this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
         this._positionModelMenu();
@@ -119,7 +127,7 @@ export class ModelManager {
 
   _positionModelMenu() {
     // Get model button position and size
-    const [buttonX, buttonY] = this._modelButton.get_transformed_position();
+    const [buttonX] = this._modelButton.get_transformed_position();
 
     // Get menu actor
     let menuActor = this._modelMenu.actor || this._modelMenu;
@@ -127,11 +135,11 @@ export class ModelManager {
     // Get menu height
     const [, menuHeight] = menuActor.get_preferred_height(-1);
 
-    // Position the menu aligned with the model button, just above it
-    menuActor.set_position(
-      buttonX,
-      buttonY - menuHeight - 5 // 5px padding above button
-    );
+    // Position it above the input field container if it exists
+    const [, inputY] = this._inputButtonsContainer.get_transformed_position();
+
+    // Position above the input container with small padding
+    menuActor.set_position(buttonX, inputY - menuHeight);
   }
 
   async _populateModelMenu() {
@@ -160,40 +168,73 @@ export class ModelManager {
     setModel(selectedModel);
 
     models.forEach((name) => {
-      let modelItem = new PopupMenu.PopupMenuItem(name);
-
-      if (name === selectedModel) {
-        modelItem.setOrnament(PopupMenu.Ornament.DOT);
-      }
-
-      modelItem.connect("activate", () => {
-        this._selectModel(name, modelItem);
+      // Create a custom menu item
+      let menuItem = new PopupMenu.PopupBaseMenuItem({
+        style_class: "model-menu-item",
       });
 
-      this._modelMenu.addMenuItem(modelItem);
+      // Add a spacer for the ornament
+      let ornamentSpace = new St.Bin({
+        style_class: "popup-menu-ornament",
+        x_expand: false,
+      });
+      menuItem.actor.add_child(ornamentSpace);
+
+      // Add the label
+      let label = new St.Label({
+        text: name,
+        y_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+      });
+      menuItem.actor.add_child(label);
+
+      // Store ornament bin reference for selection
+      menuItem._ornamentBin = ornamentSpace;
+
+      // Add the dot ornament for the selected model
+      if (name === selectedModel) {
+        let dot = new St.Icon({
+          icon_name: "media-record-symbolic",
+          style_class: "popup-menu-icon model-selection-dot",
+        });
+        ornamentSpace.set_child(dot);
+      }
+
+      // Connect activation handler
+      menuItem.connect("activate", () => {
+        this._selectCustomModel(name, menuItem);
+      });
+
+      this._modelMenu.addMenuItem(menuItem);
     });
+  }
+
+  _selectCustomModel(name, menuItem) {
+    // Clear all ornaments
+    this._modelMenu.box.get_children().forEach((child) => {
+      if (child.actor && child._ornamentBin) {
+        child._ornamentBin.set_child(null);
+      }
+    });
+
+    // Add ornament to the selected item
+    if (menuItem._ornamentBin) {
+      let dot = new St.Icon({
+        icon_name: "media-record-symbolic",
+        style_class: "popup-menu-icon model-selection-dot",
+      });
+      menuItem._ornamentBin.set_child(dot);
+    }
+
+    this._updateModelLabel(name);
+    setModel(name);
+    this._modelMenu.close();
+    this._stopAiMessageCallback();
   }
 
   _updateModelLabel(name) {
     this._modelButtonLabel.set_text(name);
     this._modelButtonLabel.set_x_align(Clutter.ActorAlign.START);
-  }
-
-  _selectModel(name, modelItem) {
-    this._modelMenu.box.get_children().forEach((child) => {
-      if (child.setOrnament) {
-        child.setOrnament(PopupMenu.Ornament.NONE);
-      }
-    });
-
-    modelItem.setOrnament(PopupMenu.Ornament.DOT);
-
-    this._updateModelLabel(name);
-    setModel(name);
-
-    this._modelMenu.close();
-
-    this._stopAiMessageCallback();
   }
 
   _addTemporaryMessage(message) {
