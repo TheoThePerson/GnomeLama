@@ -8,7 +8,7 @@ import GLib from "gi://GLib";
 // Import specialized converters
 import { extractPdfText } from "./pdfConverter.js";
 import { extractWordText } from "./wordConverter.js";
-import { executeCommand } from "./utils.js";
+import { executeCommand } from "./converterUtils.js";
 
 // Define supported file types and their corresponding converters
 export const SUPPORTED_FORMATS = {

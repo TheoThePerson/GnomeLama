@@ -10,7 +10,7 @@ import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 // Import from reorganized modules
 import * as LayoutManager from "./layoutManager.js";
 import * as MessageProcessor from "./messageProcessor.js";
-import * as PanelElements from "./panelElements.js";
+import * as PanelElements from "./panelWidgets.js";
 
 // Import new modular components
 import { FileHandler } from "./fileHandler.js";

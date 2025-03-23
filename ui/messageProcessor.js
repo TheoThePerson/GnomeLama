@@ -10,8 +10,8 @@ import St from "gi://St";
 import { parseMessageContent } from "../lib/messageFormatter.js";
 import { getSettings } from "../lib/settings.js";
 import { sendMessage } from "../services/messaging.js";
-import * as UIComponents from "./components.js";
-import * as PanelElements from "./panelElements.js";
+import * as UIComponents from "./uiComponents.js";
+import * as PanelElements from "./panelWidgets.js";
 
 // Track temporary messages
 let temporaryMessages = new Set();

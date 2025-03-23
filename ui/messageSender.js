@@ -7,7 +7,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
-import * as PanelElements from "./panelElements.js";
+import * as PanelElements from "./panelWidgets.js";
 
 // Import from services
 import {
