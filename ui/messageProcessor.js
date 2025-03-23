@@ -1,3 +1,5 @@
+/* global imports */
+
 /**
  * UI message processing functionalities
  */
@@ -296,7 +298,7 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
   try {
     jsonData = JSON.parse(responseText);
     confidenceLevel = 5; // Direct JSON parsing succeeded, high confidence
-  } catch (e) {
+  } catch {
     // If direct parsing fails, check for JSON in a code block
     const codeBlockMatch = responseText.match(
       /```(?:json)?\s*\n([\s\S]*?)\n```/
@@ -305,9 +307,9 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       try {
         jsonData = JSON.parse(codeBlockMatch[1]);
         confidenceLevel = 5; // JSON in code block, high confidence
-      } catch (e) {
+      } catch {
         // Not valid JSON in code block either
-        console.log("Failed to parse JSON in code block:", e);
+        console.log("Failed to parse JSON in code block");
       }
     }
 
@@ -565,11 +567,11 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
                 `Error: Failed to write to ${fullPath}. Check file permissions.`
               );
             }
-          } catch (writeError) {
-            console.error(`Error writing to file: ${writeError}`);
+          } catch {
+            console.error("Error writing to file");
             addTemporaryMessage(
               container.get_parent(),
-              `Error writing to file: ${writeError.message}`
+              `Error writing to file`
             );
           }
 
@@ -585,11 +587,11 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
             applyTimeoutId = null;
             return GLib.SOURCE_REMOVE;
           });
-        } catch (error) {
-          console.error(`Error applying file content: ${error}`);
+        } catch {
+          console.error("Error applying file content");
           addTemporaryMessage(
             container.get_parent(),
-            `Error: ${error.message}`
+            `Error: Error applying file content`
           );
 
           // Reset the button label after error
@@ -655,13 +657,14 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
  */
 function createContentElement(part) {
   switch (part.type) {
-    case "code":
+    case "code": {
       const codeElement = UIComponents.createCodeContainer(
         part.content,
         part.language
       );
       codeElement.add_style_class_name("code-block-part");
       return codeElement;
+    }
 
     case "text":
       return UIComponents.createTextLabel(part.content);
@@ -777,8 +780,8 @@ export function registerFilePaths(jsonString) {
         }
       });
     }
-  } catch (error) {
-    console.error("Error registering file paths:", error);
+  } catch {
+    console.error("Error registering file paths");
   }
 }
 
@@ -810,8 +813,8 @@ function tryExtractJsonFromText(text) {
         const result = JSON.parse(jsonMatch[0]);
         console.log("Found JSON with summary and files pattern");
         return result;
-      } catch (e) {
-        console.log("Found pattern but failed to parse:", e);
+      } catch {
+        console.log("Found pattern but failed to parse");
         // Continue with other methods
       }
     }
@@ -826,7 +829,7 @@ function tryExtractJsonFromText(text) {
         const filesArray = JSON.parse(fileArrayMatch[0]);
         console.log("Found file array pattern");
         return { files: filesArray };
-      } catch (e) {
+      } catch {
         // Continue with other methods
       }
     }
@@ -846,7 +849,7 @@ function tryExtractJsonFromText(text) {
           const result = JSON.parse(match);
           console.log("Found valid JSON object in text");
           return result;
-        } catch (e) {
+        } catch {
           // Try to clean up and retry
           try {
             // Remove extra text and retry
@@ -854,7 +857,7 @@ function tryExtractJsonFromText(text) {
             const result = JSON.parse(cleanedMatch);
             console.log("Found valid JSON after cleanup");
             return result;
-          } catch (innerE) {
+          } catch {
             // Continue to next match
           }
         }
@@ -883,7 +886,7 @@ function tryExtractJsonFromText(text) {
             console.log("Found valid JSON array of files");
             return { files: result };
           }
-        } catch (e) {
+        } catch {
           // Try cleaning
           try {
             const cleanedMatch = cleanJsonString(match);
@@ -898,7 +901,7 @@ function tryExtractJsonFromText(text) {
               console.log("Found valid JSON array of files after cleanup");
               return { files: result };
             }
-          } catch (innerE) {
+          } catch {
             // Continue to next match
           }
         }
@@ -917,7 +920,7 @@ function tryExtractJsonFromText(text) {
           console.log("Found single file object");
           return fileObj;
         }
-      } catch (e) {
+      } catch {
         // Try with cleaning
         try {
           const cleanedMatch = cleanJsonString(fileObjectMatch[0]);
@@ -925,15 +928,15 @@ function tryExtractJsonFromText(text) {
           if (fileObj.filename && "content" in fileObj) {
             return fileObj;
           }
-        } catch (innerE) {
+        } catch {
           // Continue
         }
       }
     }
 
     return null;
-  } catch (e) {
-    console.error("Error in tryExtractJsonFromText:", e);
+  } catch {
+    console.error("Error in tryExtractJsonFromText");
     return null;
   }
 }

@@ -6,11 +6,10 @@ import St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
-// Import layout manager
-import * as LayoutManager from "./layoutManager.js";
-
 // Import from services
 import { fetchModelNames, setModel } from "../services/messaging.js";
+
+/* global global */
 
 export class ModelManager {
   constructor(
@@ -119,14 +118,11 @@ export class ModelManager {
   }
 
   _positionModelMenu() {
-    // Get dimensions from LayoutManager for consistency
-    const dimensions = LayoutManager.calculatePanelDimensions();
+    // Get model button position and size
+    const [buttonX, buttonY] = this._modelButton.get_transformed_position();
 
     // Get menu actor
     let menuActor = this._modelMenu.actor || this._modelMenu;
-
-    // Get model button position and size
-    const [buttonX, buttonY] = this._modelButton.get_transformed_position();
 
     // Get menu height
     const [, menuHeight] = menuActor.get_preferred_height(-1);

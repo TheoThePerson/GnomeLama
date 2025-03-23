@@ -3,6 +3,7 @@
  */
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
@@ -144,7 +145,7 @@ export class MessageSender {
     }
 
     // Give focus back to input field
-    global.stage.set_key_focus(this._inputField.clutter_text);
+    Main.global.stage.set_key_focus(this._inputField.clutter_text);
   }
 
   /**

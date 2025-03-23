@@ -1,3 +1,5 @@
+/* global imports */
+
 /**
  * File handling functionality for the panel UI
  */
@@ -7,7 +9,7 @@ import St from "gi://St";
 
 // Import from reorganized modules
 import { getSettings } from "../lib/settings.js";
-import * as DocumentConverter from "./documentConverter.js";
+import * as DocumentConverter from "../converters/documentConverter.js";
 import * as LayoutManager from "./layoutManager.js";
 import * as MessageProcessor from "./messageProcessor.js";
 
@@ -353,7 +355,7 @@ export class FileHandler {
   _decodeFileContent(content) {
     try {
       return new TextDecoder("utf-8").decode(content);
-    } catch (error) {
+    } catch {
       return content.toString();
     }
   }
@@ -922,13 +924,13 @@ export class FileHandler {
     this._fileBoxesContainer.queue_relayout();
 
     // Apply changes with multiple scheduling priorities to ensure it happens
-    imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_HIGH, () => {
+    imports.gi.GLib.idle_add(() => {
       this._adjustInputContainerHeight();
       return imports.gi.GLib.SOURCE_REMOVE;
     });
 
     // Schedule another refresh at a lower priority
-    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 100, () => {
+    imports.gi.GLib.timeout_add(() => {
       // Apply sizes again to ensure consistency
       const children = this._fileBoxesContainer.get_children();
       for (const fileBox of children) {
@@ -941,7 +943,7 @@ export class FileHandler {
       this._adjustInputContainerHeight();
 
       return imports.gi.GLib.SOURCE_REMOVE;
-    });
+    }, 100);
   }
 
   /**

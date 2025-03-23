@@ -6,9 +6,9 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
 // Import specialized converters
-import { extractPdfText } from "./converters/pdfConverter.js";
-import { extractWordText } from "./converters/wordConverter.js";
-import { executeCommand } from "./converters/utils.js";
+import { extractPdfText } from "./pdfConverter.js";
+import { extractWordText } from "./wordConverter.js";
+import { executeCommand } from "./utils.js";
 
 // Define supported file types and their corresponding converters
 export const SUPPORTED_FORMATS = {

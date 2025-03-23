@@ -4,7 +4,10 @@
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import St from "gi://St";
+import Shell from "gi://Shell";
 import * as MessageProcessor from "./messageProcessor.js";
+
+const global = Shell.Global.get();
 
 export class PasteHandler {
   /**
