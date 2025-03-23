@@ -231,15 +231,9 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   if (fileBoxesContainer && fileBoxesContainer.get_n_children() > 0) {
     fileBoxHeight = fileBoxesContainer.get_height();
 
-    // Limit file box height if needed
-    const maxContainerHeight = panelHeight * 0.6;
-    const totalHeight = baseContainerHeight + fileBoxHeight;
-
-    if (totalHeight > maxContainerHeight) {
-      // Adjust file box container height and enable scrolling
-      const availableFileBoxHeight = maxContainerHeight - baseContainerHeight;
-      fileBoxHeight = availableFileBoxHeight;
-      fileBoxesContainer.set_height(availableFileBoxHeight);
+    // Set overflow based on content size
+    if (fileBoxHeight > panelHeight * 0.8) {
+      // Enable scrolling only if the content is very large
       fileBoxesContainer.set_style("overflow-y: auto;");
     } else {
       fileBoxesContainer.set_style("overflow-y: visible;");
