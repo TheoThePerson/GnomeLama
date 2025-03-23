@@ -62,34 +62,5 @@ export default class LinuxCopilotExtension extends Extension {
 
     // Clean up messaging service
     cleanupOnDisable();
-
-    // Clear API caches if available
-    try {
-      const apiUtils = import("./services/apiUtils.js");
-      if (apiUtils && typeof apiUtils.clearCache === "function") {
-        apiUtils.clearCache();
-      }
-    } catch (error) {
-      console.error("Error clearing API cache:", error);
-    }
-
-    // Clear UI caches if available
-    try {
-      const panelElements = import("./ui/panelElements.js");
-      if (panelElements && typeof panelElements.clearCaches === "function") {
-        panelElements.clearCaches();
-      }
-    } catch (error) {
-      console.error("Error clearing UI caches:", error);
-    }
-
-    // Force garbage collection if possible
-    if (global.gc) {
-      try {
-        global.gc();
-      } catch (e) {
-        console.error("Error triggering garbage collection:", e);
-      }
-    }
   }
 }
