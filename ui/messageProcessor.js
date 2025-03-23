@@ -68,6 +68,7 @@ export async function processUserMessage({
   let errorOccurred = false;
 
   try {
+    // Don't create response container until we get content
     // Process AI response with streaming
     await sendMessage(
       userMessage,
@@ -77,21 +78,24 @@ export async function processUserMessage({
         if (!chunk) return;
 
         // Check if this is an error message (no streaming chunks)
-        if (!responseContainer && chunk.includes("Error communicating with")) {
+        if (chunk.includes("Error communicating with")) {
           errorOccurred = true;
-          handleResponseError(
-            new Error(chunk),
-            null,
-            outputContainer,
-            bgColor,
-            scrollView
-          );
+
+          // Create container only for error messages if needed
+          if (!responseContainer) {
+            if (onResponseStart) onResponseStart();
+            responseContainer = PanelElements.createResponseContainer(bgColor);
+            outputContainer.add_child(responseContainer);
+          }
+
+          updateResponseContainer(responseContainer, chunk);
+          PanelElements.scrollToBottom(scrollView);
           return;
         }
 
         fullResponse += chunk;
 
-        // Create response container if needed
+        // Create response container if this is the first content chunk
         if (!responseContainer) {
           if (onResponseStart) onResponseStart();
           responseContainer = PanelElements.createResponseContainer(bgColor);
@@ -109,40 +113,24 @@ export async function processUserMessage({
     if (!errorOccurred && onResponseEnd) onResponseEnd();
   } catch (error) {
     console.error("Error processing AI response:", error);
-    handleResponseError(
-      error,
-      responseContainer,
-      outputContainer,
-      bgColor,
-      scrollView
-    );
+    errorOccurred = true;
+
+    // Create response container if it doesn't exist
+    if (!responseContainer) {
+      if (onResponseStart) onResponseStart();
+      responseContainer = PanelElements.createResponseContainer(bgColor);
+      outputContainer.add_child(responseContainer);
+    }
+
+    // Show error message
+    const errorMessage =
+      error.message || "An error occurred while processing your request.";
+    updateResponseContainer(responseContainer, errorMessage);
+    PanelElements.scrollToBottom(scrollView);
   } finally {
     // Always call onResponseEnd, even in case of errors
     if (errorOccurred && onResponseEnd) onResponseEnd();
   }
-}
-
-/**
- * Handles errors during response processing
- * @private
- */
-function handleResponseError(
-  error,
-  responseContainer,
-  outputContainer,
-  bgColor,
-  scrollView
-) {
-  if (!responseContainer) {
-    responseContainer = PanelElements.createResponseContainer(bgColor);
-    outputContainer.add_child(responseContainer);
-  }
-
-  updateResponseContainer(
-    responseContainer,
-    "An error occurred while processing your request."
-  );
-  PanelElements.scrollToBottom(scrollView);
 }
 
 /**

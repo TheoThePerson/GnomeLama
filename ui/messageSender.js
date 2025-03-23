@@ -145,7 +145,9 @@ export class MessageSender {
     }
 
     // Give focus back to input field
-    Main.global.stage.set_key_focus(this._inputField.clutter_text);
+    if (Main && Main.global && Main.global.stage) {
+      Main.global.stage.set_key_focus(this._inputField.clutter_text);
+    }
   }
 
   /**
