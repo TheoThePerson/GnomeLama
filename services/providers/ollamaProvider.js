@@ -3,7 +3,6 @@
  * Manages Ollama model interactions and streaming responses
  */
 
-import { ErrorType, handleError } from "../../lib/errorHandler.js";
 import { getSettings } from "../../lib/settings.js";
 import { createCancellableSession, invokeCallback } from "../apiUtils.js";
 
@@ -43,12 +42,7 @@ export async function fetchModelNames() {
       .filter((value, index, self) => self.indexOf(value) === index)
       .sort();
   } catch (error) {
-    handleError(
-      "fetchModelNames",
-      "Error fetching Ollama model names",
-      error,
-      ErrorType.API
-    );
+    console.error("Error fetching Ollama model names:", error);
     return [];
   }
 }
@@ -98,12 +92,7 @@ export async function sendMessageToAPI(
         return chunk;
       }
     } catch (parseError) {
-      handleError(
-        "processChunk",
-        "Error parsing JSON chunk from Ollama API",
-        parseError,
-        ErrorType.API
-      );
+      console.error("Error parsing JSON chunk from Ollama API:", parseError);
     }
 
     return null;
@@ -141,12 +130,7 @@ export async function sendMessageToAPI(
       },
     };
   } catch (error) {
-    handleError(
-      "sendMessageToAPI",
-      "Error sending message to Ollama API",
-      error,
-      ErrorType.API
-    );
+    console.error("Error sending message to Ollama API:", error);
 
     const accumulatedResponse = apiSession
       ? apiSession.getAccumulatedResponse()
