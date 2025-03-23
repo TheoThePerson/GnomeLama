@@ -9,6 +9,7 @@ import Clutter from "gi://Clutter";
 import * as MessageProcessor from "./messageProcessor.js";
 import * as LayoutManager from "./layoutManager.js";
 import * as DocumentConverter from "./documentConverter.js";
+import { getSettings } from "../lib/settings.js";
 
 // UI Constants
 const UI = {
@@ -22,7 +23,10 @@ const UI = {
   },
   FILE_BOX: {
     STYLE_CLASS: "file-content-box",
-    SIZE: 100, // Square
+    get SIZE() {
+      // Get the file box size from settings
+      return getSettings().get_double("file-box-size");
+    },
     MARGIN: 5, // Margin around boxes (reduced)
     HEADER: {
       STYLE_CLASS: "file-content-header",
@@ -393,12 +397,15 @@ export class FileHandler {
    * @private
    */
   _createFileBoxesContainer() {
+    // Get the current size directly from settings
+    const fileBoxSize = getSettings().get_double("file-box-size");
+
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
       homogeneous: true,
       column_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
       row_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
-      max_column_width: UI.FILE_BOX.SIZE + UI.FILE_BOX.MARGIN * 2,
+      max_column_width: fileBoxSize + UI.FILE_BOX.MARGIN * 2,
     });
 
     this._fileBoxesContainer = new St.Widget({
@@ -410,7 +417,7 @@ export class FileHandler {
     });
 
     const initialHeight =
-      UI.FILE_BOX.SIZE +
+      fileBoxSize +
       UI.FILE_BOX.MARGIN * 2 +
       (UI.CONTAINER.FILE_BOXES.PADDING || 0);
 
@@ -433,18 +440,19 @@ export class FileHandler {
       return;
     }
 
+    // Get the actual size from settings
+    const fileBoxSize = getSettings().get_double("file-box-size");
+
     const { panelWidth, horizontalPadding } =
       LayoutManager.calculatePanelDimensions();
     const containerPadding = UI.CONTAINER.FILE_BOXES.PADDING || 0;
     const availableWidth =
       panelWidth - horizontalPadding * 2 - containerPadding * 2;
     const boxTotalSize =
-      UI.FILE_BOX.SIZE +
-      UI.FILE_BOX.MARGIN * 2 +
-      UI.CONTAINER.FILE_BOXES.SPACING;
+      fileBoxSize + UI.FILE_BOX.MARGIN * 2 + UI.CONTAINER.FILE_BOXES.SPACING;
     const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalSize));
     const rowsNeeded = Math.max(1, Math.ceil(fileCount / boxesPerRow));
-    const boxHeight = UI.FILE_BOX.SIZE + UI.FILE_BOX.MARGIN * 2;
+    const boxHeight = fileBoxSize + UI.FILE_BOX.MARGIN * 2;
     const rowSpacing = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
     let containerHeight =
       boxHeight * rowsNeeded + rowSpacing + containerPadding * 2;
@@ -536,21 +544,29 @@ export class FileHandler {
    * @returns {St.BoxLayout} - The created file box
    */
   _createFileBox(fileName, content) {
+    // Get current size directly from settings
+    const fileBoxSize = getSettings().get_double("file-box-size");
+
     const fileBox = new St.BoxLayout({
       style_class: UI.FILE_BOX.STYLE_CLASS,
       vertical: true,
-      width: UI.FILE_BOX.SIZE,
-      height: UI.FILE_BOX.SIZE,
       x_expand: false,
       y_expand: false,
     });
+
+    // Apply size explicitly
+    fileBox.width = fileBoxSize;
+    fileBox.height = fileBoxSize;
+    fileBox.set_width(fileBoxSize);
+    fileBox.set_height(fileBoxSize);
+    fileBox.set_size(fileBoxSize, fileBoxSize);
 
     const headerBox = this._createHeaderBox(fileName, fileBox);
     const contentView = this._createContentView(content);
 
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-    const contentHeight = UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 4;
+    const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
     contentView.set_height(contentHeight);
 
     fileBox.add_child(headerBox);
@@ -741,6 +757,9 @@ export class FileHandler {
     }
 
     this._adjustInputContainerHeight();
+
+    // Ensure proper formatting is applied after restoring the UI
+    this.refreshFileBoxFormatting();
   }
 
   /**
@@ -834,10 +853,26 @@ export class FileHandler {
       UI.CONTAINER.FILE_BOXES.STYLE_CLASS
     );
 
+    // Get the current size directly from settings to ensure consistency
+    const fileBoxSize = getSettings().get_double("file-box-size");
+
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
       fileBox.set_style_class_name(UI.FILE_BOX.STYLE_CLASS);
-      fileBox.set_size(UI.FILE_BOX.SIZE, UI.FILE_BOX.SIZE);
+
+      // Ensure size is set by all possible means
+      fileBox.width = fileBoxSize;
+      fileBox.height = fileBoxSize;
+      fileBox.set_width(fileBoxSize);
+      fileBox.set_height(fileBoxSize);
+      fileBox.set_size(fileBoxSize, fileBoxSize);
+
+      // Apply using inline style as well
+      let style = fileBox.get_style() || "";
+      if (!style.includes("width:") && !style.includes("height:")) {
+        style += `width: ${fileBoxSize}px; height: ${fileBoxSize}px;`;
+        fileBox.set_style(style);
+      }
 
       if (fileBox.get_n_children() >= 2) {
         const headerBox = fileBox.get_children()[0];
@@ -867,8 +902,7 @@ export class FileHandler {
           contentView.set_style_class_name(
             UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS
           );
-          const contentHeight =
-            UI.FILE_BOX.SIZE - UI.FILE_BOX.HEADER.HEIGHT - 4;
+          const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
           contentView.set_height(contentHeight);
 
           const contentBox = contentView.get_child();
@@ -884,7 +918,30 @@ export class FileHandler {
       }
     }
 
-    this._adjustInputContainerHeight();
+    // Force the container to update its layout
+    this._fileBoxesContainer.queue_relayout();
+
+    // Apply changes with multiple scheduling priorities to ensure it happens
+    imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_HIGH, () => {
+      this._adjustInputContainerHeight();
+      return imports.gi.GLib.SOURCE_REMOVE;
+    });
+
+    // Schedule another refresh at a lower priority
+    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 100, () => {
+      // Apply sizes again to ensure consistency
+      const children = this._fileBoxesContainer.get_children();
+      for (const fileBox of children) {
+        fileBox.set_width(fileBoxSize);
+        fileBox.set_height(fileBoxSize);
+      }
+
+      // Force update again
+      this._fileBoxesContainer.queue_relayout();
+      this._adjustInputContainerHeight();
+
+      return imports.gi.GLib.SOURCE_REMOVE;
+    });
   }
 
   /**

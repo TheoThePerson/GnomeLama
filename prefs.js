@@ -68,6 +68,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       0.1,
       0.005
     );
+
+    // File box size
+    this._addSpinRow(
+      layoutGroup,
+      settings,
+      "file-box-size",
+      _("File Box Size"),
+      _("Size of the file boxes in pixels"),
+      50,
+      200,
+      10
+    );
   }
 
   /**
@@ -206,18 +218,6 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       "background-color",
       _("Background Color"),
       _("Background color of the panel")
-    );
-
-    // Background opacity
-    this._addSpinRow(
-      uiColorsGroup,
-      settings,
-      "background-opacity",
-      _("Background Opacity"),
-      _("Opacity of the panel background (0.0 is transparent, 1.0 is opaque)"),
-      0.0,
-      1.0,
-      0.05
     );
 
     // Text color

@@ -81,9 +81,8 @@ export function updatePanelOverlay(panelOverlay) {
     Main.panel.actor.height
   );
 
-  // Apply background color with opacity
+  // Apply background color with fixed opacity (fully opaque)
   const bgColor = settings.get_string("background-color");
-  const opacity = settings.get_double("background-opacity");
 
   // Parse color components once
   const r = parseInt(bgColor.substring(1, 3), 16);
@@ -91,7 +90,7 @@ export function updatePanelOverlay(panelOverlay) {
   const b = parseInt(bgColor.substring(5, 7), 16);
 
   panelOverlay.set_style(
-    `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); border-left: 1px solid rgba(255, 255, 255, 0.1);`
+    `background-color: rgba(${r}, ${g}, ${b}, 1.0); border-left: 1px solid rgba(255, 255, 255, 0.1);`
   );
 }
 

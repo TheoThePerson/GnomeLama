@@ -373,9 +373,34 @@ export const Indicator = GObject.registerClass(
         this._inputField.opacity = 255;
         this._buttonsContainer.opacity = 255;
 
-        // Restore file UI if files were previously loaded
+        // Update layout first to ensure proper dimensions
+        this._updateLayout();
+
+        // Use a sequence of timed operations to restore file UI
         if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+          // First restore the basic UI
           this._fileHandler.restoreFileUI();
+
+          // Then update layout
+          this._updateLayout();
+
+          // Then apply a sequence of timed refreshes to ensure proper formatting
+          const refreshSequence = [10, 50, 100, 200];
+          refreshSequence.forEach((delay) => {
+            imports.gi.GLib.timeout_add(
+              imports.gi.GLib.PRIORITY_DEFAULT,
+              delay,
+              () => {
+                if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+                  this._fileHandler.refreshFileBoxFormatting();
+
+                  // Update layout after each formatting refresh
+                  this._updateLayout();
+                }
+                return imports.gi.GLib.SOURCE_REMOVE;
+              }
+            );
+          });
         }
 
         // Start loading history in background
@@ -469,12 +494,17 @@ export const Indicator = GObject.registerClass(
         this._outputContainer.add_child(msg);
       });
 
-      // Refresh file box formatting if needed
-      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-        this._fileHandler.refreshFileBoxFormatting();
-      }
-
+      // First scroll to bottom to ensure proper layout measurements
       PanelElements.scrollToBottom(this._outputScrollView);
+
+      // Wait for layout to stabilize before refreshing file box formatting
+      imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 50, () => {
+        // Refresh file box formatting if needed
+        if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+          this._fileHandler.refreshFileBoxFormatting();
+        }
+        return imports.gi.GLib.SOURCE_REMOVE;
+      });
     }
 
     _clearHistory() {
