@@ -48,9 +48,9 @@ The extension now supports viewing various document formats beyond simple text f
 - PDF documents (.pdf)
 - Rich Text Format (.rtf)
 
-### Required Utilities
+### File Upload
 
-To enable conversion of these document formats, you need to install the following utilities:
+To enable using these documents with the extention you need to install:
 
 - For .docx files: `docx2txt`
 - For .odt files: `odt2txt`
