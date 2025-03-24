@@ -18,7 +18,7 @@ const UI = {
   CONTAINER: {
     FILE_BOXES: {
       STYLE_CLASS: "file-boxes-container",
-      MAX_HEIGHT: 400, // Increased maximum height for container
+      MAX_HEIGHT: 10000, // Max height for container to avoid it going off screen if way too many files
       SPACING: 10, // Spacing between file boxes (reduced for tighter layout)
       PADDING: 8, // Container padding (reduced)
     },

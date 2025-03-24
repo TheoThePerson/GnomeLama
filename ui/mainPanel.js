@@ -505,15 +505,15 @@ export const Indicator = GObject.registerClass(
       MessageProcessor.clearOutput(this._outputContainer);
 
       // Clear the input field text
-      this._inputField.set_text("");
+      // this._inputField.set_text("");
 
       // Update input field hint
-      PanelElements.updateInputFieldHint(this._inputField, true);
+      // PanelElements.updateInputFieldHint(this._inputField, true);
 
       // Clear file boxes instead of just refreshing formatting
-      if (this._fileHandler) {
-        this._fileHandler.cleanupFileContentBox(); // Removes UI and data
-      }
+      // if (this._fileHandler) {
+      // this._fileHandler.cleanupFileContentBox(); // Removes UI and data
+      // }
     }
 
     _updateLayout() {
