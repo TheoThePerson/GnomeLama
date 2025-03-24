@@ -1,3 +1,4 @@
+/* global imports, global */
 /**
  * Panel UI implementation
  */
@@ -454,12 +455,8 @@ export const Indicator = GObject.registerClass(
       const history = getConversationHistory();
 
       // Add messages from history
-      let hadFilesAttached = false;
-
       history.forEach((message, index) => {
         if (message.type === "user") {
-          // Check if this message had files attached
-          hadFilesAttached = message.text.includes("[files attached]");
           MessageProcessor.appendUserMessage(
             this._outputContainer,
             message.text

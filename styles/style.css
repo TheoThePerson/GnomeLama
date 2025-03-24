@@ -98,7 +98,6 @@
   padding: 8px 16px;
   caret-color: white;
   color: white;
-  -st-hint-text-color: #808080;
 }
 
 .input-field:focus {
