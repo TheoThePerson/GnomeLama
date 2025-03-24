@@ -681,120 +681,202 @@ export function getOriginalFilePath(filename) {
 }
 
 /**
+ * Safely parse JSON without throwing exceptions
+ * @param {string} jsonString - String to parse
+ * @returns {object|null} - Parsed object or null if invalid
+ */
+function safeJsonParse(jsonString) {
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validate if an object has the expected file structure
+ * @param {object} obj - Object to validate
+ * @returns {boolean} - Whether it's a valid file object
+ */
+function isValidFileObject(obj) {
+  return obj && typeof obj === "object" && obj.filename && "content" in obj;
+}
+
+/**
+ * Validate if an object has the expected files array structure
+ * @param {object} obj - Object to validate
+ * @returns {boolean} - Whether it's a valid files array container
+ */
+function isValidFilesContainer(obj) {
+  return (
+    obj &&
+    typeof obj === "object" &&
+    Array.isArray(obj.files) &&
+    obj.files.length > 0 &&
+    isValidFileObject(obj.files[0])
+  );
+}
+
+/**
+ * Clean a JSON string for better parsing
+ * @param {string} jsonString - The JSON string to clean
+ * @returns {string} - Cleaned JSON string
+ */
+function cleanJsonString(jsonString) {
+  return jsonString
+    .replace(/\n+/g, " ")
+    .replace(/\\n/g, "\\\\n")
+    .replace(/\\"/g, '\\\\"')
+    .replace(/`/g, "")
+    .replace(/\\+/g, "\\")
+    .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Tries to extract JSON objects from unformatted text
  * @param {string} text - The text to search for JSON
  * @returns {object|null} - The parsed JSON object or null if none found
  */
 function tryExtractJsonFromText(text) {
   try {
+    // First attempt: direct parse of the entire text
+    const directResult = safeJsonParse(text);
+    if (
+      directResult &&
+      (isValidFilesContainer(directResult) || isValidFileObject(directResult))
+    ) {
+      console.log("Successfully parsed complete JSON");
+      return directResult;
+    }
+
+    // Second attempt: Look for JSON with summary and files pattern
     const jsonPattern = /\{[\s\S]*?"summary"[\s\S]*?"files"[\s\S]*?\}/i;
     const jsonMatch = text.match(jsonPattern);
-
     if (jsonMatch) {
-      try {
-        const result = JSON.parse(jsonMatch[0]);
+      const result = safeJsonParse(jsonMatch[0]);
+      if (result && isValidFilesContainer(result)) {
         console.log("Found JSON with summary and files pattern");
         return result;
-      } catch {
-        console.log("Found pattern but failed to parse");
+      }
+
+      // Try with cleaned version
+      const cleanedResult = safeJsonParse(cleanJsonString(jsonMatch[0]));
+      if (cleanedResult && isValidFilesContainer(cleanedResult)) {
+        console.log("Found JSON with summary and files pattern after cleanup");
+        return cleanedResult;
       }
     }
 
+    // Third attempt: Look for file array
     const fileArrayPattern =
       /\[\s*\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}\s*\]/i;
     const fileArrayMatch = text.match(fileArrayPattern);
-
     if (fileArrayMatch) {
-      try {
-        const filesArray = JSON.parse(fileArrayMatch[0]);
+      const filesArray = safeJsonParse(fileArrayMatch[0]);
+      if (
+        filesArray &&
+        Array.isArray(filesArray) &&
+        filesArray.length > 0 &&
+        isValidFileObject(filesArray[0])
+      ) {
         console.log("Found file array pattern");
         return { files: filesArray };
-      } catch {}
+      }
+
+      // Try with cleaned version
+      const cleanedArray = safeJsonParse(cleanJsonString(fileArrayMatch[0]));
+      if (
+        cleanedArray &&
+        Array.isArray(cleanedArray) &&
+        cleanedArray.length > 0 &&
+        isValidFileObject(cleanedArray[0])
+      ) {
+        console.log("Found file array pattern after cleanup");
+        return { files: cleanedArray };
+      }
     }
 
+    // Fourth attempt: Find potential JSON objects with better depth
     const objectMatches = findPotentialJsonObjects(text);
-
     if (objectMatches && objectMatches.length > 0) {
+      // Sort by length (descending) to prioritize larger objects
       objectMatches.sort((a, b) => b.length - a.length);
 
       for (const match of objectMatches) {
-        try {
-          const result = JSON.parse(match);
+        const result = safeJsonParse(match);
+        if (
+          result &&
+          (isValidFilesContainer(result) || isValidFileObject(result))
+        ) {
           console.log("Found valid JSON object in text");
           return result;
-        } catch {
-          try {
-            const cleanedMatch = cleanJsonString(match);
-            const result = JSON.parse(cleanedMatch);
-            console.log("Found valid JSON after cleanup");
-            return result;
-          } catch {}
+        }
+
+        const cleanedResult = safeJsonParse(cleanJsonString(match));
+        if (
+          cleanedResult &&
+          (isValidFilesContainer(cleanedResult) ||
+            isValidFileObject(cleanedResult))
+        ) {
+          console.log("Found valid JSON after cleanup");
+          return cleanedResult;
         }
       }
     }
 
+    // Fifth attempt: Find potential JSON arrays
     const arrayMatches = findPotentialJsonArrays(text);
-
     if (arrayMatches && arrayMatches.length > 0) {
       arrayMatches.sort((a, b) => b.length - a.length);
 
       for (const match of arrayMatches) {
-        try {
-          const result = JSON.parse(match);
+        const result = safeJsonParse(match);
+        if (
+          result &&
+          Array.isArray(result) &&
+          result.length > 0 &&
+          isValidFileObject(result[0])
+        ) {
+          console.log("Found valid JSON array of files");
+          return { files: result };
+        }
 
-          if (
-            Array.isArray(result) &&
-            result.length > 0 &&
-            result[0].filename &&
-            "content" in result[0]
-          ) {
-            console.log("Found valid JSON array of files");
-            return { files: result };
-          }
-        } catch {
-          try {
-            const cleanedMatch = cleanJsonString(match);
-            const result = JSON.parse(cleanedMatch);
-
-            if (
-              Array.isArray(result) &&
-              result.length > 0 &&
-              result[0].filename &&
-              "content" in result[0]
-            ) {
-              console.log("Found valid JSON array of files after cleanup");
-              return { files: result };
-            }
-          } catch {}
+        const cleanedResult = safeJsonParse(cleanJsonString(match));
+        if (
+          cleanedResult &&
+          Array.isArray(cleanedResult) &&
+          cleanedResult.length > 0 &&
+          isValidFileObject(cleanedResult[0])
+        ) {
+          console.log("Found valid JSON array of files after cleanup");
+          return { files: cleanedResult };
         }
       }
     }
 
+    // Sixth attempt: Look for a single file object
     const fileObjectPattern =
       /\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}/i;
     const fileObjectMatch = text.match(fileObjectPattern);
-
     if (fileObjectMatch) {
-      try {
-        const fileObj = JSON.parse(fileObjectMatch[0]);
-        if (fileObj.filename && "content" in fileObj) {
-          console.log("Found single file object");
-          return fileObj;
-        }
-      } catch {
-        try {
-          const cleanedMatch = cleanJsonString(fileObjectMatch[0]);
-          const fileObj = JSON.parse(cleanedMatch);
-          if (fileObj.filename && "content" in fileObj) {
-            return fileObj;
-          }
-        } catch {}
+      const fileObj = safeJsonParse(fileObjectMatch[0]);
+      if (fileObj && isValidFileObject(fileObj)) {
+        console.log("Found single file object");
+        return fileObj;
+      }
+
+      const cleanedObj = safeJsonParse(cleanJsonString(fileObjectMatch[0]));
+      if (cleanedObj && isValidFileObject(cleanedObj)) {
+        console.log("Found single file object after cleanup");
+        return cleanedObj;
       }
     }
 
     return null;
-  } catch {
-    console.error("Error in tryExtractJsonFromText");
+  } catch (error) {
+    console.error("Error in tryExtractJsonFromText:", error);
     return null;
   }
 }
@@ -901,21 +983,4 @@ function findPotentialJsonArrays(text) {
   }
 
   return results;
-}
-
-/**
- * Clean a JSON string for better parsing
- * @param {string} jsonString - The JSON string to clean
- * @returns {string} - Cleaned JSON string
- */
-function cleanJsonString(jsonString) {
-  return jsonString
-    .replace(/\n+/g, " ")
-    .replace(/\\n/g, "\\\\n")
-    .replace(/\\"/g, '\\\\"')
-    .replace(/`/g, "")
-    .replace(/\\+/g, "\\")
-    .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2")
-    .replace(/\s+/g, " ")
-    .trim();
 }
