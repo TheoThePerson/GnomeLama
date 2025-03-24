@@ -18,7 +18,6 @@ let cancelCurrentRequest = null;
  */
 export function setModel(modelName) {
   currentModel = modelName;
-  // Use idle_add to prevent blocking when updating settings
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     const settings = getSettings();
     settings.set_string("default-model", modelName);
@@ -27,7 +26,6 @@ export function setModel(modelName) {
 }
 
 /**
- * Gets the current AI model
  * @returns {string} Current model name
  */
 export function getCurrentModel() {
@@ -38,7 +36,6 @@ export function getCurrentModel() {
 }
 
 /**
- * Get the appropriate provider for the current model
  * @param {string} modelName - Model name to get provider for
  * @returns {Object} Provider object with standardized interface
  */
@@ -54,7 +51,6 @@ function getProviderForModel(modelName) {
  */
 export async function fetchModelNames() {
   try {
-    // Fetch both providers in parallel to improve responsiveness
     const [ollamaModels, openaiModels] = await Promise.allSettled([
       ollamaProvider.fetchModelNames(),
       openaiProvider.fetchModelNames(),
@@ -83,7 +79,6 @@ export async function fetchModelNames() {
 }
 
 /**
- * Gets the current conversation history
  * @returns {Array} The conversation history
  */
 export function getConversationHistory() {
@@ -94,7 +89,6 @@ export function getConversationHistory() {
  * Clears the conversation history
  */
 export function clearConversationHistory() {
-  // Use idle_add to prevent blocking
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     conversationHistory = [];
     ollamaProvider.resetContext();
@@ -107,7 +101,6 @@ export function clearConversationHistory() {
  * Resets all variables to their initial state
  */
 export function cleanupOnDisable() {
-  // Cancel any ongoing requests
   if (cancelCurrentRequest) {
     cancelCurrentRequest();
   }
@@ -121,7 +114,6 @@ export function cleanupOnDisable() {
 }
 
 /**
- * Add a message to the conversation history
  * @param {string} text - Message text
  * @param {string} type - Message type (user or assistant)
  */
@@ -133,7 +125,6 @@ function addMessageToHistory(text, type) {
 }
 
 /**
- * Checks if a message is currently being processed
  * @returns {boolean} True if a message is being processed
  */
 export function isProcessingMessage() {
@@ -141,7 +132,6 @@ export function isProcessingMessage() {
 }
 
 /**
- * Gets the last error that occurred during message processing
  * @returns {string|null} Last error message or null if no error
  */
 export function getLastError() {
@@ -161,14 +151,11 @@ export async function sendMessage(message, context, onData, displayMessage) {
     currentModel = getSettings().get_string("default-model");
   }
 
-  // Reset error state
   lastError = null;
   isMessageInProgress = true;
 
-  // Use displayMessage for history if provided, otherwise use the full message
   addMessageToHistory(displayMessage || message, "user");
 
-  // Create a wrapper for the onData callback that doesn't block the UI
   const asyncOnData = onData
     ? (data) => {
         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
@@ -184,12 +171,10 @@ export async function sendMessage(message, context, onData, displayMessage) {
       context ||
       (provider === ollamaProvider ? ollamaProvider.getCurrentContext() : null);
 
-    // If previous request is in progress, cancel it
     if (cancelCurrentRequest) {
       cancelCurrentRequest();
     }
 
-    // Get a new cancellable function from the provider
     const { result, cancel } = await provider.sendMessageToAPI(
       message,
       currentModel,
@@ -197,14 +182,11 @@ export async function sendMessage(message, context, onData, displayMessage) {
       asyncOnData
     );
 
-    // Store cancel function for potential cancellation
     cancelCurrentRequest = cancel;
 
     try {
-      // Process the result with proper error handling
       const response = await result;
 
-      // Validate response object before using it
       const responseText =
         response && typeof response === "object" && "response" in response
           ? response.response
@@ -212,10 +194,8 @@ export async function sendMessage(message, context, onData, displayMessage) {
           ? response
           : "No valid response received";
 
-      // Add validated response to history
       addMessageToHistory(responseText, "assistant");
 
-      // Clean up
       cancelCurrentRequest = null;
       isMessageInProgress = false;
 
@@ -223,14 +203,11 @@ export async function sendMessage(message, context, onData, displayMessage) {
     } catch (resultError) {
       console.error("Error processing AI response:", resultError);
 
-      // Set friendly error message
       lastError =
         "Error processing the AI's response. The message may be incomplete.";
 
-      // Try to return partial response if available
       if (asyncOnData) asyncOnData(lastError);
 
-      // Clean up even if there's an error
       cancelCurrentRequest = null;
       isMessageInProgress = false;
 
@@ -239,7 +216,6 @@ export async function sendMessage(message, context, onData, displayMessage) {
   } catch (e) {
     console.error("Error sending message to API:", e);
 
-    // Set error message based on provider
     const provider = getProviderForModel(currentModel);
     lastError =
       provider === openaiProvider
@@ -248,7 +224,6 @@ export async function sendMessage(message, context, onData, displayMessage) {
 
     if (asyncOnData) asyncOnData(lastError);
 
-    // Ensure cleanup
     cancelCurrentRequest = null;
     isMessageInProgress = false;
 
@@ -265,7 +240,6 @@ export function stopAiMessage() {
     return null;
   }
 
-  // Use the stored cancel function
   if (cancelCurrentRequest) {
     cancelCurrentRequest();
     cancelCurrentRequest = null;
