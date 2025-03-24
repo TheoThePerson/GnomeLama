@@ -718,6 +718,42 @@ function isValidFilesContainer(obj) {
 }
 
 /**
+ * Tries to extract JSON objects from unformatted text
+ * @param {string} text - The text to search for JSON
+ * @returns {object|null} - The parsed JSON object or null if none found
+ */
+function tryExtractJsonFromText(text) {
+  try {
+    // Direct parsing approach
+    // Try parsing the text directly, which handles well-formed JSON responses
+    const directResult = safeJsonParse(text);
+    if (
+      directResult &&
+      (isValidFilesContainer(directResult) || isValidFileObject(directResult))
+    ) {
+      console.log("Found valid JSON through direct parsing");
+      return directResult;
+    }
+
+    // Try parsing with cleaned text if direct parsing fails
+    const cleanedResult = safeJsonParse(cleanJsonString(text));
+    if (
+      cleanedResult &&
+      (isValidFilesContainer(cleanedResult) || isValidFileObject(cleanedResult))
+    ) {
+      console.log("Found valid JSON through direct parsing after cleanup");
+      return cleanedResult;
+    }
+
+    // No valid JSON found
+    return null;
+  } catch (error) {
+    console.error("Error in tryExtractJsonFromText:", error);
+    return null;
+  }
+}
+
+/**
  * Clean a JSON string for better parsing
  * @param {string} jsonString - The JSON string to clean
  * @returns {string} - Cleaned JSON string
@@ -732,255 +768,4 @@ function cleanJsonString(jsonString) {
     .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-/**
- * Tries to extract JSON objects from unformatted text
- * @param {string} text - The text to search for JSON
- * @returns {object|null} - The parsed JSON object or null if none found
- */
-function tryExtractJsonFromText(text) {
-  try {
-    // First attempt: direct parse of the entire text
-    const directResult = safeJsonParse(text);
-    if (
-      directResult &&
-      (isValidFilesContainer(directResult) || isValidFileObject(directResult))
-    ) {
-      console.log("Successfully parsed complete JSON");
-      return directResult;
-    }
-
-    // Second attempt: Look for JSON with summary and files pattern
-    const jsonPattern = /\{[\s\S]*?"summary"[\s\S]*?"files"[\s\S]*?\}/i;
-    const jsonMatch = text.match(jsonPattern);
-    if (jsonMatch) {
-      const result = safeJsonParse(jsonMatch[0]);
-      if (result && isValidFilesContainer(result)) {
-        console.log("Found JSON with summary and files pattern");
-        return result;
-      }
-
-      // Try with cleaned version
-      const cleanedResult = safeJsonParse(cleanJsonString(jsonMatch[0]));
-      if (cleanedResult && isValidFilesContainer(cleanedResult)) {
-        console.log("Found JSON with summary and files pattern after cleanup");
-        return cleanedResult;
-      }
-    }
-
-    // Third attempt: Look for file array
-    const fileArrayPattern =
-      /\[\s*\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}\s*\]/i;
-    const fileArrayMatch = text.match(fileArrayPattern);
-    if (fileArrayMatch) {
-      const filesArray = safeJsonParse(fileArrayMatch[0]);
-      if (
-        filesArray &&
-        Array.isArray(filesArray) &&
-        filesArray.length > 0 &&
-        isValidFileObject(filesArray[0])
-      ) {
-        console.log("Found file array pattern");
-        return { files: filesArray };
-      }
-
-      // Try with cleaned version
-      const cleanedArray = safeJsonParse(cleanJsonString(fileArrayMatch[0]));
-      if (
-        cleanedArray &&
-        Array.isArray(cleanedArray) &&
-        cleanedArray.length > 0 &&
-        isValidFileObject(cleanedArray[0])
-      ) {
-        console.log("Found file array pattern after cleanup");
-        return { files: cleanedArray };
-      }
-    }
-
-    // Fourth attempt: Find potential JSON objects with better depth
-    const objectMatches = findPotentialJsonObjects(text);
-    if (objectMatches && objectMatches.length > 0) {
-      // Sort by length (descending) to prioritize larger objects
-      objectMatches.sort((a, b) => b.length - a.length);
-
-      for (const match of objectMatches) {
-        const result = safeJsonParse(match);
-        if (
-          result &&
-          (isValidFilesContainer(result) || isValidFileObject(result))
-        ) {
-          console.log("Found valid JSON object in text");
-          return result;
-        }
-
-        const cleanedResult = safeJsonParse(cleanJsonString(match));
-        if (
-          cleanedResult &&
-          (isValidFilesContainer(cleanedResult) ||
-            isValidFileObject(cleanedResult))
-        ) {
-          console.log("Found valid JSON after cleanup");
-          return cleanedResult;
-        }
-      }
-    }
-
-    // Fifth attempt: Find potential JSON arrays
-    const arrayMatches = findPotentialJsonArrays(text);
-    if (arrayMatches && arrayMatches.length > 0) {
-      arrayMatches.sort((a, b) => b.length - a.length);
-
-      for (const match of arrayMatches) {
-        const result = safeJsonParse(match);
-        if (
-          result &&
-          Array.isArray(result) &&
-          result.length > 0 &&
-          isValidFileObject(result[0])
-        ) {
-          console.log("Found valid JSON array of files");
-          return { files: result };
-        }
-
-        const cleanedResult = safeJsonParse(cleanJsonString(match));
-        if (
-          cleanedResult &&
-          Array.isArray(cleanedResult) &&
-          cleanedResult.length > 0 &&
-          isValidFileObject(cleanedResult[0])
-        ) {
-          console.log("Found valid JSON array of files after cleanup");
-          return { files: cleanedResult };
-        }
-      }
-    }
-
-    // Sixth attempt: Look for a single file object
-    const fileObjectPattern =
-      /\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}/i;
-    const fileObjectMatch = text.match(fileObjectPattern);
-    if (fileObjectMatch) {
-      const fileObj = safeJsonParse(fileObjectMatch[0]);
-      if (fileObj && isValidFileObject(fileObj)) {
-        console.log("Found single file object");
-        return fileObj;
-      }
-
-      const cleanedObj = safeJsonParse(cleanJsonString(fileObjectMatch[0]));
-      if (cleanedObj && isValidFileObject(cleanedObj)) {
-        console.log("Found single file object after cleanup");
-        return cleanedObj;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error in tryExtractJsonFromText:", error);
-    return null;
-  }
-}
-
-/**
- * Find potential JSON objects in text with better matching of balanced braces
- * @param {string} text - Text to search in
- * @returns {Array} - Array of potential JSON object strings
- */
-function findPotentialJsonObjects(text) {
-  const results = [];
-  let start = 0;
-
-  while ((start = text.indexOf("{", start)) !== -1) {
-    let openBraces = 0;
-    let inString = false;
-    let escapeNext = false;
-    let end;
-
-    for (end = start; end < text.length; end++) {
-      const char = text[end];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "{") {
-          openBraces++;
-        } else if (char === "}") {
-          openBraces--;
-          if (openBraces === 0) {
-            results.push(text.substring(start, end + 1));
-            break;
-          }
-        }
-      }
-    }
-
-    start++;
-  }
-
-  return results;
-}
-
-/**
- * Find potential JSON arrays in text
- * @param {string} text - Text to search in
- * @returns {Array} - Array of potential JSON array strings
- */
-function findPotentialJsonArrays(text) {
-  const results = [];
-  let start = 0;
-
-  while ((start = text.indexOf("[", start)) !== -1) {
-    let openBrackets = 0;
-    let inString = false;
-    let escapeNext = false;
-    let end;
-
-    for (end = start; end < text.length; end++) {
-      const char = text[end];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "[") {
-          openBrackets++;
-        } else if (char === "]") {
-          openBrackets--;
-          if (openBrackets === 0) {
-            results.push(text.substring(start, end + 1));
-            break;
-          }
-        }
-      }
-    }
-
-    start++;
-  }
-
-  return results;
 }
