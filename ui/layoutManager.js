@@ -13,7 +13,6 @@ let lastMonitorWidth = 0;
 let lastMonitorHeight = 0;
 
 /**
- * Calculates dimensions for the panel layout
  * @returns {Object} Object containing calculated dimensions
  */
 export function calculatePanelDimensions() {
@@ -67,7 +66,6 @@ export function calculatePanelDimensions() {
 }
 
 /**
- * Updates panel overlay position and size
  * @param {St.Widget} panelOverlay - The panel overlay widget
  */
 export function updatePanelOverlay(panelOverlay) {
@@ -95,7 +93,6 @@ export function updatePanelOverlay(panelOverlay) {
 }
 
 /**
- * Updates buttons container layout
  * @param {St.BoxLayout} buttonsBox - The buttons container
  * @param {St.Button} modelButton - The model selection button
  * @param {St.Button} clearButton - The clear history button
@@ -181,7 +178,6 @@ export function updateButtonsContainer(
 }
 
 /**
- * Updates output area layout
  * @param {St.ScrollView} outputScrollView - The output scroll view
  * @param {St.BoxLayout} outputContainer - The output container
  */
@@ -202,7 +198,6 @@ export function updateOutputArea(outputScrollView, outputContainer) {
 }
 
 /**
- * Updates the input-buttons container position
  * @param {St.BoxLayout} inputButtonsContainer - The container for input field and buttons
  */
 export function updateInputButtonsContainer(inputButtonsContainer) {

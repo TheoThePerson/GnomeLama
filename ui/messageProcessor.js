@@ -1,9 +1,4 @@
 /* global imports */
-
-/**
- * UI message processing functionalities
- */
-
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import St from "gi://St";
@@ -13,15 +8,11 @@ import { sendMessage } from "../services/messaging.js";
 import * as UIComponents from "./uiComponents.js";
 import * as PanelElements from "./panelWidgets.js";
 
-// Track temporary messages
 let temporaryMessages = new Set();
-// Track if the last message had files attached
 let lastMessageHadFiles = false;
-// Registry to keep track of file paths between sessions
-const FilePathRegistry = new Map(); // filename -> path
+const FilePathRegistry = new Map();
 
 /**
- * Process user message and handle AI response
  * @param {object} options - Processing options
  * @param {string} options.userMessage - The user message to process
  * @param {string} options.displayMessage - Optional simplified message for history and display
@@ -43,7 +34,6 @@ export async function processUserMessage({
   onResponseEnd,
   skipAppendUserMessage = false,
 }) {
-  // Check if the message has files
   lastMessageHadFiles =
     displayMessage && displayMessage.includes("[files attached]");
 
@@ -51,37 +41,28 @@ export async function processUserMessage({
     return;
   }
 
-  // Remove temporary messages
   removeTemporaryMessages(outputContainer);
 
-  // Add user message to UI if not already added
   if (!skipAppendUserMessage) {
     appendUserMessage(outputContainer, displayMessage || userMessage);
   }
 
-  // Get color from settings once
   const bgColor = getSettings().get_string("ai-message-color");
 
-  // Variables for response processing
   let responseContainer = null;
   let fullResponse = "";
   let errorOccurred = false;
 
   try {
-    // Don't create response container until we get content
-    // Process AI response with streaming
     await sendMessage(
       userMessage,
       context,
       (chunk) => {
-        // Skip empty chunks
         if (!chunk) return;
 
-        // Check if this is an error message (no streaming chunks)
         if (chunk.includes("Error communicating with")) {
           errorOccurred = true;
 
-          // Create container only for error messages if needed
           if (!responseContainer) {
             if (onResponseStart) onResponseStart();
             responseContainer = PanelElements.createResponseContainer(bgColor);
@@ -95,88 +76,72 @@ export async function processUserMessage({
 
         fullResponse += chunk;
 
-        // Create response container if this is the first content chunk
         if (!responseContainer) {
           if (onResponseStart) onResponseStart();
           responseContainer = PanelElements.createResponseContainer(bgColor);
           outputContainer.add_child(responseContainer);
         }
 
-        // Update response content
         updateResponseContainer(responseContainer, fullResponse);
         PanelElements.scrollToBottom(scrollView);
       },
-      displayMessage // Pass display message for history
+      displayMessage
     );
 
-    // Notify response completion only if we didn't encounter an error message
     if (!errorOccurred && onResponseEnd) onResponseEnd();
   } catch (error) {
     console.error("Error processing AI response:", error);
     errorOccurred = true;
 
-    // Create response container if it doesn't exist
     if (!responseContainer) {
       if (onResponseStart) onResponseStart();
       responseContainer = PanelElements.createResponseContainer(bgColor);
       outputContainer.add_child(responseContainer);
     }
 
-    // Show error message
     const errorMessage =
       error.message || "An error occurred while processing your request.";
     updateResponseContainer(responseContainer, errorMessage);
     PanelElements.scrollToBottom(scrollView);
   } finally {
-    // Always call onResponseEnd, even in case of errors
     if (errorOccurred && onResponseEnd) onResponseEnd();
   }
 }
 
 /**
- * Append a user message to the output container
  * @param {St.BoxLayout} outputContainer - The output container
  * @param {string} message - The message to append
  */
 export function appendUserMessage(outputContainer, message) {
   const userContainer = UIComponents.createMessageContainer(
     message,
-    true, // isUser
+    true,
     Clutter.ActorAlign.END
   );
   outputContainer.add_child(userContainer);
 }
 
 /**
- * Update response container with parsed content
  * @param {St.BoxLayout} container - The container to update
  * @param {string} responseText - The response text
  */
 export function updateResponseContainer(container, responseText) {
-  // Clear previous content
   container.get_children().forEach((child) => child.destroy());
 
-  // Check if this is a JSON response
-  // First try parsing as JSON response for file handling
   if (tryParseJsonResponse(container, responseText, lastMessageHadFiles)) {
-    // If the JSON was successfully parsed and displayed, we're done
     return;
   }
 
-  // Otherwise, parse and add content normally
   const parts = parseMessageContent(responseText);
 
-  // Create a container for content
   const contentContainer = new St.BoxLayout({
     vertical: true,
     x_expand: true,
   });
 
-  // Group parts into paragraphs
   const paragraphs = [];
   let currentParagraph = [];
 
-  // Group consecutive inline elements
   parts.forEach((part) => {
     const isBlockElement =
       part.type === "code" ||
@@ -190,21 +155,17 @@ export function updateResponseContainer(container, responseText) {
       part.type === "text" && part.content.includes("\n\n");
 
     if (isBlockElement) {
-      // If we have inline elements, add them as a paragraph
       if (currentParagraph.length > 0) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
         currentParagraph = [];
       }
-      // Add the block element as its own paragraph
       paragraphs.push({ type: "block", part: part });
     } else if (hasMultipleParas) {
-      // If we have inline elements, add them as a paragraph
       if (currentParagraph.length > 0) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
         currentParagraph = [];
       }
 
-      // Split text by double newlines and create separate paragraphs
       const paraTexts = part.content.split("\n\n");
       paraTexts.forEach((paraText) => {
         if (paraText.trim() !== "") {
@@ -215,37 +176,30 @@ export function updateResponseContainer(container, responseText) {
         }
       });
     } else {
-      // Add to current paragraph
       currentParagraph.push(part);
     }
   });
 
-  // Add any remaining inline elements
   if (currentParagraph.length > 0) {
     paragraphs.push({ type: "inline", parts: currentParagraph });
   }
 
-  // Render each paragraph
   paragraphs.forEach((paragraph) => {
     if (paragraph.type === "block") {
-      // Render block element directly
       const element = createContentElement(paragraph.part);
       if (element) {
         contentContainer.add_child(element);
       }
     } else if (paragraph.type === "text") {
-      // Render single text paragraph
       const textLabel = UIComponents.createTextLabel(paragraph.content);
       contentContainer.add_child(textLabel);
     } else if (paragraph.type === "inline") {
-      // For inline elements, create a label-only box where text can flow naturally
       const textBox = new St.BoxLayout({
         style_class: "text-paragraph",
         x_expand: true,
         vertical: true,
       });
 
-      // Create a single flow container for each paragraph
       const flowContainer = new St.BoxLayout({
         style_class: "text-flow-container",
         x_expand: true,
@@ -255,7 +209,6 @@ export function updateResponseContainer(container, responseText) {
 
       textBox.add_child(flowContainer);
 
-      // Add each text element to the flow container
       paragraph.parts.forEach((part) => {
         if (part.type === "text") {
           const textLabel = UIComponents.createTextLabel(part.content);
@@ -267,7 +220,6 @@ export function updateResponseContainer(container, responseText) {
     }
   });
 
-  // Add the content container to the response container
   container.add_child(contentContainer);
 }
 
@@ -280,34 +232,29 @@ export function updateResponseContainer(container, responseText) {
  */
 function tryParseJsonResponse(container, responseText, hadFiles) {
   let jsonData;
-  let confidenceLevel = 0; // Track how confident we are this is a file response
+  let confidenceLevel = 0;
 
-  // First try to parse the entire responseText as JSON
   try {
     jsonData = JSON.parse(responseText);
-    confidenceLevel = 5; // Direct JSON parsing succeeded, high confidence
+    confidenceLevel = 5;
   } catch {
-    // If direct parsing fails, check for JSON in a code block
     const codeBlockMatch = responseText.match(
       /```(?:json)?\s*\n([\s\S]*?)\n```/
     );
     if (codeBlockMatch) {
       try {
         jsonData = JSON.parse(codeBlockMatch[1]);
-        confidenceLevel = 5; // JSON in code block, high confidence
+        confidenceLevel = 5;
       } catch {
-        // Not valid JSON in code block either
         console.log("Failed to parse JSON in code block");
       }
     }
 
-    // If both methods fail, attempt to extract JSON from the text
     if (!jsonData) {
-      // Try a more robust approach to find JSON objects
       jsonData = tryExtractJsonFromText(responseText);
 
       if (jsonData) {
-        confidenceLevel = 3; // Extracted JSON from text, medium confidence
+        confidenceLevel = 3;
       } else {
         console.log("Failed to extract any valid JSON from the response");
         return false;
@@ -315,14 +262,10 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     }
   }
 
-  // VALIDATION: Check if what we found looks like a file modification response
-
-  // If we have files array and had files in request, that's a strong signal
   if (jsonData.files && Array.isArray(jsonData.files) && hadFiles) {
     confidenceLevel += 2;
   }
 
-  // If we detect filename and content properties, that's another signal
   if (
     jsonData.files &&
     Array.isArray(jsonData.files) &&
@@ -333,14 +276,11 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     confidenceLevel += 2;
   }
 
-  // If we have a summary and files, that's the expected format
   if (jsonData.summary && jsonData.files) {
     confidenceLevel += 1;
   }
 
-  // If this is a single file object, convert to our expected format
   if (!jsonData.files && jsonData.filename && "content" in jsonData) {
-    // Convert single file object to expected format
     jsonData = {
       summary: `File: ${jsonData.filename}`,
       files: [jsonData],
@@ -348,19 +288,15 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     confidenceLevel += 2;
   }
 
-  // If we don't have files or suitable structure, it's not a file response
   if (!jsonData.files || !Array.isArray(jsonData.files)) {
     return false;
   }
 
-  // If we had files attached OR we're very confident this is a file response, proceed
   if (hadFiles || confidenceLevel >= 4) {
-    // Create a default summary if missing
     if (!jsonData.summary) {
       jsonData.summary = "File modifications";
     }
 
-    // Add the summary at the top
     const summaryLabel = new St.Label({
       text: jsonData.summary,
       style_class: "text-label",
@@ -371,21 +307,17 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     summaryLabel.clutter_text.set_selectable(true);
     container.add_child(summaryLabel);
 
-    // Add each file in a box
     jsonData.files.forEach((file) => {
-      // Skip if no filename
       if (!file.filename) {
         console.log("Skipping file entry with no filename");
         return;
       }
 
-      // Make sure file has content (even if empty string)
       if (file.content === undefined || file.content === null) {
         file.content = "";
         console.log(`File ${file.filename} has no content, using empty string`);
       }
 
-      // Create a box for this file
       const fileBox = new St.BoxLayout({
         vertical: true,
         style_class: "file-response-box",
@@ -394,7 +326,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         x_expand: true,
       });
 
-      // Create a header with the filename
       const headerBox = new St.BoxLayout({
         style_class: "file-response-header",
         style:
@@ -412,7 +343,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       filenameLabel.clutter_text.set_selectable(true);
       headerBox.add_child(filenameLabel);
 
-      // Add copy button
       const copyButton = new St.Button({
         style_class: "copy-button",
         style:
@@ -421,17 +351,13 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         x_expand: false,
       });
 
-      // Connect copy button click handler with temporary label change
       let copyTimeoutId = null;
       copyButton.connect("clicked", () => {
-        // Copy file content to clipboard
         const clipboard = St.Clipboard.get_default();
         clipboard.set_text(St.ClipboardType.CLIPBOARD, file.content);
 
-        // Change label temporarily
         copyButton.set_label("Copied!");
 
-        // Reset label after delay
         if (copyTimeoutId) {
           GLib.Source.remove(copyTimeoutId);
         }
@@ -454,7 +380,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
 
       headerBox.add_child(copyButton);
 
-      // Add "Apply to [filename]" button
       const applyButton = new St.Button({
         style_class: "apply-button",
         style:
@@ -463,27 +388,21 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         x_expand: false,
       });
 
-      // Variable to track apply button timeout
       let applyTimeoutId = null;
 
-      // Connect button click handler
       applyButton.connect("clicked", () => {
-        // Change label temporarily while applying
         applyButton.set_label(`Applying to ${file.filename}...`);
 
-        // Use direct file writing
         const Gio = imports.gi.Gio;
         const GLib = imports.gi.GLib;
 
         try {
-          // Validate content
           if (!file.content) {
             addTemporaryMessage(
               container.get_parent(),
               `Error: No content to save for ${file.filename}`
             );
 
-            // Reset the button label
             if (applyTimeoutId) {
               GLib.Source.remove(applyTimeoutId);
             }
@@ -503,12 +422,10 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
             return;
           }
 
-          // Use the original path if available, otherwise fall back to home directory
           let fullPath;
           if (file.path && file.path.trim() !== "") {
             fullPath = file.path;
           } else {
-            // Check the registry for the original path
             const registeredPath = FilePathRegistry.get(file.filename);
 
             if (registeredPath) {
@@ -517,7 +434,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
                 `Found registered path for ${file.filename}: ${fullPath}`
               );
             } else {
-              // Fallback to home directory if no path is found
               const homeDir = GLib.get_home_dir();
               fullPath = GLib.build_filenamev([homeDir, file.filename]);
               addTemporaryMessage(
@@ -527,7 +443,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
             }
           }
 
-          // Check if the file exists first
           const fileObj = Gio.File.new_for_path(fullPath);
 
           if (!fileObj.query_exists(null)) {
@@ -538,13 +453,10 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
           }
 
           try {
-            // Convert string to byte array (the GJS way)
             const ByteArray = imports.byteArray;
             const contentBytes = ByteArray.fromString(file.content);
 
-            // Write content to file at the original path
             if (GLib.file_set_contents(fullPath, contentBytes)) {
-              // Show success message
               addTemporaryMessage(
                 container.get_parent(),
                 `Successfully applied changes to ${fullPath}`
@@ -563,7 +475,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
             );
           }
 
-          // Reset the button label after a delay
           if (applyTimeoutId) {
             GLib.Source.remove(applyTimeoutId);
           }
@@ -582,7 +493,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
             `Error: Error applying file content`
           );
 
-          // Reset the button label after error
           if (applyTimeoutId) {
             GLib.Source.remove(applyTimeoutId);
           }
@@ -597,7 +507,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         }
       });
 
-      // Clean up timeout when button is destroyed
       applyButton.connect("destroy", () => {
         if (applyTimeoutId) {
           GLib.Source.remove(applyTimeoutId);
@@ -608,7 +517,6 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       headerBox.add_child(applyButton);
       fileBox.add_child(headerBox);
 
-      // Create the file content area
       const contentBox = new St.BoxLayout({
         vertical: true,
         style: "padding: 10px;",
@@ -626,14 +534,12 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       contentBox.add_child(contentLabel);
       fileBox.add_child(contentBox);
 
-      // Add file box to container
       container.add_child(fileBox);
     });
 
     return true;
   }
 
-  // If we get here, it wasn't a file response or we're not confident enough to display it as one
   return false;
 }
 
@@ -683,10 +589,8 @@ function createContentElement(part) {
  * @param {string} text - The message text
  */
 export function addTemporaryMessage(outputContainer, text) {
-  // Clean up existing temporary messages
   removeTemporaryMessages(outputContainer);
 
-  // Create and add new temporary message
   const tempLabel = UIComponents.createTemporaryMessageLabel(text);
   outputContainer.add_child(tempLabel);
   temporaryMessages.add(tempLabel);
@@ -710,7 +614,6 @@ export function removeTemporaryMessages(outputContainer) {
  * @param {St.BoxLayout} outputContainer - The container to clear
  */
 export function clearOutput(outputContainer) {
-  // Identify which temporary messages to preserve
   const tempMessagesToKeep = new Set();
   temporaryMessages.forEach((msg) => {
     if (msg.get_parent() === outputContainer) {
@@ -718,17 +621,13 @@ export function clearOutput(outputContainer) {
     }
   });
 
-  // Remove all non-temporary message containers
   const children = outputContainer.get_children();
   for (let i = children.length - 1; i >= 0; i--) {
     const child = children[i];
-    // Skip temporary messages
     if (tempMessagesToKeep.has(child)) {
       continue;
     }
 
-    // Remove all message containers, whether user or AI
-    // Check for common message classes and also check for response containers
     if (
       child.style_class &&
       (child.style_class.includes("message-box") ||
@@ -740,7 +639,6 @@ export function clearOutput(outputContainer) {
     }
   }
 
-  // Update tracking set
   temporaryMessages = tempMessagesToKeep;
 }
 
@@ -789,10 +687,6 @@ export function getOriginalFilePath(filename) {
  */
 function tryExtractJsonFromText(text) {
   try {
-    // First, try a more aggressive approach to find complete JSON objects
-    // by looking for patterns that typically indicate JSON file responses
-
-    // Try to find a section with "summary" and "files" properties
     const jsonPattern = /\{[\s\S]*?"summary"[\s\S]*?"files"[\s\S]*?\}/i;
     const jsonMatch = text.match(jsonPattern);
 
@@ -803,11 +697,9 @@ function tryExtractJsonFromText(text) {
         return result;
       } catch {
         console.log("Found pattern but failed to parse");
-        // Continue with other methods
       }
     }
 
-    // Look for patterns with file objects (arrays with filename and content)
     const fileArrayPattern =
       /\[\s*\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}\s*\]/i;
     const fileArrayMatch = text.match(fileArrayPattern);
@@ -817,54 +709,39 @@ function tryExtractJsonFromText(text) {
         const filesArray = JSON.parse(fileArrayMatch[0]);
         console.log("Found file array pattern");
         return { files: filesArray };
-      } catch {
-        // Continue with other methods
-      }
+      } catch {}
     }
 
-    // Try to find the largest valid JSON object in the text
-    // First look for { ... } patterns with better balanced braces
-    // This is a simplistic approach - for full balance checking we'd need a parser
     const objectMatches = findPotentialJsonObjects(text);
 
     if (objectMatches && objectMatches.length > 0) {
-      // Sort matches by length (descending) to try the largest first
       objectMatches.sort((a, b) => b.length - a.length);
 
-      // Try to parse each match
       for (const match of objectMatches) {
         try {
           const result = JSON.parse(match);
           console.log("Found valid JSON object in text");
           return result;
         } catch {
-          // Try to clean up and retry
           try {
-            // Remove extra text and retry
             const cleanedMatch = cleanJsonString(match);
             const result = JSON.parse(cleanedMatch);
             console.log("Found valid JSON after cleanup");
             return result;
-          } catch {
-            // Continue to next match
-          }
+          } catch {}
         }
       }
     }
 
-    // If no object matches worked, try to find complete arrays
     const arrayMatches = findPotentialJsonArrays(text);
 
     if (arrayMatches && arrayMatches.length > 0) {
-      // Sort matches by length (descending)
       arrayMatches.sort((a, b) => b.length - a.length);
 
-      // Try to parse each array match
       for (const match of arrayMatches) {
         try {
           const result = JSON.parse(match);
 
-          // If we have an array of file objects, convert to expected format
           if (
             Array.isArray(result) &&
             result.length > 0 &&
@@ -875,7 +752,6 @@ function tryExtractJsonFromText(text) {
             return { files: result };
           }
         } catch {
-          // Try cleaning
           try {
             const cleanedMatch = cleanJsonString(match);
             const result = JSON.parse(cleanedMatch);
@@ -889,14 +765,11 @@ function tryExtractJsonFromText(text) {
               console.log("Found valid JSON array of files after cleanup");
               return { files: result };
             }
-          } catch {
-            // Continue to next match
-          }
+          } catch {}
         }
       }
     }
 
-    // Look for single file objects
     const fileObjectPattern =
       /\{\s*"filename"\s*:[\s\S]*?"content"\s*:[\s\S]*?\}/i;
     const fileObjectMatch = text.match(fileObjectPattern);
@@ -909,16 +782,13 @@ function tryExtractJsonFromText(text) {
           return fileObj;
         }
       } catch {
-        // Try with cleaning
         try {
           const cleanedMatch = cleanJsonString(fileObjectMatch[0]);
           const fileObj = JSON.parse(cleanedMatch);
           if (fileObj.filename && "content" in fileObj) {
             return fileObj;
           }
-        } catch {
-          // Continue
-        }
+        } catch {}
       }
     }
 
@@ -938,7 +808,6 @@ function findPotentialJsonObjects(text) {
   const results = [];
   let start = 0;
 
-  // Find all starting positions of "{"
   while ((start = text.indexOf("{", start)) !== -1) {
     let openBraces = 0;
     let inString = false;
@@ -969,7 +838,6 @@ function findPotentialJsonObjects(text) {
         } else if (char === "}") {
           openBraces--;
           if (openBraces === 0) {
-            // We found a balanced object
             results.push(text.substring(start, end + 1));
             break;
           }
@@ -977,7 +845,6 @@ function findPotentialJsonObjects(text) {
       }
     }
 
-    // Move to next position
     start++;
   }
 
@@ -993,7 +860,6 @@ function findPotentialJsonArrays(text) {
   const results = [];
   let start = 0;
 
-  // Find all starting positions of "["
   while ((start = text.indexOf("[", start)) !== -1) {
     let openBrackets = 0;
     let inString = false;
@@ -1024,7 +890,6 @@ function findPotentialJsonArrays(text) {
         } else if (char === "]") {
           openBrackets--;
           if (openBrackets === 0) {
-            // We found a balanced array
             results.push(text.substring(start, end + 1));
             break;
           }
@@ -1032,7 +897,6 @@ function findPotentialJsonArrays(text) {
       }
     }
 
-    // Move to next position
     start++;
   }
 
@@ -1051,7 +915,7 @@ function cleanJsonString(jsonString) {
     .replace(/\\"/g, '\\\\"')
     .replace(/`/g, "")
     .replace(/\\+/g, "\\")
-    .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2") // Remove invalid escapes
+    .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2")
     .replace(/\s+/g, " ")
     .trim();
 }
