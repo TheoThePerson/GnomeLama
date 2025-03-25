@@ -662,12 +662,11 @@ export function registerFilePaths(jsonString) {
       jsonData.files.forEach((file) => {
         if (file.filename && file.path) {
           FilePathRegistry.set(file.filename, file.path);
-          console.log(`Registered path for ${file.filename}: ${file.path}`);
         }
       });
     }
-  } catch {
-    console.error("Error registering file paths");
+  } catch (error) {
+    console.error("Error registering file paths:", error);
   }
 }
 
@@ -725,13 +724,11 @@ function isValidFilesContainer(obj) {
 function tryExtractJsonFromText(text) {
   try {
     // Direct parsing approach
-    // Try parsing the text directly, which handles well-formed JSON responses
     const directResult = safeJsonParse(text);
     if (
       directResult &&
       (isValidFilesContainer(directResult) || isValidFileObject(directResult))
     ) {
-      console.log("Found valid JSON through direct parsing");
       return directResult;
     }
 
@@ -741,11 +738,9 @@ function tryExtractJsonFromText(text) {
       cleanedResult &&
       (isValidFilesContainer(cleanedResult) || isValidFileObject(cleanedResult))
     ) {
-      console.log("Found valid JSON through direct parsing after cleanup");
       return cleanedResult;
     }
 
-    // No valid JSON found
     return null;
   } catch (error) {
     console.error("Error in tryExtractJsonFromText:", error);

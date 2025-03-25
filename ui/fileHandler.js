@@ -259,18 +259,8 @@ export class FileHandler {
    * @param {object} fileType - Information about the file type
    */
   _convertAndLoadFile(filePath, fileName, fileType) {
-    const progressMessage = MessageProcessor.addTemporaryMessage(
-      this._outputContainer,
-      `Converting ${fileName}...`
-    );
-
     DocumentConverter.convertToText(filePath, fileType)
       .then((content) => {
-        // Remove progress message
-        if (progressMessage && progressMessage.close) {
-          progressMessage.close();
-        }
-
         const truncatedContent = this._truncateContent(content);
         this._displayFileContentBox(truncatedContent, fileName);
 
@@ -278,11 +268,10 @@ export class FileHandler {
         this._filePaths.set(fileName, filePath);
       })
       .catch((error) => {
-        // Remove progress message
-        if (progressMessage && progressMessage.close) {
-          progressMessage.close();
-        }
-
+        MessageProcessor.addTemporaryMessage(
+          this._outputContainer,
+          `Failed to convert ${fileName}`
+        );
         this._handleError(`Failed to convert ${fileName}`, error);
       });
   }
@@ -305,59 +294,6 @@ export class FileHandler {
       return false;
     }
     return true;
-  }
-
-  /**
-   * Loads the contents of a file
-   *
-   * @private
-   * @param {Gio.File} file - The file to load
-   * @param {string} fileName - Name of the file
-   * @param {string} filePath - Full path to the file
-   */
-  _loadFileContents(file, fileName, filePath) {
-    try {
-      const fileType = DocumentConverter.detectFileType(filePath);
-
-      if (fileType && fileType.type === "text") {
-        // For text files, use the existing method
-        const [success, content] = file.load_contents(null);
-
-        if (success) {
-          const fileContent = this._decodeFileContent(content);
-          const truncatedContent = this._truncateContent(fileContent);
-          this._displayFileContentBox(truncatedContent, fileName);
-
-          // Store the full path
-          this._filePaths.set(fileName, filePath);
-        } else {
-          MessageProcessor.addTemporaryMessage(
-            this._outputContainer,
-            "Failed to read file content"
-          );
-        }
-      } else {
-        // For other files, use the converter
-        this._convertAndLoadFile(filePath, fileName, fileType);
-      }
-    } catch (error) {
-      this._handleError("Error reading file", error);
-    }
-  }
-
-  /**
-   * Decodes file content from buffer to string
-   *
-   * @private
-   * @param {Uint8Array} content - File content as a buffer
-   * @returns {string} - Decoded file content
-   */
-  _decodeFileContent(content) {
-    try {
-      return new TextDecoder("utf-8").decode(content);
-    } catch {
-      return content.toString();
-    }
   }
 
   /**

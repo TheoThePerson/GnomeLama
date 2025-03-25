@@ -56,27 +56,6 @@ export function createMessageContainer(text, isUser, alignment) {
 }
 
 /**
- * Creates a message container specifically for AI responses that may contain code blocks
- * @param {Clutter.ActorAlign} alignment - Alignment of the message box
- * @returns {St.BoxLayout} The created message container
- */
-export function createAIMessageContainer(alignment) {
-  const settings = getSettings();
-  const bgColor = settings.get_string("ai-message-color");
-
-  // Create a container with explicit styling
-  const container = new St.BoxLayout({
-    style_class: "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 12px;`,
-    x_align: alignment,
-    vertical: true,
-    x_expand: true,
-  });
-
-  return container;
-}
-
-/**
  * Copies text to clipboard
  * @param {string} text - The text to copy
  */

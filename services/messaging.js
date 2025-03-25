@@ -26,16 +26,6 @@ export function setModel(modelName) {
 }
 
 /**
- * @returns {string} Current model name
- */
-export function getCurrentModel() {
-  if (!currentModel) {
-    currentModel = getSettings().get_string("default-model");
-  }
-  return currentModel;
-}
-
-/**
  * @param {string} modelName - Model name to get provider for
  * @returns {Object} Provider object with standardized interface
  */
