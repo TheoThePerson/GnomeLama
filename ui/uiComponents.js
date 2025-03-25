@@ -2,6 +2,7 @@
  * UI component creation and rendering utilities
  */
 
+import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import Pango from "gi://Pango";
 import St from "gi://St";
@@ -39,19 +40,55 @@ export function createMessageContainer(text, isUser, alignment) {
     vertical: true,
   });
 
-  // Create label with text content
-  const label = new St.Label({
-    text: text,
-    style_class: "text-label",
-    style: "padding: 0; margin: 0;",
-    x_expand: true,
-  });
+  // Check if the text contains the files attached marker
+  let displayText = text;
+  if (text.includes(" ｢files attached｣")) {
+    displayText = text.replace(" ｢files attached｣", "");
 
-  label.clutter_text.set_line_wrap(true);
-  label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
-  label.clutter_text.set_selectable(true);
+    // Create a container for text and tag
+    const contentBox = new St.BoxLayout({
+      vertical: false,
+      x_expand: true,
+    });
 
-  messageBox.add_child(label);
+    // Create label with text content
+    const label = new St.Label({
+      text: displayText,
+      style_class: "text-label",
+      style: "padding: 0; margin: 0;",
+      x_expand: true,
+    });
+
+    label.clutter_text.set_line_wrap(true);
+    label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+    label.clutter_text.set_selectable(true);
+
+    // Create files attached tag
+    const filesTag = new St.Label({
+      text: "Files Attached",
+      style_class: "files-attached-tag",
+      y_align: Clutter.ActorAlign.CENTER,
+    });
+
+    contentBox.add_child(label);
+    contentBox.add_child(filesTag);
+    messageBox.add_child(contentBox);
+  } else {
+    // Create regular label with text content
+    const label = new St.Label({
+      text: text,
+      style_class: "text-label",
+      style: "padding: 0; margin: 0;",
+      x_expand: true,
+    });
+
+    label.clutter_text.set_line_wrap(true);
+    label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+    label.clutter_text.set_selectable(true);
+
+    messageBox.add_child(label);
+  }
+
   return messageBox;
 }
 

@@ -35,7 +35,9 @@ export async function processUserMessage({
   skipAppendUserMessage = false,
 }) {
   lastMessageHadFiles =
-    displayMessage && displayMessage.includes("[files attached]");
+    displayMessage &&
+    (displayMessage.includes("[files attached]") ||
+      displayMessage.includes("｢files attached｣"));
 
   if (!userMessage || !userMessage.trim()) {
     return;

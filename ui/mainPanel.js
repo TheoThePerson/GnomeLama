@@ -474,7 +474,8 @@ export const Indicator = GObject.registerClass(
           if (
             index > 0 &&
             history[index - 1].type === "user" &&
-            history[index - 1].text.includes("[files attached]")
+            (history[index - 1].text.includes("[files attached]") ||
+              history[index - 1].text.includes("｢files attached｣"))
           ) {
             MessageProcessor.setLastMessageHadFiles(true);
           } else {

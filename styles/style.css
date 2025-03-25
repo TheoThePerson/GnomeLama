@@ -335,4 +335,15 @@
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4) !important;
   transform: translateY(-3px) scale(1.02) !important;
   z-index: 10 !important;
+}
+
+/* Files attached tag styling */
+.files-attached-tag {
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 2px 6px;
+  margin: 0 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
 } 

@@ -87,7 +87,7 @@ export class MessageSender {
           const jsonData = JSON.parse(fileContent);
           jsonData.prompt = userInput;
           messageToSend = JSON.stringify(jsonData, null, 2);
-          displayMessage += " [files attached]";
+          displayMessage += " ｢files attached｣";
 
           // Register file paths for lookup during apply operations
           MessageProcessor.registerFilePaths(fileContent);
