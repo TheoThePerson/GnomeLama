@@ -89,6 +89,59 @@ export class FileHandler {
 
     // Check for document conversion tools
     this._checkDocumentTools();
+
+    // Set up system signal listeners for formatting integrity
+    this._setupSystemListeners();
+  }
+
+  /**
+   * Sets up system listeners to maintain formatting integrity
+   *
+   * @private
+   */
+  _setupSystemListeners() {
+    // Listen for settings changes that might affect display
+    const settings = getSettings();
+    this._settingsChangedId = settings.connect("changed", () => {
+      // Refresh file box formatting on any settings change
+      this.refreshFileBoxFormatting();
+    });
+
+    // Set up additional safeguards using timeouts
+    this._setupFormattingGuard();
+  }
+
+  /**
+   * Sets up a guard that periodically ensures formatting integrity
+   *
+   * @private
+   */
+  _setupFormattingGuard() {
+    // Check and fix formatting every 2 seconds if files are present
+    this._formattingGuardId = imports.gi.GLib.timeout_add(
+      imports.gi.GLib.PRIORITY_DEFAULT,
+      2000,
+      () => {
+        if (this.hasLoadedFiles() && this._fileBoxesContainer) {
+          // Force a thorough refresh of all file box formatting
+          this.refreshFileBoxFormatting();
+        }
+        return imports.gi.GLib.SOURCE_REMOVE;
+      }
+    );
+
+    // Set up a one-time delayed formatting check for when model changes occur
+    // This helps capture formatting issues that happen after model switches
+    this._modelChangeGuardId = imports.gi.GLib.timeout_add(
+      imports.gi.GLib.PRIORITY_DEFAULT,
+      500,
+      () => {
+        if (this.hasLoadedFiles() && this._fileBoxesContainer) {
+          this.refreshFileBoxFormatting();
+        }
+        return imports.gi.GLib.SOURCE_REMOVE;
+      }
+    );
   }
 
   /**
@@ -486,11 +539,21 @@ export class FileHandler {
     const fileBoxSize = getSettings().get_double("file-box-size");
 
     const fileBox = new St.BoxLayout({
-      style_class: UI.FILE_BOX.STYLE_CLASS,
       vertical: true,
       x_expand: false,
       y_expand: false,
     });
+
+    // Apply styling directly to make resistant to external style changes
+    fileBox.set_style(
+      "background-color: #FFFFFF;" +
+        "border: 1px solid rgba(0, 0, 0, 0.2);" +
+        "border-radius: 10px;" +
+        "padding: 8px;" +
+        "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);" +
+        `width: ${fileBoxSize}px;` +
+        `height: ${fileBoxSize}px;`
+    );
 
     // Apply size explicitly
     fileBox.width = fileBoxSize;
@@ -523,10 +586,19 @@ export class FileHandler {
    */
   _createHeaderBox(fileName, fileBox) {
     const headerBox = new St.BoxLayout({
-      style_class: UI.FILE_BOX.HEADER.STYLE_CLASS,
       vertical: false,
       x_expand: true,
     });
+
+    // Apply header styling directly
+    headerBox.set_style(
+      "width: 100%;" +
+        "margin-bottom: 2px;" +
+        "background-color: rgba(0, 0, 0, 0.05);" +
+        "border-radius: 6px;" +
+        "padding: 4px;" +
+        "border-bottom: 1px solid rgba(0, 0, 0, 0.1);"
+    );
 
     const titleLabel = this._createTitleLabel(fileName);
     const closeButton = this._createCloseButton(fileBox);
@@ -556,8 +628,15 @@ export class FileHandler {
     const label = new St.Label({
       text: displayName,
       x_expand: true,
-      style_class: "file-content-title",
     });
+
+    // Apply title styling directly
+    label.set_style(
+      "font-weight: bold;" +
+        "color: #000000;" +
+        "font-size: 12px;" +
+        "padding: 2px 4px;"
+    );
 
     label.userData = fileName;
     return label;
@@ -572,13 +651,57 @@ export class FileHandler {
    */
   _createCloseButton(fileBox) {
     const closeButton = new St.Button({
-      style_class: UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS,
       label: UI.FILE_BOX.HEADER.CLOSE_BUTTON.LABEL,
       x_expand: false,
     });
 
+    // Apply close button styling directly
+    closeButton.set_style(
+      "font-weight: bold;" +
+        "color: #000000;" +
+        "font-size: 12px;" +
+        "background: none;" +
+        "border: none;" +
+        "width: 18px;" +
+        "height: 18px;" +
+        "padding: 0;" +
+        "margin: 0;" +
+        "border-radius: 50%;"
+    );
+
     closeButton.connect("clicked", () => {
       this._removeFileBox(fileBox);
+    });
+
+    // Add hover effect through connect-signal since we can't use CSS :hover
+    closeButton.connect("enter-event", () => {
+      closeButton.set_style(
+        "font-weight: bold;" +
+          "color: #cc0000;" +
+          "font-size: 12px;" +
+          "background-color: rgba(255, 0, 0, 0.15);" +
+          "border: none;" +
+          "width: 18px;" +
+          "height: 18px;" +
+          "padding: 0;" +
+          "margin: 0;" +
+          "border-radius: 50%;"
+      );
+    });
+
+    closeButton.connect("leave-event", () => {
+      closeButton.set_style(
+        "font-weight: bold;" +
+          "color: #000000;" +
+          "font-size: 12px;" +
+          "background: none;" +
+          "border: none;" +
+          "width: 18px;" +
+          "height: 18px;" +
+          "padding: 0;" +
+          "margin: 0;" +
+          "border-radius: 50%;"
+      );
     });
 
     return closeButton;
@@ -589,15 +712,10 @@ export class FileHandler {
    *
    * @private
    * @param {string} content - File content
-   * @returns {St.ScrollView} - The content view
+   * @returns {St.BoxLayout} - The content view (non-scrollable as requested)
    */
   _createContentView(content) {
-    const scrollView = new St.ScrollView({
-      style_class: UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS,
-      x_expand: true,
-      y_expand: true,
-    });
-
+    // Create a simple box layout instead of a scroll view
     const contentBox = new St.BoxLayout({
       vertical: true,
       x_expand: true,
@@ -605,20 +723,28 @@ export class FileHandler {
     });
 
     const contentLabel = new St.Label({
-      style_class: UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS,
       text: content,
       x_expand: true,
       y_expand: true,
     });
 
+    // Apply content styling directly
+    contentLabel.set_style(
+      "font-family: monospace;" +
+        "font-size: 11px;" +
+        "color: #000000;" +
+        "padding: 2px;" +
+        "line-height: 1.4;" +
+        "word-wrap: break-word;" +
+        "overflow-wrap: break-word;"
+    );
+
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
     contentBox.add_child(contentLabel);
-    scrollView.add_child(contentBox);
-    scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.NEVER);
 
-    return scrollView;
+    return contentBox;
   }
 
   /**
@@ -732,6 +858,24 @@ export class FileHandler {
    * Destroys the file handler
    */
   destroy() {
+    // Disconnect any signal handlers to prevent memory leaks
+    if (this._settingsChangedId) {
+      const settings = getSettings();
+      settings.disconnect(this._settingsChangedId);
+      this._settingsChangedId = null;
+    }
+
+    // Remove any active timeouts
+    if (this._formattingGuardId) {
+      imports.gi.GLib.source_remove(this._formattingGuardId);
+      this._formattingGuardId = null;
+    }
+
+    if (this._modelChangeGuardId) {
+      imports.gi.GLib.source_remove(this._modelChangeGuardId);
+      this._modelChangeGuardId = null;
+    }
+
     this.cleanupFileContentBox();
   }
 
@@ -787,16 +931,34 @@ export class FileHandler {
       return;
     }
 
-    this._fileBoxesContainer.set_style_class_name(
-      UI.CONTAINER.FILE_BOXES.STYLE_CLASS
-    );
-
     // Get the current size directly from settings to ensure consistency
     const fileBoxSize = getSettings().get_double("file-box-size");
 
+    // First, ensure the container itself has proper styling
+    // Setting the flow layout with explicit parameters again
+    const flowLayout = new Clutter.FlowLayout({
+      orientation: Clutter.Orientation.HORIZONTAL,
+      homogeneous: true,
+      column_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
+      row_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
+      max_column_width: fileBoxSize + UI.FILE_BOX.MARGIN * 2,
+    });
+
+    // Update the layout manager to ensure proper positioning
+    this._fileBoxesContainer.set_layout_manager(flowLayout);
+
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
-      fileBox.set_style_class_name(UI.FILE_BOX.STYLE_CLASS);
+      // Apply all styling directly with !important flags to override any inherited styles
+      fileBox.set_style(
+        "background-color: #FFFFFF !important;" +
+          "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
+          "border-radius: 10px !important;" +
+          "padding: 8px !important;" +
+          "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
+          `width: ${fileBoxSize}px !important;` +
+          `height: ${fileBoxSize}px !important;`
+      );
 
       // Ensure size is set by all possible means
       fileBox.width = fileBoxSize;
@@ -805,19 +967,19 @@ export class FileHandler {
       fileBox.set_height(fileBoxSize);
       fileBox.set_size(fileBoxSize, fileBoxSize);
 
-      // Apply using inline style as well
-      let style = fileBox.get_style() || "";
-      if (!style.includes("width:") && !style.includes("height:")) {
-        style += `width: ${fileBoxSize}px; height: ${fileBoxSize}px;`;
-        fileBox.set_style(style);
-      }
-
       if (fileBox.get_n_children() >= 2) {
         const headerBox = fileBox.get_children()[0];
         const contentView = fileBox.get_children()[1];
 
         if (headerBox) {
-          headerBox.set_style_class_name(UI.FILE_BOX.HEADER.STYLE_CLASS);
+          headerBox.set_style(
+            "width: 100% !important;" +
+              "margin-bottom: 2px !important;" +
+              "background-color: rgba(0, 0, 0, 0.05) !important;" +
+              "border-radius: 6px !important;" +
+              "padding: 4px !important;" +
+              "border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;"
+          );
           headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
           if (headerBox.get_n_children() >= 2) {
@@ -825,30 +987,65 @@ export class FileHandler {
             const closeButton = headerBox.get_children()[1];
 
             if (titleLabel) {
-              titleLabel.set_style_class_name("file-content-title");
+              titleLabel.set_style(
+                "font-weight: bold !important;" +
+                  "color: #000000 !important;" +
+                  "font-size: 12px !important;" +
+                  "padding: 2px 4px !important;"
+              );
             }
 
             if (closeButton) {
-              closeButton.set_style_class_name(
-                UI.FILE_BOX.HEADER.CLOSE_BUTTON.STYLE_CLASS
+              closeButton.set_style(
+                "font-weight: bold !important;" +
+                  "color: #000000 !important;" +
+                  "font-size: 12px !important;" +
+                  "background: none !important;" +
+                  "border: none !important;" +
+                  "width: 18px !important;" +
+                  "height: 18px !important;" +
+                  "padding: 0 !important;" +
+                  "margin: 0 !important;" +
+                  "border-radius: 50% !important;"
               );
             }
           }
         }
 
         if (contentView) {
-          contentView.set_style_class_name(
-            UI.FILE_BOX.CONTENT.SCROLL.STYLE_CLASS
-          );
           const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
           contentView.set_height(contentHeight);
 
-          const contentBox = contentView.get_child();
-          if (contentBox && contentBox.get_n_children() > 0) {
-            const contentLabel = contentBox.get_children()[0];
+          // If it's a ScrollView (old style), replace it with a BoxLayout
+          if (contentView instanceof imports.gi.St.ScrollView) {
+            const oldContentBox = contentView.get_child();
+            let contentLabel = null;
+
+            if (oldContentBox && oldContentBox.get_n_children() > 0) {
+              contentLabel = oldContentBox.get_children()[0];
+            }
+
             if (contentLabel) {
-              contentLabel.set_style_class_name(
-                UI.FILE_BOX.CONTENT.TEXT.STYLE_CLASS
+              const text = contentLabel.get_text();
+              fileBox.remove_child(contentView);
+              contentView.destroy();
+
+              const newContentView = this._createContentView(text);
+              newContentView.set_height(contentHeight);
+              fileBox.add_child(newContentView);
+            }
+          } else if (contentView.get_n_children() > 0) {
+            // It's already a BoxLayout (new style)
+            const contentLabel = contentView.get_children()[0];
+            if (contentLabel) {
+              contentLabel.set_style(
+                "font-family: monospace !important;" +
+                  "font-size: 11px !important;" +
+                  "color: #000000 !important;" +
+                  "padding: 2px !important;" +
+                  "line-height: 1.4 !important;" +
+                  "word-wrap: break-word !important;" +
+                  "overflow-wrap: break-word !important;"
               );
             }
           }
@@ -860,18 +1057,29 @@ export class FileHandler {
     this._fileBoxesContainer.queue_relayout();
 
     // Apply changes with multiple scheduling priorities to ensure it happens
-    imports.gi.GLib.idle_add(() => {
+    imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_HIGH, () => {
       this._adjustInputContainerHeight();
       return imports.gi.GLib.SOURCE_REMOVE;
     });
 
     // Schedule another refresh at a lower priority
-    imports.gi.GLib.timeout_add(() => {
+    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 100, () => {
       // Apply sizes again to ensure consistency
       const children = this._fileBoxesContainer.get_children();
       for (const fileBox of children) {
         fileBox.set_width(fileBoxSize);
         fileBox.set_height(fileBoxSize);
+
+        // Re-apply styling to be extra safe with !important flags
+        fileBox.set_style(
+          "background-color: #FFFFFF !important;" +
+            "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
+            "border-radius: 10px !important;" +
+            "padding: 8px !important;" +
+            "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
+            `width: ${fileBoxSize}px !important;` +
+            `height: ${fileBoxSize}px !important;`
+        );
       }
 
       // Force update again
@@ -879,7 +1087,29 @@ export class FileHandler {
       this._adjustInputContainerHeight();
 
       return imports.gi.GLib.SOURCE_REMOVE;
-    }, 100);
+    });
+
+    // Set up one more delayed refresh to catch any transition animations
+    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
+      const children = this._fileBoxesContainer.get_children();
+      for (const fileBox of children) {
+        // Re-apply all styling one final time
+        fileBox.set_style(
+          "background-color: #FFFFFF !important;" +
+            "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
+            "border-radius: 10px !important;" +
+            "padding: 8px !important;" +
+            "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
+            `width: ${fileBoxSize}px !important;` +
+            `height: ${fileBoxSize}px !important;`
+        );
+
+        fileBox.set_width(fileBoxSize);
+        fileBox.set_height(fileBoxSize);
+      }
+
+      return imports.gi.GLib.SOURCE_REMOVE;
+    });
   }
 
   /**
