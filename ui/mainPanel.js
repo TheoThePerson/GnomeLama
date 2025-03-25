@@ -339,85 +339,95 @@ export const Indicator = GObject.registerClass(
       }
       this._isTogglingPanel = true;
 
-      // Toggle visibility flag
-      const isOpening = !this._panelOverlay.visible;
-      this._panelOverlay.visible = isOpening;
+      try {
+        // Toggle visibility flag
+        const isOpening = !this._panelOverlay.visible;
+        this._panelOverlay.visible = isOpening;
 
-      if (!isOpening) {
-        // If closing the panel
-        this._inputField.set_text("");
+        if (!isOpening) {
+          // If closing the panel
+          this._inputField.set_text("");
 
-        // Immediately hide sensitive UI elements for faster perceived performance
-        this._inputField.opacity = 0;
-        this._buttonsContainer.opacity = 0;
+          // Immediately hide sensitive UI elements for faster perceived performance
+          this._inputField.opacity = 0;
+          this._buttonsContainer.opacity = 0;
 
-        // Close model menu
-        if (this._modelManager) {
-          this._modelManager.closeMenu();
-        }
+          // Close model menu
+          if (this._modelManager) {
+            this._modelManager.closeMenu();
+          }
 
-        // Clean up file UI only (preserve file data)
-        if (this._fileHandler) {
-          this._fileHandler.cleanupFileUI();
-        }
-      } else {
-        // If opening panel
-        // Reset opacity of UI elements that were hidden when closing
-        this._inputField.opacity = 255;
-        this._buttonsContainer.opacity = 255;
+          // Clean up file UI only (preserve file data)
+          if (this._fileHandler) {
+            this._fileHandler.cleanupFileUI();
+          }
+        } else {
+          // If opening panel
+          // Reset opacity of UI elements that were hidden when closing
+          this._inputField.opacity = 255;
+          this._buttonsContainer.opacity = 255;
 
-        // Update layout first to ensure proper dimensions
-        this._updateLayout();
-
-        // Use a sequence of timed operations to restore file UI
-        if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-          // First restore the basic UI
-          this._fileHandler.restoreFileUI();
-
-          // Then update layout
+          // Update layout first to ensure proper dimensions
           this._updateLayout();
 
-          // Then apply a sequence of timed refreshes to ensure proper formatting
-          const refreshSequence = [10, 50, 100, 200];
-          refreshSequence.forEach((delay) => {
-            imports.gi.GLib.timeout_add(
-              imports.gi.GLib.PRIORITY_DEFAULT,
-              delay,
-              () => {
-                if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-                  this._fileHandler.refreshFileBoxFormatting();
+          // Use a sequence of timed operations to restore file UI
+          if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+            // First restore the basic UI
+            this._fileHandler.restoreFileUI();
 
-                  // Update layout after each formatting refresh
-                  this._updateLayout();
+            // Then update layout
+            this._updateLayout();
+
+            // Then apply a sequence of timed refreshes to ensure proper formatting
+            const refreshSequence = [10, 50, 100, 200];
+            refreshSequence.forEach((delay) => {
+              imports.gi.GLib.timeout_add(
+                imports.gi.GLib.PRIORITY_DEFAULT,
+                delay,
+                () => {
+                  if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+                    this._fileHandler.refreshFileBoxFormatting();
+                    this._updateLayout();
+                  }
+                  return imports.gi.GLib.SOURCE_REMOVE;
                 }
-                return imports.gi.GLib.SOURCE_REMOVE;
-              }
-            );
-          });
+              );
+            });
+          }
+
+          // Start loading history in background
+          this._loadHistoryAsync();
+
+          // Give focus to input field
+          global.stage.set_key_focus(this._inputField.clutter_text);
+
+          // Refresh models in background (don't block UI)
+          if (this._modelManager) {
+            this._modelManager
+              .refreshModels()
+              .catch((e) => console.error("Error refreshing models:", e));
+          }
         }
 
-        // Start loading history in background
-        this._loadHistoryAsync();
-
-        // Give focus to input field
-        global.stage.set_key_focus(this._inputField.clutter_text);
-
-        // Refresh models in background (don't block UI)
-        if (this._modelManager) {
-          this._modelManager
-            .refreshModels()
-            .catch((e) => console.error("Error refreshing models:", e));
-        }
+        // Update layout
+        this._updateLayout();
+      } catch (error) {
+        console.error("Error during panel toggle:", error);
+        // Ensure panel is in a consistent state even if error occurs
+        this._panelOverlay.visible = false;
+        this._inputField.opacity = 255;
+        this._buttonsContainer.opacity = 255;
+      } finally {
+        // Reset toggle flag after a small delay
+        imports.gi.GLib.timeout_add(
+          imports.gi.GLib.PRIORITY_DEFAULT,
+          300,
+          () => {
+            this._isTogglingPanel = false;
+            return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
+          }
+        );
       }
-
-      // Update layout
-      this._updateLayout();
-
-      // Reset toggle flag after a small delay
-      imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
-        this._isTogglingPanel = false;
-        return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
-      });
     }
 
     /**

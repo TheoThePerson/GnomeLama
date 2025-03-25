@@ -27,12 +27,22 @@ export function createPanelOverlay(dimensions) {
     clip_to_allocation: true,
   });
 
-  // Force hardware acceleration
-  panelOverlay.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
-
   // Add to UI group asynchronously to avoid blocking the UI
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    Main.layoutManager.uiGroup.add_child(panelOverlay);
+    try {
+      Main.layoutManager.uiGroup.add_child(panelOverlay);
+    } catch (error) {
+      console.error("Failed to add panel overlay to UI group:", error);
+      // Try again after a short delay
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+        try {
+          Main.layoutManager.uiGroup.add_child(panelOverlay);
+        } catch (retryError) {
+          console.error("Failed to add panel overlay after retry:", retryError);
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+    }
     return GLib.SOURCE_REMOVE;
   });
 
