@@ -3,6 +3,7 @@
  */
 import Clutter from "gi://Clutter";
 import St from "gi://St";
+import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
@@ -230,6 +231,20 @@ export class ModelManager {
     setModel(name);
     this._modelMenu.close();
     this._stopAiMessageCallback();
+
+    // Refresh file box formatting after model change
+    const fileHandler = this._getFileHandler();
+    if (fileHandler && fileHandler.hasLoadedFiles()) {
+      // Use a sequence of delays to ensure proper formatting
+      [10, 50, 150, 300].forEach((delay) => {
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+          if (fileHandler && fileHandler.hasLoadedFiles()) {
+            fileHandler.refreshFileBoxFormatting();
+          }
+          return GLib.SOURCE_REMOVE;
+        });
+      });
+    }
   }
 
   _updateModelLabel(name) {
