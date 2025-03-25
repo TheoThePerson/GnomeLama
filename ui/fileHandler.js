@@ -400,7 +400,7 @@ export class FileHandler {
     });
 
     this._fileBoxesContainer = new St.Widget({
-      style_class: UI.CONTAINER.FILE_BOXES.STYLE_CLASS,
+      style_class: "file-boxes-container",
       layout_manager: flowLayout,
       x_expand: true,
       y_expand: false,
@@ -539,21 +539,11 @@ export class FileHandler {
     const fileBoxSize = getSettings().get_double("file-box-size");
 
     const fileBox = new St.BoxLayout({
+      style_class: "file-content-box",
       vertical: true,
       x_expand: false,
       y_expand: false,
     });
-
-    // Apply styling directly to make resistant to external style changes
-    fileBox.set_style(
-      "background-color: #FFFFFF;" +
-        "border: 1px solid rgba(0, 0, 0, 0.2);" +
-        "border-radius: 10px;" +
-        "padding: 8px;" +
-        "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);" +
-        `width: ${fileBoxSize}px;` +
-        `height: ${fileBoxSize}px;`
-    );
 
     // Apply size explicitly
     fileBox.width = fileBoxSize;
@@ -586,19 +576,10 @@ export class FileHandler {
    */
   _createHeaderBox(fileName, fileBox) {
     const headerBox = new St.BoxLayout({
+      style_class: "file-content-header",
       vertical: false,
       x_expand: true,
     });
-
-    // Apply header styling directly
-    headerBox.set_style(
-      "width: 100%;" +
-        "margin-bottom: 2px;" +
-        "background-color: rgba(0, 0, 0, 0.05);" +
-        "border-radius: 6px;" +
-        "padding: 4px;" +
-        "border-bottom: 1px solid rgba(0, 0, 0, 0.1);"
-    );
 
     const titleLabel = this._createTitleLabel(fileName);
     const closeButton = this._createCloseButton(fileBox);
@@ -626,17 +607,10 @@ export class FileHandler {
     }
 
     const label = new St.Label({
+      style_class: "file-content-title",
       text: displayName,
       x_expand: true,
     });
-
-    // Apply title styling directly
-    label.set_style(
-      "font-weight: bold;" +
-        "color: #000000;" +
-        "font-size: 12px;" +
-        "padding: 2px 4px;"
-    );
 
     label.userData = fileName;
     return label;
@@ -651,57 +625,13 @@ export class FileHandler {
    */
   _createCloseButton(fileBox) {
     const closeButton = new St.Button({
+      style_class: "file-content-close-button",
       label: UI.FILE_BOX.HEADER.CLOSE_BUTTON.LABEL,
       x_expand: false,
     });
 
-    // Apply close button styling directly
-    closeButton.set_style(
-      "font-weight: bold;" +
-        "color: #000000;" +
-        "font-size: 12px;" +
-        "background: none;" +
-        "border: none;" +
-        "width: 18px;" +
-        "height: 18px;" +
-        "padding: 0;" +
-        "margin: 0;" +
-        "border-radius: 50%;"
-    );
-
     closeButton.connect("clicked", () => {
       this._removeFileBox(fileBox);
-    });
-
-    // Add hover effect through connect-signal since we can't use CSS :hover
-    closeButton.connect("enter-event", () => {
-      closeButton.set_style(
-        "font-weight: bold;" +
-          "color: #cc0000;" +
-          "font-size: 12px;" +
-          "background-color: rgba(255, 0, 0, 0.15);" +
-          "border: none;" +
-          "width: 18px;" +
-          "height: 18px;" +
-          "padding: 0;" +
-          "margin: 0;" +
-          "border-radius: 50%;"
-      );
-    });
-
-    closeButton.connect("leave-event", () => {
-      closeButton.set_style(
-        "font-weight: bold;" +
-          "color: #000000;" +
-          "font-size: 12px;" +
-          "background: none;" +
-          "border: none;" +
-          "width: 18px;" +
-          "height: 18px;" +
-          "padding: 0;" +
-          "margin: 0;" +
-          "border-radius: 50%;"
-      );
     });
 
     return closeButton;
@@ -723,21 +653,11 @@ export class FileHandler {
     });
 
     const contentLabel = new St.Label({
+      style_class: "file-content-text",
       text: content,
       x_expand: true,
       y_expand: true,
     });
-
-    // Apply content styling directly
-    contentLabel.set_style(
-      "font-family: monospace;" +
-        "font-size: 11px;" +
-        "color: #000000;" +
-        "padding: 2px;" +
-        "line-height: 1.4;" +
-        "word-wrap: break-word;" +
-        "overflow-wrap: break-word;"
-    );
 
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
@@ -934,8 +854,10 @@ export class FileHandler {
     // Get the current size directly from settings to ensure consistency
     const fileBoxSize = getSettings().get_double("file-box-size");
 
-    // First, ensure the container itself has proper styling
-    // Setting the flow layout with explicit parameters again
+    // First, ensure the container has the right style class
+    this._fileBoxesContainer.set_style_class_name("file-boxes-container");
+
+    // Update the layout manager to ensure proper positioning
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
       homogeneous: true,
@@ -944,23 +866,14 @@ export class FileHandler {
       max_column_width: fileBoxSize + UI.FILE_BOX.MARGIN * 2,
     });
 
-    // Update the layout manager to ensure proper positioning
     this._fileBoxesContainer.set_layout_manager(flowLayout);
 
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
-      // Apply all styling directly with !important flags to override any inherited styles
-      fileBox.set_style(
-        "background-color: #FFFFFF !important;" +
-          "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
-          "border-radius: 10px !important;" +
-          "padding: 8px !important;" +
-          "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
-          `width: ${fileBoxSize}px !important;` +
-          `height: ${fileBoxSize}px !important;`
-      );
+      // Ensure style class is set
+      fileBox.set_style_class_name("file-content-box");
 
-      // Ensure size is set by all possible means
+      // Ensure size is set
       fileBox.width = fileBoxSize;
       fileBox.height = fileBoxSize;
       fileBox.set_width(fileBoxSize);
@@ -972,14 +885,7 @@ export class FileHandler {
         const contentView = fileBox.get_children()[1];
 
         if (headerBox) {
-          headerBox.set_style(
-            "width: 100% !important;" +
-              "margin-bottom: 2px !important;" +
-              "background-color: rgba(0, 0, 0, 0.05) !important;" +
-              "border-radius: 6px !important;" +
-              "padding: 4px !important;" +
-              "border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;"
-          );
+          headerBox.set_style_class_name("file-content-header");
           headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
           if (headerBox.get_n_children() >= 2) {
@@ -987,27 +893,11 @@ export class FileHandler {
             const closeButton = headerBox.get_children()[1];
 
             if (titleLabel) {
-              titleLabel.set_style(
-                "font-weight: bold !important;" +
-                  "color: #000000 !important;" +
-                  "font-size: 12px !important;" +
-                  "padding: 2px 4px !important;"
-              );
+              titleLabel.set_style_class_name("file-content-title");
             }
 
             if (closeButton) {
-              closeButton.set_style(
-                "font-weight: bold !important;" +
-                  "color: #000000 !important;" +
-                  "font-size: 12px !important;" +
-                  "background: none !important;" +
-                  "border: none !important;" +
-                  "width: 18px !important;" +
-                  "height: 18px !important;" +
-                  "padding: 0 !important;" +
-                  "margin: 0 !important;" +
-                  "border-radius: 50% !important;"
-              );
+              closeButton.set_style_class_name("file-content-close-button");
             }
           }
         }
@@ -1038,15 +928,7 @@ export class FileHandler {
             // It's already a BoxLayout (new style)
             const contentLabel = contentView.get_children()[0];
             if (contentLabel) {
-              contentLabel.set_style(
-                "font-family: monospace !important;" +
-                  "font-size: 11px !important;" +
-                  "color: #000000 !important;" +
-                  "padding: 2px !important;" +
-                  "line-height: 1.4 !important;" +
-                  "word-wrap: break-word !important;" +
-                  "overflow-wrap: break-word !important;"
-              );
+              contentLabel.set_style_class_name("file-content-text");
             }
           }
         }
@@ -1069,17 +951,6 @@ export class FileHandler {
       for (const fileBox of children) {
         fileBox.set_width(fileBoxSize);
         fileBox.set_height(fileBoxSize);
-
-        // Re-apply styling to be extra safe with !important flags
-        fileBox.set_style(
-          "background-color: #FFFFFF !important;" +
-            "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
-            "border-radius: 10px !important;" +
-            "padding: 8px !important;" +
-            "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
-            `width: ${fileBoxSize}px !important;` +
-            `height: ${fileBoxSize}px !important;`
-        );
       }
 
       // Force update again
@@ -1093,17 +964,8 @@ export class FileHandler {
     imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
       const children = this._fileBoxesContainer.get_children();
       for (const fileBox of children) {
-        // Re-apply all styling one final time
-        fileBox.set_style(
-          "background-color: #FFFFFF !important;" +
-            "border: 1px solid rgba(0, 0, 0, 0.2) !important;" +
-            "border-radius: 10px !important;" +
-            "padding: 8px !important;" +
-            "box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;" +
-            `width: ${fileBoxSize}px !important;` +
-            `height: ${fileBoxSize}px !important;`
-        );
-
+        // Ensure classes and sizes are still correct
+        fileBox.set_style_class_name("file-content-box");
         fileBox.set_width(fileBoxSize);
         fileBox.set_height(fileBoxSize);
       }
