@@ -76,8 +76,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       "file-box-size",
       _("File Box Size"),
       _("Size of the file boxes in pixels"),
-      50,
-      200,
+      100,
+      140,
       10
     );
   }

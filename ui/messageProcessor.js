@@ -671,15 +671,6 @@ export function registerFilePaths(jsonString) {
 }
 
 /**
- * Get the original path for a filename
- * @param {string} filename - The filename to look up
- * @returns {string|null} - The original path or null if not found
- */
-export function getOriginalFilePath(filename) {
-  return FilePathRegistry.get(filename) || null;
-}
-
-/**
  * Safely parse JSON without throwing exceptions
  * @param {string} jsonString - String to parse
  * @returns {object|null} - Parsed object or null if invalid

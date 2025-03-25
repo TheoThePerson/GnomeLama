@@ -29,7 +29,7 @@ const UI = {
       // Get the file box size from settings
       return getSettings().get_double("file-box-size");
     },
-    MARGIN: 5, // Margin around boxes (reduced)
+    MARGIN: 5,
     HEADER: {
       STYLE_CLASS: "file-content-header",
       HEIGHT: 28, // Fixed header height
