@@ -443,13 +443,8 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateHistory() {
-      // Save temporary messages
-      const tempMessages = this._outputContainer
-        .get_children()
-        .filter(
-          (child) =>
-            child.style_class && child.style_class.includes("temporary-message")
-        );
+      // Remove temporary messages first to make sure they don't appear
+      MessageProcessor.removeTemporaryMessages(this._outputContainer);
 
       // Clear existing messages
       MessageProcessor.clearOutput(this._outputContainer);
@@ -489,11 +484,6 @@ export const Indicator = GObject.registerClass(
         }
       });
 
-      // Restore temporary messages
-      tempMessages.forEach((msg) => {
-        this._outputContainer.add_child(msg);
-      });
-
       // First scroll to bottom to ensure proper layout measurements
       PanelElements.scrollToBottom(this._outputScrollView);
 
@@ -508,6 +498,9 @@ export const Indicator = GObject.registerClass(
     }
 
     _clearHistory() {
+      // Remove temporary messages
+      MessageProcessor.removeTemporaryMessages(this._outputContainer);
+
       // Clear conversation history
       clearConversationHistory();
       this._context = null;

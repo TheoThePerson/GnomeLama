@@ -133,7 +133,7 @@ export function getLastError() {
  * @param {string} message - The message to send
  * @param {string} context - Optional conversation context
  * @param {Function} onData - Callback function for streaming response
- * @param {string} displayMessage - Optional simplified message for history (without file content)
+ * @param {string} displayMessage - Optional simplified message for history (without file content) for files
  * @returns {Promise<string>} The complete response
  */
 export async function sendMessage(message, context, onData, displayMessage) {
