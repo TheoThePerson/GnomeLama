@@ -386,8 +386,10 @@ export function createListElement(items, type) {
     const content = new St.Label({
       text: item.content,
       x_expand: true,
+      style: "word-wrap: break-word; overflow-wrap: break-word; width: 100%;",
     });
     content.clutter_text.set_line_wrap(true);
+    content.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
     content.clutter_text.set_selectable(true);
     listItem.add_child(content);
 
