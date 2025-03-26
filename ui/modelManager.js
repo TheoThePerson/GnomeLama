@@ -95,12 +95,12 @@ export class ModelManager {
       "button-press-event",
       (actor, event) => {
         if (this._modelMenu && this._modelMenu.isOpen) {
-          let [x, y] = event.get_coords();
-          let menuActor = this._modelMenu.actor || this._modelMenu;
-          let [menuX, menuY] = menuActor.get_transformed_position();
-          let [menuWidth, menuHeight] = menuActor.get_size();
-          let [buttonX, buttonY] = this._modelButton.get_transformed_position();
-          let [buttonWidth, buttonHeight] = this._modelButton.get_size();
+          const [x, y] = event.get_coords();
+          const menuActor = this._modelMenu.actor || this._modelMenu;
+          const [menuX, menuY] = menuActor.get_transformed_position();
+          const [menuWidth, menuHeight] = menuActor.get_size();
+          const [buttonX, buttonY] = this._modelButton.get_transformed_position();
+          const [buttonWidth, buttonHeight] = this._modelButton.get_size();
 
           if (
             !(
@@ -131,7 +131,7 @@ export class ModelManager {
     const [buttonX] = this._modelButton.get_transformed_position();
 
     // Get menu actor
-    let menuActor = this._modelMenu.actor || this._modelMenu;
+    const menuActor = this._modelMenu.actor || this._modelMenu;
 
     // Get menu height
     const [, menuHeight] = menuActor.get_preferred_height(-1);
@@ -170,19 +170,19 @@ export class ModelManager {
 
     models.forEach((name) => {
       // Create a custom menu item
-      let menuItem = new PopupMenu.PopupBaseMenuItem({
+      const menuItem = new PopupMenu.PopupBaseMenuItem({
         style_class: "model-menu-item",
       });
 
       // Add a spacer for the ornament
-      let ornamentSpace = new St.Bin({
+      const ornamentSpace = new St.Bin({
         style_class: "popup-menu-ornament",
         x_expand: false,
       });
       menuItem.actor.add_child(ornamentSpace);
 
       // Add the label
-      let label = new St.Label({
+      const label = new St.Label({
         text: name,
         y_expand: true,
         y_align: Clutter.ActorAlign.CENTER,
@@ -194,7 +194,7 @@ export class ModelManager {
 
       // Add the dot ornament for the selected model
       if (name === selectedModel) {
-        let dot = new St.Icon({
+        const dot = new St.Icon({
           icon_name: "media-record-symbolic",
           style_class: "popup-menu-icon model-selection-dot",
         });
@@ -220,7 +220,7 @@ export class ModelManager {
 
     // Add ornament to the selected item
     if (menuItem._ornamentBin) {
-      let dot = new St.Icon({
+      const dot = new St.Icon({
         icon_name: "media-record-symbolic",
         style_class: "popup-menu-icon model-selection-dot",
       });

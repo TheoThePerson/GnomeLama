@@ -180,7 +180,7 @@ export function createOutputArea(dimensions) {
     vscroll.set_width(8);
 
     // Connect to scroll events to force updates
-    const adjustment = vscroll.adjustment;
+    const {adjustment} = vscroll;
     if (adjustment) {
       adjustment.connect("notify::value", () => {
         // Use idle_add to defer redraw to prevent UI blocking
@@ -315,7 +315,7 @@ export function createResponseContainer(bgColor) {
  */
 export function scrollToBottom(scrollView) {
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    const adjustment = scrollView.vscroll.adjustment;
+    const {adjustment} = scrollView.vscroll;
     if (adjustment) {
       const targetValue = adjustment.upper - adjustment.page_size;
       // Use smooth animation when scrolling

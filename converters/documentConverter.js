@@ -80,7 +80,7 @@ export function detectFileType(filePath) {
     // Check if extension is in supported formats
     if (SUPPORTED_FORMATS[extension]) {
       return {
-        extension: extension,
+        extension,
         ...SUPPORTED_FORMATS[extension],
       };
     }
@@ -123,6 +123,78 @@ function getFileMimeType(filePath) {
 }
 
 /**
+ * Handles reading text directly from text files
+ *
+ * @param {string} filePath - Path to the text file
+ * @returns {Promise<string>} - Promise resolving to text content
+ */
+function readTextFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const file = Gio.File.new_for_path(filePath);
+    const [success, content] = file.load_contents(null);
+
+    if (success) {
+      try {
+        // Try to decode the content as UTF-8
+        // GJS doesn't have TextDecoder by default, so we need to use toString
+        const text = content.toString();
+        resolve(text);
+      } catch (error) {
+        console.error(`Error decoding file content: ${error.message}`);
+        resolve(content.toString());
+      }
+    } else {
+      reject(new Error("Failed to read file content"));
+    }
+  });
+}
+
+/**
+ * Handles document format conversions
+ *
+ * @param {string} filePath - Path to the document
+ * @param {object} fileType - File type information
+ * @returns {Promise<string>} - Promise resolving to text content
+ */
+function handleDocumentConversion(filePath, fileType) {
+  return new Promise((resolve, reject) => {
+    // Special handling for PDF files
+    if (fileType.extension === "pdf") {
+      extractPdfText(filePath)
+        .then(resolve)
+        .catch((error) => {
+          console.error("PDF extraction failed:", error);
+          reject(error);
+        });
+      return;
+    }
+
+    // Special handling for Word documents
+    if (fileType.extension === "docx" || fileType.extension === "doc") {
+      extractWordText(filePath, fileType.extension)
+        .then(resolve)
+        .catch((error) => {
+          console.error(`${fileType.extension} extraction failed:`, error);
+          reject(error);
+        });
+      return;
+    }
+
+    // Handle document files requiring conversion
+    if (fileType.type === "document" && fileType.converter) {
+      const command = fileType.converter.replace(
+        "FILE",
+        GLib.shell_quote(filePath)
+      );
+      executeCommand(command, filePath).then(resolve).catch(reject);
+      return;
+    }
+
+    reject(new Error("Unsupported file format"));
+  });
+}
+
+/**
  * Converts document to text format
  *
  * @param {string} filePath - Path to the document
@@ -142,61 +214,12 @@ export function convertToText(filePath, fileType) {
 
       // Handle direct text files
       if (fileType.type === "text") {
-        const file = Gio.File.new_for_path(filePath);
-        const [success, content] = file.load_contents(null);
-
-        if (success) {
-          try {
-            const text = new TextDecoder("utf-8").decode(content);
-            resolve(text);
-          } catch {
-            resolve(content.toString());
-          }
-        } else {
-          reject(new Error("Failed to read file content"));
-        }
+        readTextFile(filePath).then(resolve).catch(reject);
         return;
       }
 
-      // Special handling for PDF files
-      if (fileType.extension === "pdf") {
-        extractPdfText(filePath)
-          .then((text) => resolve(text))
-          .catch((error) => {
-            console.error("PDF extraction failed:", error);
-            reject(error);
-          });
-        return;
-      }
-
-      // Special handling for Word documents
-      if (fileType.extension === "docx" || fileType.extension === "doc") {
-        extractWordText(filePath, fileType.extension)
-          .then((text) => resolve(text))
-          .catch((error) => {
-            console.error(`${fileType.extension} extraction failed:`, error);
-            reject(error);
-          });
-        return;
-      }
-
-      // Handle document files requiring conversion
-      if (fileType.type === "document" && fileType.converter) {
-        const command = fileType.converter.replace(
-          "FILE",
-          GLib.shell_quote(filePath)
-        );
-        executeCommand(command, filePath)
-          .then((result) => {
-            resolve(result);
-          })
-          .catch((error) => {
-            reject(error);
-          });
-        return;
-      }
-
-      reject(new Error("Unsupported file format"));
+      // Handle document formats
+      handleDocumentConversion(filePath, fileType).then(resolve).catch(reject);
     } catch (error) {
       reject(error);
     }

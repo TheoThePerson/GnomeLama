@@ -116,7 +116,7 @@ export async function sendMessageToAPI(
 
   const payload = JSON.stringify({
     model: modelName,
-    messages: messages,
+    messages,
     stream: true,
     temperature: settings.get_double("temperature"),
   });
@@ -159,7 +159,7 @@ export async function sendMessageToAPI(
     // Return the promise and cancel function
     return {
       result: requestHandler.result.then((result) => {
-        const response = result.response;
+        const {response} = result;
 
         // Reset the API session once completed successfully
         setTimeout(() => {

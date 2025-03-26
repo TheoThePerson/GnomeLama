@@ -198,7 +198,7 @@ export function extractWordText(filePath, extension) {
                 }
               } else {
                 // Special handling for common errors
-                let errorMsg = stderr || "No output";
+                const errorMsg = stderr || "No output";
 
                 if (
                   currentApproach.command === "docx2txt" &&

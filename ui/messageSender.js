@@ -79,7 +79,7 @@ export class MessageSender {
 
     if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
       // Get JSON formatted file content
-      let fileContent = this._fileHandler.getFormattedFileContent();
+      const fileContent = this._fileHandler.getFormattedFileContent();
 
       if (fileContent) {
         // Parse the JSON to add the prompt
@@ -181,7 +181,7 @@ export class MessageSender {
       // Process the user message with files included, but store the display message in history
       await MessageProcessor.processUserMessage({
         userMessage: messageToSend,
-        displayMessage: displayMessage,
+        displayMessage,
         context: this._context,
         outputContainer: this._outputContainer,
         scrollView: this._outputScrollView,

@@ -211,7 +211,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   } = calculatePanelDimensions();
 
   // Calculate base container height
-  let baseContainerHeight = inputFieldHeight + buttonsHeight + paddingY;
+  const baseContainerHeight = inputFieldHeight + buttonsHeight + paddingY;
   let fileBoxHeight = 0;
 
   // Find file boxes container
@@ -247,7 +247,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     inputButtonsContainer.userData &&
     inputButtonsContainer.userData.outputScrollView
   ) {
-    const outputScrollView = inputButtonsContainer.userData.outputScrollView;
+    const {outputScrollView} = inputButtonsContainer.userData;
     outputScrollView.set_height(remainingHeight);
   }
 

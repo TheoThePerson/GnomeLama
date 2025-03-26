@@ -110,7 +110,7 @@ export async function sendMessageToAPI(
     // Transform the API response to match our provider interface
     return {
       result: requestHandler.result.then((result) => {
-        const response = result.response;
+        const {response} = result;
         const responseContext = currentContext;
 
         // Reset the API session once completed successfully

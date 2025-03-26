@@ -342,8 +342,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     // Create a preferences row for the spin button
     const row = new Adw.ActionRow({
-      title: title,
-      subtitle: subtitle,
+      title,
+      subtitle,
     });
     row.add_suffix(spinButton);
     row.activatable_widget = spinButton;
@@ -373,8 +373,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     // Create a preferences row for the color button
     const row = new Adw.ActionRow({
-      title: title,
-      subtitle: subtitle,
+      title,
+      subtitle,
     });
     row.add_suffix(colorButton);
     row.activatable_widget = colorButton;
@@ -404,8 +404,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     // Create a preferences row for the entry
     const row = new Adw.ActionRow({
-      title: title,
-      subtitle: subtitle,
+      title,
+      subtitle,
     });
     row.add_suffix(entry);
     row.activatable_widget = entry;
@@ -422,9 +422,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
    * @returns {Gdk.RGBA} RGBA color object
    */
   _hexToRGBA(hex) {
-    let r = parseInt(hex.substring(1, 3), 16) / 255;
-    let g = parseInt(hex.substring(3, 5), 16) / 255;
-    let b = parseInt(hex.substring(5, 7), 16) / 255;
+    const r = parseInt(hex.substring(1, 3), 16) / 255;
+    const g = parseInt(hex.substring(3, 5), 16) / 255;
+    const b = parseInt(hex.substring(5, 7), 16) / 255;
     return new Gdk.RGBA({ red: r, green: g, blue: b, alpha: 1 });
   }
 
@@ -434,13 +434,13 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
    * @returns {string} Hex color string (#RRGGBB)
    */
   _RGBAtoHex(rgba) {
-    let r = Math.round(rgba.red * 255)
+    const r = Math.round(rgba.red * 255)
       .toString(16)
       .padStart(2, "0");
-    let g = Math.round(rgba.green * 255)
+    const g = Math.round(rgba.green * 255)
       .toString(16)
       .padStart(2, "0");
-    let b = Math.round(rgba.blue * 255)
+    const b = Math.round(rgba.blue * 255)
       .toString(16)
       .padStart(2, "0");
     return `#${r}${g}${b}`;

@@ -1,21 +1,51 @@
 import jsdoc from "eslint-plugin-jsdoc";
+import eslintjs from "@eslint/js";
 
 export default [
+  // Recommended base configuration
+  eslintjs.configs.recommended,
+
+  // JSDoc plugin configuration
   {
     plugins: {
       jsdoc,
     },
+    rules: {
+      "jsdoc/require-param-description": "off",
+      "jsdoc/require-jsdoc": [
+        "error",
+        {
+          exemptEmptyFunctions: true,
+          publicOnly: {
+            esm: true,
+          },
+        },
+      ],
+    },
+  },
 
+  // Global configuration
+  {
     languageOptions: {
       globals: {
         global: "readonly",
+        console: "readonly", // add console as a readonly global
+        // GJS globals for GNOME extensions
+        imports: "readonly",
+        Extension: "readonly",
+        Me: "readonly",
+        Main: "readonly",
+        St: "readonly",
+        GLib: "readonly",
+        Gio: "readonly",
+        GObject: "readonly",
+        Clutter: "readonly",
       },
-
       ecmaVersion: 2020,
       sourceType: "module",
     },
-
     rules: {
+      // Naming and style rules
       camelcase: [
         "error",
         {
@@ -24,20 +54,126 @@ export default [
         },
       ],
 
+      // Functionality and best practice rules
       "consistent-return": "error",
       eqeqeq: ["error", "smart"],
       "prefer-arrow-callback": "error",
-      "jsdoc/require-param-description": "off",
-      "jsdoc/require-jsdoc": [
+
+      // ESLint v9 Default Rules
+      "accessor-pairs": "error",
+      "array-callback-return": "error",
+      "block-scoped-var": "error",
+      "class-methods-use-this": "error",
+      complexity: ["warn", 20],
+      curly: ["error", "multi-line"],
+      "default-case": "error",
+      "default-case-last": "error",
+      "default-param-last": "error",
+      "dot-location": ["error", "property"],
+      "dot-notation": "error",
+      "func-style": ["error", "declaration", { allowArrowFunctions: true }],
+      "grouped-accessor-pairs": ["error", "getBeforeSet"],
+      "guard-for-in": "error",
+      "max-classes-per-file": ["error", 1],
+      "max-depth": ["warn", 4],
+      "max-lines": [
+        "warn",
+        { max: 300, skipBlankLines: true, skipComments: true },
+      ],
+      "max-lines-per-function": [
+        "warn",
+        { max: 50, skipBlankLines: true, skipComments: true },
+      ],
+      "max-nested-callbacks": ["error", 3],
+      "max-params": ["warn", 3],
+      "no-array-constructor": "error",
+      "no-await-in-loop": "error",
+      "no-caller": "error",
+      "no-case-declarations": "error",
+      // "no-console": "warn",
+      "no-control-regex": "error",
+      "no-duplicate-imports": "error",
+      "no-else-return": "error",
+      "no-empty-function": "error",
+      "no-empty-pattern": "error",
+      "no-eval": "error",
+      "no-extend-native": "error",
+      "no-extra-bind": "error",
+      "no-extra-label": "error",
+      "no-floating-decimal": "error",
+      "no-implicit-coercion": "error",
+      "no-implicit-globals": "error",
+      "no-implied-eval": "error",
+      "no-import-assign": "error",
+      "no-inner-declarations": "error",
+      "no-invalid-regexp": "error",
+      "no-iterator": "error",
+      "no-labels": "error",
+      "no-lone-blocks": "error",
+      "no-multi-assign": "error",
+      "no-multi-str": "error",
+      "no-new": "error",
+      "no-new-func": "error",
+      "no-new-wrappers": "error",
+      "no-nonoctal-decimal-escape": "error",
+      "no-obj-calls": "error",
+      "no-octal": "error",
+      "no-octal-escape": "error",
+      "no-promise-executor-return": "error",
+      "no-proto": "error",
+      "no-prototype-builtins": "error",
+      "no-restricted-exports": [
         "error",
         {
-          exemptEmptyFunctions: true,
-
-          publicOnly: {
-            esm: true,
-          },
+          restrictedNamedExports: ["default", "then"],
+          restrictedNamedExportsPattern: "^(default|then)$",
         },
       ],
+      "no-return-assign": "error",
+      "no-return-await": "error",
+      "no-script-url": "error",
+      "no-self-assign": "error",
+      "no-self-compare": "error",
+      "no-sequences": "error",
+      "no-shadow": "error",
+      "no-template-curly-in-string": "error",
+      "no-throw-literal": "error",
+      "no-undef-init": "error",
+      "no-undefined": "error",
+      "no-unmodified-loop-condition": "error",
+      "no-unused-expressions": "error",
+      "no-unused-vars": [
+        "error",
+        { vars: "all", args: "after-used", ignoreRestSiblings: true },
+      ],
+      "no-use-before-define": ["error", { functions: false, classes: true }],
+      "no-useless-backreference": "error",
+      "no-useless-call": "error",
+      "no-useless-catch": "error",
+      "no-useless-computed-key": "error",
+      "no-useless-concat": "error",
+      "no-useless-constructor": "error",
+      "no-useless-rename": "error",
+      "no-useless-return": "error",
+      "no-var": "error",
+      "no-void": "error",
+      "no-with": "error",
+      "object-shorthand": "error",
+      "prefer-const": "error",
+      "prefer-destructuring": ["error", { array: false, object: true }],
+      "prefer-exponentiation-operator": "error",
+      "prefer-numeric-literals": "error",
+      "prefer-object-spread": "error",
+      "prefer-promise-reject-errors": "error",
+      "prefer-regex-literals": "error",
+      "prefer-rest-params": "error",
+      "prefer-spread": "error",
+      radix: "error",
+      "require-atomic-updates": "error",
+      "require-await": "warn",
+      "require-unicode-regexp": "error",
+      "symbol-description": "error",
+      yoda: "error",
     },
   },
 ];

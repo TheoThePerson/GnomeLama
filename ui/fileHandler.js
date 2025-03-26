@@ -445,7 +445,7 @@ export class FileHandler {
     const rowsNeeded = Math.max(1, Math.ceil(fileCount / boxesPerRow));
     const boxHeight = fileBoxSize + UI.FILE_BOX.MARGIN * 2;
     const rowSpacing = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
-    let containerHeight =
+    const containerHeight =
       boxHeight * rowsNeeded + rowSpacing + containerPadding * 2;
 
     this._fileBoxesContainer.set_height(containerHeight);
@@ -814,7 +814,7 @@ export class FileHandler {
       const filePath = this._filePaths.get(fileName) || ""; // Get the full path
       files.push({
         filename: fileName,
-        content: content,
+        content,
         path: filePath, // Include the path in the JSON
       });
     }
@@ -825,7 +825,7 @@ export class FileHandler {
         instructions:
           "When modifying files, respond in JSON format. If no files are modified, do NOT respond in JSON. The response must if a file is modified start with a 'summary' key if modifying the fille; describing the changes. Only include modified files under 'files'.",
         prompt: "", // This will be filled in by messageSender.js
-        files: files,
+        files,
       },
       null,
       2

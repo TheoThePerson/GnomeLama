@@ -8,7 +8,7 @@ import { sendMessage } from "../services/messaging.js";
 import * as UIComponents from "./uiComponents.js";
 import * as PanelElements from "./panelWidgets.js";
 
-let temporaryMessages = new Set();
+const temporaryMessages = new Set();
 let lastMessageHadFiles = false;
 const FilePathRegistry = new Map();
 
@@ -161,7 +161,7 @@ export function updateResponseContainer(container, responseText) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
         currentParagraph = [];
       }
-      paragraphs.push({ type: "block", part: part });
+      paragraphs.push({ type: "block", part });
     } else if (hasMultipleParas) {
       if (currentParagraph.length > 0) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
@@ -405,8 +405,8 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       saveAsButton.connect("clicked", () => {
         saveAsButton.set_label(`Saving...`);
 
-        const GLib = imports.gi.GLib;
-        const Gio = imports.gi.Gio;
+        const {GLib} = imports.gi;
+        const {Gio} = imports.gi;
 
         try {
           if (!file.content) {
@@ -594,8 +594,8 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         applyButton.connect("clicked", () => {
           applyButton.set_label(`Applying to ${file.filename}...`);
 
-          const Gio = imports.gi.Gio;
-          const GLib = imports.gi.GLib;
+          const {Gio} = imports.gi;
+          const {GLib} = imports.gi;
 
           try {
             if (!file.content) {

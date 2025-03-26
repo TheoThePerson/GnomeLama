@@ -76,7 +76,7 @@ export function createMessageContainer(text, isUser, alignment) {
   } else {
     // Create regular label with text content
     const label = new St.Label({
-      text: text,
+      text,
       style_class: "text-label",
       style: "padding: 0; margin: 0;",
       x_expand: true,
@@ -256,7 +256,7 @@ export function createCodeContainer(code, language = "code") {
  */
 export function createTextLabel(text) {
   const textLabel = new St.Label({
-    text: text,
+    text,
     style_class: "text-label",
     style: "display: inline-block;",
     x_expand: true,
@@ -278,7 +278,7 @@ export function createTextLabel(text) {
  */
 export function createTemporaryMessageLabel(text) {
   const tempLabel = new St.Label({
-    text: text,
+    text,
     style_class: "temporary-message",
     style: "font-style: italic; color: #aaa;",
     x_expand: true,
