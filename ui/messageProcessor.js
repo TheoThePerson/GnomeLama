@@ -820,24 +820,13 @@ export function removeTemporaryMessages(outputContainer) {
 }
 
 /**
- * Clear all messages from the output container except temporary ones
+ * Clear all messages from the output container including temporary ones
  * @param {St.BoxLayout} outputContainer - The container to clear
  */
 export function clearOutput(outputContainer) {
-  const tempMessagesToKeep = new Set();
-  temporaryMessages.forEach((msg) => {
-    if (msg.get_parent() === outputContainer) {
-      tempMessagesToKeep.add(msg);
-    }
-  });
-
   const children = outputContainer.get_children();
   for (let i = children.length - 1; i >= 0; i--) {
     const child = children[i];
-    if (tempMessagesToKeep.has(child)) {
-      continue;
-    }
-
     if (
       child.style_class &&
       (child.style_class.includes("message-box") ||
@@ -849,7 +838,8 @@ export function clearOutput(outputContainer) {
     }
   }
 
-  temporaryMessages = tempMessagesToKeep;
+  // Clear any references to temporary messages
+  temporaryMessages.clear();
 }
 
 /**

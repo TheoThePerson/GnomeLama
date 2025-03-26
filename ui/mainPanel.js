@@ -401,7 +401,7 @@ export const Indicator = GObject.registerClass(
           // Give focus to input field
           global.stage.set_key_focus(this._inputField.clutter_text);
 
-          // Refresh models in background (don't block UI)
+          // Refresh models in background
           if (this._modelManager) {
             this._modelManager
               .refreshModels()
@@ -431,11 +431,11 @@ export const Indicator = GObject.registerClass(
     }
 
     /**
-     * Load conversation history asynchronously to improve UI responsiveness
+     * Load conversation history asynchronously
      * @private
      */
     _loadHistoryAsync() {
-      // Use a low priority idle callback to update history without blocking UI
+      // Use a low priority idle callback to update history without blocking other UI
       imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_LOW, () => {
         this._updateHistory();
         return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
@@ -443,10 +443,10 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateHistory() {
-      // Remove temporary messages first to make sure they don't appear
+      // Remove temporary messages in case they are not gone
       MessageProcessor.removeTemporaryMessages(this._outputContainer);
 
-      // Clear existing messages
+      // Clear other messages
       MessageProcessor.clearOutput(this._outputContainer);
 
       // Get conversation history
@@ -484,12 +484,10 @@ export const Indicator = GObject.registerClass(
         }
       });
 
-      // First scroll to bottom to ensure proper layout measurements
       PanelElements.scrollToBottom(this._outputScrollView);
 
-      // Wait for layout to stabilize before refreshing file box formatting
+      // Wait for layout before refreshing file box formatting
       imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 50, () => {
-        // Refresh file box formatting if needed
         if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
           this._fileHandler.refreshFileBoxFormatting();
         }
@@ -507,17 +505,6 @@ export const Indicator = GObject.registerClass(
 
       // Clear output
       MessageProcessor.clearOutput(this._outputContainer);
-
-      // Clear the input field text
-      // this._inputField.set_text("");
-
-      // Update input field hint
-      // PanelElements.updateInputFieldHint(this._inputField, true);
-
-      // Clear file boxes instead of just refreshing formatting
-      // if (this._fileHandler) {
-      // this._fileHandler.cleanupFileContentBox(); // Removes UI and data
-      // }
     }
 
     _updateLayout() {

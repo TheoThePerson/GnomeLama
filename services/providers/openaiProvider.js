@@ -7,10 +7,19 @@ const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
 let availableModels = [];
 let apiSession = null;
 
+/**
+ * Checks if the given model name is an OpenAI model
+ * @param {string} modelName - The name of the model to check
+ * @returns {boolean} True if the model is an OpenAI model
+ */
 export function isOpenAIModel(modelName) {
   return availableModels.includes(modelName);
 }
 
+/**
+ * Fetches available OpenAI model names
+ * @returns {Promise<string[]>} Array of available model names
+ */
 export async function fetchModelNames() {
   const settings = getSettings();
   const apiKey = settings.get_string("openai-api-key");
@@ -73,6 +82,14 @@ export async function fetchModelNames() {
   }
 }
 
+/**
+ * Sends a message to the OpenAI API
+ * @param {string} messageText - The message to send
+ * @param {string} modelName - The name of the model to use
+ * @param {Array} context - Previous conversation context
+ * @param {Function} onData - Callback function for streaming data
+ * @returns {Object} Object containing result promise and cancel function
+ */
 export async function sendMessageToAPI(
   messageText,
   modelName,
@@ -179,9 +196,13 @@ export async function sendMessageToAPI(
   }
 }
 
+/**
+ * Stops the current message request to the OpenAI API
+ * @returns {string} Partial response if available, empty string otherwise
+ */
 export function stopMessage() {
   if (!apiSession) {
-    return;
+    return "";
   }
 
   const partialResponse = apiSession.cancelRequest();
