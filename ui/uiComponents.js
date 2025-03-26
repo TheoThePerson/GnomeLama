@@ -9,12 +9,10 @@ import St from "gi://St";
 import { getSettings } from "../lib/settings.js";
 
 /**
- * Utility function for logging errors
- * @param {string} message - Error message
- * @param {Error} error - Error object
+ * Utility function for logging errors - production version (silent)
  */
-function logError(message, error) {
-  console.error(message, error);
+function logError() {
+  // Console logs removed for production
 }
 
 /**

@@ -13,13 +13,14 @@ import { TextDecoder } from "./httpUtils.js";
  */
 async function processSingleChunk(chunk, processChunk, accumulatedResponse) {
   try {
-    // Process the chunk and add the result to accumulated response immediately
-    const result = await processChunk(chunk);
-    if (result) {
-      accumulatedResponse(result);
+    if (chunk) {
+      const result = await processChunk(chunk);
+      if (result) {
+        accumulatedResponse(result);
+      }
     }
-  } catch (error) {
-    console.error("Error processing chunk:", error);
+  } catch {
+    // Error processing chunk (silently handle)
   }
 }
 
@@ -40,7 +41,6 @@ async function readAndProcessLines(
   const { isCancelled, cancellable } = options;
   let done = false;
 
-   
   while (!done && !isCancelled() && !cancellable.is_cancelled()) {
     try {
       // Read a line from the stream
@@ -58,8 +58,8 @@ async function readAndProcessLines(
         // eslint-disable-next-line no-await-in-loop
         await processSingleChunk(textLine, processChunk, accumulatedResponse);
       }
-    } catch (error) {
-      console.error("Error reading line:", error);
+    } catch {
+      // Error reading line (silently handle)
       done = true;
     }
   }
@@ -89,8 +89,8 @@ export function createStreamProcessor(options) {
           processChunk,
           accumulatedResponse
         );
-      } catch (error) {
-        console.error("Error reading stream lines:", error);
+      } catch {
+        // Error reading stream lines (silently handle)
       }
     },
 
@@ -99,7 +99,6 @@ export function createStreamProcessor(options) {
       const lines = [];
       let done = false;
 
-       
       while (!done && !isCancelled() && !cancellable.is_cancelled()) {
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -113,8 +112,8 @@ export function createStreamProcessor(options) {
           } else {
             lines.push(new TextDecoder().decode(line));
           }
-        } catch (error) {
-          console.error("Error reading line:", error);
+        } catch {
+          // Error reading line (silently handle)
           done = true;
         }
       }

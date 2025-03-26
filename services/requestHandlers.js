@@ -12,10 +12,12 @@ import Soup from "gi://Soup";
  */
 function createEnhancedChunkProcessor(processChunk) {
   return async (chunk) => {
+    if (!processChunk) return null;
+
     try {
       return await processChunk(chunk);
-    } catch (error) {
-      console.error("Error in processing chunk", error);
+    } catch {
+      // Error in processing chunk
       return null;
     }
   };
@@ -45,7 +47,7 @@ async function processRequestStream({
     cleanupCallback({ inputStream, dataInputStream });
     resolve({ response: accumulatedResponse() });
   } catch (error) {
-    console.error("Error processing stream:", error);
+    // Error processing stream
     cleanupCallback();
     throw error;
   }
@@ -97,7 +99,7 @@ function handleRequestError(
   error,
   { cleanupCallback, isCancelled, accumulatedResponse, resolve, reject }
 ) {
-  console.error("API request error:", error);
+  // API request error
   cleanupCallback();
 
   if (isCancelled() && accumulatedResponse()) {
@@ -193,7 +195,7 @@ export function initializeRequestStream(options) {
 
           streamResolve(stream);
         } catch (error) {
-          console.error("Error sending request:", error);
+          // Error sending request
           streamReject(error);
         }
       }

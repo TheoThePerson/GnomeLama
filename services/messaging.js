@@ -58,8 +58,8 @@ export async function fetchModelNames() {
     }
 
     return { models, error };
-  } catch (error) {
-    console.error("Error fetching model names:", error);
+  } catch {
+    // Error fetching models, silent in production
     return {
       models: [],
       error:
@@ -110,11 +110,11 @@ export function cleanupOnDisable() {
 function addMessageToHistory(text, type) {
   // Handle empty or invalid text
   if (!text || typeof text !== "string") {
-    console.log("Invalid message text, converting to string:", typeof text);
+    // Invalid message text, converting to string
 
     // Handle Promise objects explicitly
     if (text instanceof Promise) {
-      console.log("Warning: Attempted to add Promise to history");
+      // Warning: Attempted to add Promise to history
       text = "Error: Message was a Promise object. Please try again.";
     } else {
       // For other non-string values, convert to string safely
@@ -126,9 +126,7 @@ function addMessageToHistory(text, type) {
   conversationHistory.push({ text, type });
 
   // Log history size for debugging
-  console.log(
-    `Added message to history. New history size: ${conversationHistory.length}`
-  );
+  // Added message to history. New history size: ${conversationHistory.length}
 }
 
 /**
@@ -153,7 +151,7 @@ export function getLastError() {
 function processProviderResponse(response) {
   // Handle Promise objects
   if (response instanceof Promise) {
-    console.log("Warning: Response is a Promise, not actual data");
+    // Warning: Response is a Promise, not actual data
     return "Error: Response was a Promise object. Please try again.";
   }
 
@@ -178,7 +176,7 @@ function processProviderResponse(response) {
  * @returns {string} Error message
  */
 function handleApiError(error, asyncOnData) {
-  console.error("Error sending message to API:", error);
+  // Silent error in production
 
   const provider = getProviderForModel(currentModel);
   let errorMessage =
@@ -189,7 +187,7 @@ function handleApiError(error, asyncOnData) {
   // Add more detailed error information if available
   if (error && error.message) {
     errorMessage += ` Details: ${error.message}`;
-    console.log("Detailed error:", error.message);
+    // Details silent in production
   }
 
   lastError = errorMessage;
@@ -210,8 +208,8 @@ function createMainThreadCallback(callback) {
     GLib.idle_add(GLib.PRIORITY_HIGH, () => {
       try {
         callback(data);
-      } catch (e) {
-        console.error("Error in UI callback:", e);
+      } catch {
+        // Silent error in production
       }
       return GLib.SOURCE_REMOVE;
     });
@@ -245,38 +243,23 @@ async function sendApiRequest({
     previousCancelFn();
   }
 
-  try {
-    console.log(
-      `Sending message to provider (model: ${modelName}), context size: ${
-        provider === openaiProvider
-          ? conversationHistory.length
-          : contextToUse
-          ? "custom"
-          : "none"
-      }`
-    );
+  // Both providers now use object parameter structure
+  const { result, cancel } = await provider.sendMessageToAPI({
+    messageText,
+    modelName,
+    context: provider === openaiProvider ? conversationHistory : contextToUse,
+    onData: asyncOnData,
+  });
 
-    // Both providers now use object parameter structure
-    const { result, cancel } = await provider.sendMessageToAPI({
-      messageText,
-      modelName,
-      context: provider === openaiProvider ? conversationHistory : contextToUse,
-      onData: asyncOnData,
-    });
+  // Update the cancel function atomically through a dedicated function
+  updateCancelFunction(cancel);
 
-    // Update the cancel function atomically through a dedicated function
-    updateCancelFunction(cancel);
-
-    return {
-      result,
-      responseText: result.then((response) => {
-        return processProviderResponse(response);
-      }),
-    };
-  } catch (error) {
-    console.error("Error in sendApiRequest:", error);
-    throw error; // Re-throw to let the caller handle it
-  }
+  return {
+    result,
+    responseText: result.then((response) => {
+      return processProviderResponse(response);
+    }),
+  };
 }
 
 /**
@@ -301,7 +284,7 @@ function handleSuccessResponse(responseText) {
   if (typeof finalResponse === "string") {
     addMessageToHistory(finalResponse, "assistant");
   } else {
-    console.log("Skipping invalid response:", typeof finalResponse);
+    // Skip invalid response, silent in production
   }
 
   return finalResponse;

@@ -92,7 +92,7 @@ export async function processUserMessage({
 
     if (!errorOccurred && onResponseEnd) onResponseEnd();
   } catch (error) {
-    console.error("Error processing AI response:", error);
+    // Error handling without console.error
     errorOccurred = true;
 
     if (!responseContainer) {
@@ -370,8 +370,8 @@ export function registerFilePaths(jsonString) {
         }
       });
     }
-  } catch (error) {
-    console.error("Error registering file paths:", error);
+  } catch {
+    // Error registering file paths, silently fail in production
   }
 }
 
@@ -438,8 +438,8 @@ function tryExtractJsonFromText(text) {
     }
 
     return null;
-  } catch (error) {
-    console.error("Error in tryExtractJsonFromText:", error);
+  } catch {
+    // Error in JSON extraction, silently fail in production
     return null;
   }
 }
@@ -488,12 +488,12 @@ function handleSaveDialogResult(proc, result, context) {
         }
       }
     } else if (stderr && stderr.trim()) {
-      console.error(`Save dialog error: ${stderr}`);
+      // Save dialog error - silently fail in production
     }
 
     resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
-  } catch (error) {
-    console.error("Error processing save dialog result:", error);
+  } catch {
+    // Error processing save dialog - silently fail in production
     resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
   }
 }
@@ -526,7 +526,7 @@ function parseJsonFromResponse(responseText) {
       try {
         return JSON.parse(codeBlockMatch[1]);
       } catch {
-        console.log("Failed to parse JSON in code block");
+        // Failed to parse JSON in code block - silently fail in production
       }
     }
 
@@ -536,7 +536,7 @@ function parseJsonFromResponse(responseText) {
       return extractedJson;
     }
 
-    console.log("Failed to extract any valid JSON from the response");
+    // Failed to extract JSON - silently fail in production
     return null;
   }
 }
@@ -604,13 +604,13 @@ function renderJsonResponse(container, jsonData) {
 // Add the renderFileItem function that's missing
 function renderFileItem(container, file) {
   if (!file.filename) {
-    console.log("Skipping file entry with no filename");
+    // Skip file entries with no filename - silently fail in production
     return;
   }
 
   if (file.content === null) {
     file.content = "";
-    console.log(`File ${file.filename} has no content, using empty string`);
+    // File has no content, using empty string - silently continue in production
   }
 
   const fileBox = new St.BoxLayout({
@@ -746,7 +746,7 @@ function renderFileItem(container, file) {
           });
         });
       } catch (error) {
-        console.error("Error launching save dialog:", error);
+        // Error launching save dialog - silently fail in production
         addTemporaryMessage(
           container.get_parent(),
           `Error launching save dialog: ${error}`
@@ -759,7 +759,7 @@ function renderFileItem(container, file) {
         );
       }
     } catch (error) {
-      console.error("Error in Save As operation:", error);
+      // Error in Save As operation - silently fail in production
       addTemporaryMessage(
         container.get_parent(),
         `Error: ${error.message || "Unknown error during Save As operation"}`
@@ -822,9 +822,7 @@ function renderFileItem(container, file) {
 
           if (registeredPath) {
             fullPath = registeredPath;
-            console.log(
-              `Found registered path for ${file.filename}: ${fullPath}`
-            );
+            // Found registered path - silently continue in production
           } else {
             const homeDir = GLib.get_home_dir();
             fullPath = GLib.build_filenamev([homeDir, file.filename]);
@@ -860,7 +858,7 @@ function renderFileItem(container, file) {
             );
           }
         } catch {
-          console.error("Error writing to file");
+          // Error writing to file - silently fail in production
           addTemporaryMessage(container.get_parent(), `Error writing to file`);
         }
 
@@ -870,7 +868,7 @@ function renderFileItem(container, file) {
           `Apply to ${file.filename}`
         );
       } catch {
-        console.error("Error applying file content");
+        // Error applying file content - silently fail in production
         addTemporaryMessage(
           container.get_parent(),
           `Error: Error applying file content`

@@ -31,14 +31,13 @@ export function createPanelOverlay(dimensions) {
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     try {
       Main.layoutManager.uiGroup.add_child(panelOverlay);
-    } catch (error) {
-      console.error("Failed to add panel overlay to UI group:", error);
+    } catch {
       // Try again after a short delay
       GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
         try {
           Main.layoutManager.uiGroup.add_child(panelOverlay);
-        } catch (retryError) {
-          console.error("Failed to add panel overlay after retry:", retryError);
+        } catch {
+          // Silent error in production
         }
         return GLib.SOURCE_REMOVE;
       });
@@ -180,7 +179,7 @@ export function createOutputArea(dimensions) {
     vscroll.set_width(8);
 
     // Connect to scroll events to force updates
-    const {adjustment} = vscroll;
+    const { adjustment } = vscroll;
     if (adjustment) {
       adjustment.connect("notify::value", () => {
         // Use idle_add to defer redraw to prevent UI blocking
@@ -315,7 +314,7 @@ export function createResponseContainer(bgColor) {
  */
 export function scrollToBottom(scrollView) {
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    const {adjustment} = scrollView.vscroll;
+    const { adjustment } = scrollView.vscroll;
     if (adjustment) {
       const targetValue = adjustment.upper - adjustment.page_size;
       // Use smooth animation when scrolling

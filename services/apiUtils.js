@@ -27,14 +27,9 @@ function cleanupResourcesHelper(activeInputStream, activeDataInputStream) {
  */
 function createGetFunction() {
   return async function get(url, headers = {}) {
-    try {
-      const localSession = new Soup.Session();
-      const message = createHttpMessage({ method: "GET", url, headers });
-      return await executeGetRequest(localSession, message);
-    } catch (e) {
-      console.error("Error in GET request:", e);
-      throw e;
-    }
+    const localSession = new Soup.Session();
+    const message = createHttpMessage({ method: "GET", url, headers });
+    return executeGetRequest(localSession, message);
   };
 }
 
@@ -105,7 +100,6 @@ function createCancelFunction(config) {
       cancellable.cancel();
     }
     cleanupResources();
-    console.log("API request cancelled with partial response saved");
     return config.getAccumulatedResponse();
   };
 }
@@ -157,7 +151,6 @@ function createRequestSender(config) {
         cancel: config.cancelRequest,
       };
     } catch (error) {
-      console.error("API request setup error:", error);
       cleanupResources();
       throw error;
     }

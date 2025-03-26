@@ -20,8 +20,8 @@ export default class LinuxCopilotExtension extends Extension {
       ExtensionManager.init(this);
       this._indicator = new Indicator(this);
       Main.panel.addToStatusArea(this.metadata.uuid, this._indicator);
-    } catch (error) {
-      console.error("Error enabling Linux Copilot extension:", error);
+    } catch {
+      // Silent error in production
       this._cleanup();
     }
   }

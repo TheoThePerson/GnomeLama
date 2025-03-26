@@ -42,8 +42,8 @@ export async function fetchModelNames() {
       .map((model) => model.name)
       .filter((value, index, self) => self.indexOf(value) === index)
       .sort();
-  } catch (error) {
-    console.error("Error fetching Ollama model names:", error);
+  } catch {
+    // Error fetching Ollama model names
     return [];
   }
 }
@@ -89,8 +89,8 @@ function createChunkProcessor(onData) {
 
         return chunk;
       }
-    } catch (parseError) {
-      console.error("Error parsing JSON chunk from Ollama API:", parseError);
+    } catch {
+      // Error parsing JSON chunk from Ollama API
     }
 
     return null;
@@ -185,7 +185,7 @@ export async function sendMessageToAPI({
 
     return transformApiResponse(requestHandler);
   } catch (error) {
-    console.error("Error sending message to Ollama API:", error);
+    // Error sending message to Ollama API
 
     const errorResponse = handleApiError();
     if (errorResponse) {
@@ -205,7 +205,7 @@ export function stopMessage() {
     return "";
   }
 
-  console.log("Cancelling message stream");
+  // Cancelling message stream
   const partialResponse = apiSession.cancelRequest();
   apiSession = null;
 

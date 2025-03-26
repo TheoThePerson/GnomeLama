@@ -125,37 +125,23 @@ function getDocApproaches(filePath) {
 /**
  * Handle the extraction process output
  *
- * @param {Object} params - Parameters object
- * @param {string} params.extension - Document extension
+ * @param {Object} params - Processing parameters
  * @param {number} params.approachIndex - Current approach index
  * @param {Object} params.currentApproach - Current approach details
  * @param {string} params.stdout - Process stdout
- * @param {string} params.stderr - Process stderr
  * @param {number} params.exitStatus - Process exit status
  * @param {Function} params.resolve - Promise resolve function
  * @param {Function} params.tryNextApproach - Function to try next approach
  */
 function handleExtractionOutput({
-  extension,
   approachIndex,
   currentApproach,
   stdout,
-  stderr,
   exitStatus,
   resolve,
   tryNextApproach,
 }) {
-  console.log(
-    `${extension} extraction approach ${
-      approachIndex + 1
-    } exit status: ${exitStatus}`
-  );
-
   if (exitStatus === 0 && stdout && stdout.trim()) {
-    console.log(
-      `${extension} extraction successful with approach ${approachIndex + 1}`
-    );
-
     // Clean up the output text
     const cleanedText = cleanupWordText(stdout);
 
@@ -174,76 +160,25 @@ function handleExtractionOutput({
         resolve(cleanedText);
       }
     } else {
-      console.log(
-        `Output too short (${cleanedText.length} chars), trying next approach`
-      );
       tryNextApproach();
     }
   } else {
-    handleExtractionError({
-      extension,
-      approachIndex,
-      currentApproach,
-      stderr,
-      tryNextApproach,
-    });
+    tryNextApproach();
   }
-}
-
-/**
- * Handle errors in the extraction process
- *
- * @param {Object} params - Parameters object
- * @param {string} params.extension - Document extension
- * @param {number} params.approachIndex - Current approach index
- * @param {Object} params.currentApproach - Current approach details
- * @param {string} params.stderr - Process stderr
- * @param {Function} params.tryNextApproach - Function to try next approach
- */
-function handleExtractionError({
-  extension,
-  approachIndex,
-  currentApproach,
-  stderr,
-  tryNextApproach,
-}) {
-  // Special handling for common errors
-  const errorMsg = stderr || "No output";
-
-  if (
-    currentApproach.command === "docx2txt" &&
-    errorMsg.includes("command not found")
-  ) {
-    console.log("docx2txt not installed, trying alternative approaches");
-  } else if (
-    currentApproach.command === "unzip" &&
-    errorMsg.includes("cannot find")
-  ) {
-    console.log("unzip not installed or document structure unexpected");
-  } else if (errorMsg.includes("No such file")) {
-    console.log("Document may be corrupted or in an unexpected format");
-  }
-
-  console.log(
-    `${extension} extraction approach ${approachIndex + 1} failed: ${errorMsg}`
-  );
-  tryNextApproach();
 }
 
 /**
  * Execute a subprocess for text extraction
  *
  * @param {Object} params - Parameters object
- * @param {string} params.extension - Document extension
- * @param {number} params.approachIndex - Current approach index
  * @param {Object} params.currentApproach - Current approach details
+ * @param {number} params.approachIndex - Current approach index
  * @param {Function} params.resolve - Promise resolve function
  * @param {Function} params.tryNextApproach - Function to try next approach
  */
 function executeExtractionProcess({
-  extension,
-  approachIndex,
   currentApproach,
+  approachIndex,
   resolve,
   tryNextApproach,
 }) {
@@ -257,26 +192,22 @@ function executeExtractionProcess({
 
     subprocess.communicate_utf8_async(null, null, (proc, result) => {
       try {
-        const [, stdout, stderr] = proc.communicate_utf8_finish(result);
+        const [, stdout] = proc.communicate_utf8_finish(result);
         const exitStatus = proc.get_exit_status();
 
         handleExtractionOutput({
-          extension,
           approachIndex,
           currentApproach,
           stdout,
-          stderr,
           exitStatus,
           resolve,
           tryNextApproach,
         });
-      } catch (error) {
-        console.error(`Error with approach ${approachIndex + 1}:`, error);
+      } catch {
         tryNextApproach();
       }
     });
-  } catch (error) {
-    console.error(`Failed to initiate approach ${approachIndex + 1}:`, error);
+  } catch {
     tryNextApproach();
   }
 }
@@ -317,16 +248,10 @@ export function extractWordText(filePath, extension) {
         }
 
         const currentApproach = approaches[approachIndex];
-        console.log(
-          `Trying ${extension} extraction approach ${approachIndex + 1}/${
-            approaches.length
-          }: ${currentApproach.command}`
-        );
 
         executeExtractionProcess({
-          extension,
-          approachIndex,
           currentApproach,
+          approachIndex,
           resolve,
           tryNextApproach: () => {
             approachIndex++;

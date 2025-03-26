@@ -31,15 +31,9 @@ function getPdfExtractionOptions() {
  * @returns {void}
  */
 function processExtractionResult(params) {
-  const { optionIndex, exitStatus, stdout, stderr, resolve, reject, tryNext } =
-    params;
-
-  console.log(
-    `PDF extraction option ${optionIndex + 1} exit status: ${exitStatus}`
-  );
+  const { exitStatus, stdout, stderr, resolve, reject, tryNext } = params;
 
   if (exitStatus === 0 && stdout && stdout.trim()) {
-    console.log(`PDF extraction successful with option ${optionIndex + 1}`);
     resolve(stdout);
     return;
   }
@@ -49,9 +43,6 @@ function processExtractionResult(params) {
     return;
   }
 
-  console.log(
-    `PDF extraction option ${optionIndex + 1} failed: ${stderr || "No output"}`
-  );
   tryNext();
 }
 
@@ -104,23 +95,9 @@ function handlePdfErrors({ stderr, reject }) {
  * @param {Function} params.tryNext - Function to try next option
  */
 function runPdfExtraction(params) {
-  const {
-    options,
-    filePath,
-    optionIndex,
-    totalOptions,
-    resolve,
-    reject,
-    tryNext,
-  } = params;
+  const { options, filePath, resolve, reject, tryNext } = params;
 
   const args = ["pdftotext", ...options, filePath, "-"];
-
-  console.log(
-    `Trying PDF extraction option ${
-      optionIndex + 1
-    }/${totalOptions}: ${args.join(" ")}`
-  );
 
   const subprocess = new Gio.Subprocess({
     argv: args,
@@ -134,7 +111,6 @@ function runPdfExtraction(params) {
       const exitStatus = proc.get_exit_status();
 
       processExtractionResult({
-        optionIndex,
         exitStatus,
         stdout,
         stderr,
@@ -142,8 +118,7 @@ function runPdfExtraction(params) {
         reject,
         tryNext,
       });
-    } catch (error) {
-      console.error(`Error with option ${optionIndex + 1}:`, error);
+    } catch {
       tryNext();
     }
   });

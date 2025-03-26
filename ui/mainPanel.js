@@ -402,16 +402,16 @@ export const Indicator = GObject.registerClass(
 
           // Refresh models in background
           if (this._modelManager) {
-            this._modelManager
-              .refreshModels()
-              .catch((e) => console.error("Error refreshing models:", e));
+            this._modelManager.refreshModels().catch(() => {
+              // Silent error in production
+            });
           }
         }
 
         // Update layout
         this._updateLayout();
-      } catch (error) {
-        console.error("Error during panel toggle:", error);
+      } catch {
+        // Silent error in production during panel toggle
         // Ensure panel is in a consistent state even if error occurs
         this._panelOverlay.visible = false;
         this._inputField.opacity = 255;
@@ -528,8 +528,8 @@ export const Indicator = GObject.registerClass(
         );
 
         PanelElements.scrollToBottom(this._outputScrollView);
-      } catch (error) {
-        console.error("Error updating layout:", error);
+      } catch {
+        // Silent error in production when updating layout
       }
     }
 

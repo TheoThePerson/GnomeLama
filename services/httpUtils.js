@@ -30,16 +30,16 @@ export function cleanupStreams(inputStream, dataInputStream) {
   if (dataInputStream) {
     try {
       dataInputStream.close(null);
-    } catch (e) {
-      console.error("Error closing data input stream:", e);
+    } catch {
+      // Error closing data input stream (silently handle)
     }
   }
 
   if (inputStream) {
     try {
       inputStream.close(null);
-    } catch (e) {
-      console.error("Error closing input stream:", e);
+    } catch {
+      // Error closing input stream (silently handle)
     }
   }
 }
@@ -93,7 +93,7 @@ export function executeGetRequest(session, message) {
           const responseText = new TextDecoder().decode(bytes.get_data());
           resolve(JSON.parse(responseText));
         } catch (e) {
-          console.error("Error processing response:", e);
+          // Error processing response
           reject(e);
         }
       }
@@ -113,8 +113,8 @@ export function invokeCallback(callback, data) {
     GLib.idle_add(GLib.PRIORITY_HIGH, () => {
       try {
         callback(data);
-      } catch (e) {
-        console.error("Error in streaming callback:", e);
+      } catch {
+        // Error in streaming callback (silently handle)
       }
       return GLib.SOURCE_REMOVE;
     });

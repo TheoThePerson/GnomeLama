@@ -154,10 +154,10 @@ export class FileHandler {
     DocumentConverter.checkRequiredTools()
       .then((tools) => {
         this._availableTools = tools;
-        console.log("Document conversion tools availability:", tools);
+        // Document conversion tools availability stored
       })
-      .catch((error) => {
-        console.error("Error checking document tools:", error);
+      .catch(() => {
+        // Error checking document tools
         this._availableTools = {};
       });
   }
@@ -223,7 +223,7 @@ export class FileHandler {
         const selectedFilePath = stdout.trim();
         this._readAndDisplayFile(selectedFilePath);
       } else if (stderr && stderr.trim()) {
-        console.error(`Command error: ${stderr}`);
+        // Command error in stderr
       }
     } catch (error) {
       this._handleError("Error processing command output", error);
@@ -340,7 +340,6 @@ export class FileHandler {
    */
   _validateFile(file, filePath) {
     if (!file.query_exists(null)) {
-      console.error(`File does not exist: ${filePath}`);
       MessageProcessor.addTemporaryMessage(
         this._outputContainer,
         `File does not exist: ${filePath}`
@@ -702,7 +701,6 @@ export class FileHandler {
    */
   _handleError(context, error) {
     const errorMessage = error.message || String(error);
-    console.error(`${context}:`, errorMessage);
     MessageProcessor.addTemporaryMessage(
       this._outputContainer,
       `Error: ${context} - ${errorMessage}`
