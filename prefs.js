@@ -46,40 +46,34 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(layoutGroup);
 
     // Panel width
-    this._addSpinRow(
-      layoutGroup,
-      settings,
-      "panel-width-fraction",
-      _("Panel Width"),
-      _("Fraction of screen width occupied by the panel"),
-      0.05,
-      0.5,
-      0.01
-    );
+    this._addSpinRow(layoutGroup, settings, {
+      key: "panel-width-fraction",
+      title: _("Panel Width"),
+      subtitle: _("Fraction of screen width occupied by the panel"),
+      min: 0.05,
+      max: 0.5,
+      step: 0.01,
+    });
 
     // Input field height
-    this._addSpinRow(
-      layoutGroup,
-      settings,
-      "input-field-height-fraction",
-      _("Input Field Height"),
-      _("Height of the input field as a fraction of screen height"),
-      0.01,
-      0.1,
-      0.005
-    );
+    this._addSpinRow(layoutGroup, settings, {
+      key: "input-field-height-fraction",
+      title: _("Input Field Height"),
+      subtitle: _("Height of the input field as a fraction of screen height"),
+      min: 0.01,
+      max: 0.1,
+      step: 0.005,
+    });
 
     // File box size
-    this._addSpinRow(
-      layoutGroup,
-      settings,
-      "file-box-size",
-      _("File Box Size"),
-      _("Size of the file boxes in pixels"),
-      100,
-      140,
-      10
-    );
+    this._addSpinRow(layoutGroup, settings, {
+      key: "file-box-size",
+      title: _("File Box Size"),
+      subtitle: _("Size of the file boxes in pixels"),
+      min: 100,
+      max: 140,
+      step: 10,
+    });
   }
 
   /**
@@ -94,28 +88,24 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(paddingGroup);
 
     // Horizontal padding
-    this._addSpinRow(
-      paddingGroup,
-      settings,
-      "padding-fraction-x",
-      _("Horizontal Padding"),
-      _("Horizontal padding as a fraction of screen width"),
-      0.005,
-      0.05,
-      0.005
-    );
+    this._addSpinRow(paddingGroup, settings, {
+      key: "padding-fraction-x",
+      title: _("Horizontal Padding"),
+      subtitle: _("Horizontal padding as a fraction of screen width"),
+      min: 0.005,
+      max: 0.05,
+      step: 0.005,
+    });
 
     // Vertical padding
-    this._addSpinRow(
-      paddingGroup,
-      settings,
-      "padding-fraction-y",
-      _("Vertical Padding"),
-      _("Vertical padding as a fraction of screen height"),
-      0.005,
-      0.05,
-      0.005
-    );
+    this._addSpinRow(paddingGroup, settings, {
+      key: "padding-fraction-y",
+      title: _("Vertical Padding"),
+      subtitle: _("Vertical padding as a fraction of screen height"),
+      min: 0.005,
+      max: 0.05,
+      step: 0.005,
+    });
   }
 
   /**
@@ -130,28 +120,24 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(iconGroup);
 
     // Button icon scale
-    this._addSpinRow(
-      iconGroup,
-      settings,
-      "button-icon-scale",
-      _("Button Icon Scale"),
-      _("Scale factor for the clear and file button icons"),
-      0.5,
-      1.5,
-      0.1
-    );
+    this._addSpinRow(iconGroup, settings, {
+      key: "button-icon-scale",
+      title: _("Button Icon Scale"),
+      subtitle: _("Scale factor for the clear and file button icons"),
+      min: 0.5,
+      max: 1.5,
+      step: 0.1,
+    });
 
     // Send button icon scale
-    this._addSpinRow(
-      iconGroup,
-      settings,
-      "send-button-icon-scale",
-      _("Send Button Icon Scale"),
-      _("Scale factor for the send button icon"),
-      0.5,
-      1.5,
-      0.1
-    );
+    this._addSpinRow(iconGroup, settings, {
+      key: "send-button-icon-scale",
+      title: _("Send Button Icon Scale"),
+      subtitle: _("Scale factor for the send button icon"),
+      min: 0.5,
+      max: 1.5,
+      step: 0.1,
+    });
   }
 
   /**
@@ -182,22 +168,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(colorsGroup);
 
     // User message color
-    this._addColorRow(
-      colorsGroup,
-      settings,
-      "user-message-color",
-      _("User Message Color"),
-      _("Color of user messages")
-    );
+    this._addColorRow(colorsGroup, settings, {
+      key: "user-message-color",
+      title: _("User Message Color"),
+      subtitle: _("Color of user messages"),
+    });
 
     // AI message color
-    this._addColorRow(
-      colorsGroup,
-      settings,
-      "ai-message-color",
-      _("AI Message Color"),
-      _("Color of AI assistant messages")
-    );
+    this._addColorRow(colorsGroup, settings, {
+      key: "ai-message-color",
+      title: _("AI Message Color"),
+      subtitle: _("Color of AI assistant messages"),
+    });
   }
 
   /**
@@ -212,22 +194,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(uiColorsGroup);
 
     // Background color
-    this._addColorRow(
-      uiColorsGroup,
-      settings,
-      "background-color",
-      _("Background Color"),
-      _("Background color of the panel")
-    );
+    this._addColorRow(uiColorsGroup, settings, {
+      key: "background-color",
+      title: _("Background Color"),
+      subtitle: _("Background color of the panel"),
+    });
 
     // Text color
-    this._addColorRow(
-      uiColorsGroup,
-      settings,
-      "text-color",
-      _("Text Color"),
-      _("Default text color for the panel")
-    );
+    this._addColorRow(uiColorsGroup, settings, {
+      key: "text-color",
+      title: _("Text Color"),
+      subtitle: _("Default text color for the panel"),
+    });
   }
 
   /**
@@ -257,52 +235,42 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     page.add(apiSettingsGroup);
 
     // API Endpoint
-    this._addEntryRow(
-      apiSettingsGroup,
-      settings,
-      "api-endpoint",
-      _("API Endpoint"),
-      _("The URL for the Ollama API service")
-    );
+    this._addEntryRow(apiSettingsGroup, settings, {
+      key: "api-endpoint",
+      title: _("API Endpoint"),
+      subtitle: _("The URL for the Ollama API service"),
+    });
 
     // Models API Endpoint
-    this._addEntryRow(
-      apiSettingsGroup,
-      settings,
-      "models-api-endpoint",
-      _("Models API Endpoint"),
-      _("The URL for fetching available models")
-    );
+    this._addEntryRow(apiSettingsGroup, settings, {
+      key: "models-api-endpoint",
+      title: _("Models API Endpoint"),
+      subtitle: _("The URL for fetching available models"),
+    });
 
     // OpenAI API Key
-    this._addEntryRow(
-      apiSettingsGroup,
-      settings,
-      "openai-api-key",
-      _("OpenAI API Key"),
-      _("Your OpenAI API key for using GPT models")
-    );
+    this._addEntryRow(apiSettingsGroup, settings, {
+      key: "openai-api-key",
+      title: _("OpenAI API Key"),
+      subtitle: _("Your OpenAI API key for using GPT models"),
+    });
 
     // Default model
-    this._addEntryRow(
-      apiSettingsGroup,
-      settings,
-      "default-model",
-      _("Default Model"),
-      _("The default AI model to use")
-    );
+    this._addEntryRow(apiSettingsGroup, settings, {
+      key: "default-model",
+      title: _("Default Model"),
+      subtitle: _("The default AI model to use"),
+    });
 
     // Temperature
-    this._addSpinRow(
-      apiSettingsGroup,
-      settings,
-      "temperature",
-      _("Temperature"),
-      _("Controls randomness of responses (0.0-1.0)"),
-      0.0,
-      1.0,
-      0.1
-    );
+    this._addSpinRow(apiSettingsGroup, settings, {
+      key: "temperature",
+      title: _("Temperature"),
+      subtitle: _("Controls randomness of responses (0.0-1.0)"),
+      min: 0.0,
+      max: 1.0,
+      step: 0.1,
+    });
   }
 
   // ========================================
@@ -313,14 +281,17 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
    * Add a spin button row to a preferences group
    * @param {Adw.PreferencesGroup} group - The group to add the row to
    * @param {Gio.Settings} settings - The settings object
-   * @param {string} key - The settings key
-   * @param {string} title - The row title
-   * @param {string} subtitle - The row subtitle
-   * @param {number} min - Minimum value
-   * @param {number} max - Maximum value
-   * @param {number} step - Step increment
+   * @param {Object} config - Configuration object
+   * @param {string} config.key - The settings key
+   * @param {string} config.title - The row title
+   * @param {string} config.subtitle - The row subtitle
+   * @param {number} config.min - Minimum value
+   * @param {number} config.max - Maximum value
+   * @param {number} config.step - Step increment
    */
-  _addSpinRow(group, settings, key, title, subtitle, min, max, step) {
+  _addSpinRow(group, settings, config) {
+    const { key, title, subtitle, min, max, step } = config;
+
     // Create a spin button
     const spinButton = new Gtk.SpinButton({
       adjustment: new Gtk.Adjustment({
@@ -348,27 +319,32 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.add_suffix(spinButton);
     row.activatable_widget = spinButton;
     group.add(row);
+
+    return this;
   }
 
   /**
    * Add a color button row to a preferences group
    * @param {Adw.PreferencesGroup} group - The group to add the row to
    * @param {Gio.Settings} settings - The settings object
-   * @param {string} key - The settings key
-   * @param {string} title - The row title
-   * @param {string} subtitle - The row subtitle
+   * @param {Object} config - Configuration object
+   * @param {string} config.key - The settings key
+   * @param {string} config.title - The row title
+   * @param {string} config.subtitle - The row subtitle
    */
-  _addColorRow(group, settings, key, title, subtitle) {
+  _addColorRow(group, settings, config) {
+    const { key, title, subtitle } = config;
+
     // Create a color button
     const colorButton = new Gtk.ColorButton({
       valign: Gtk.Align.CENTER,
-      rgba: this._hexToRGBA(settings.get_string(key)),
+      rgba: GnomeLamaPreferences.hexToRGBA(settings.get_string(key)),
     });
 
     // Connect to color-set signal
     colorButton.connect("color-set", () => {
       const rgba = colorButton.get_rgba();
-      settings.set_string(key, this._RGBAtoHex(rgba));
+      settings.set_string(key, GnomeLamaPreferences.RGBAtoHex(rgba));
     });
 
     // Create a preferences row for the color button
@@ -379,17 +355,22 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.add_suffix(colorButton);
     row.activatable_widget = colorButton;
     group.add(row);
+
+    return this;
   }
 
   /**
    * Add a text entry row to a preferences group
    * @param {Adw.PreferencesGroup} group - The group to add the row to
    * @param {Gio.Settings} settings - The settings object
-   * @param {string} key - The settings key
-   * @param {string} title - The row title
-   * @param {string} subtitle - The row subtitle
+   * @param {Object} config - Configuration object
+   * @param {string} config.key - The settings key
+   * @param {string} config.title - The row title
+   * @param {string} config.subtitle - The row subtitle
    */
-  _addEntryRow(group, settings, key, title, subtitle) {
+  _addEntryRow(group, settings, config) {
+    const { key, title, subtitle } = config;
+
     // Create an entry
     const entry = new Gtk.Entry({
       text: settings.get_string(key),
@@ -410,10 +391,12 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.add_suffix(entry);
     row.activatable_widget = entry;
     group.add(row);
+
+    return this;
   }
 
   // ========================================
-  // Color Conversion Utilities
+  // Color Conversion Utilities (Static)
   // ========================================
 
   /**
@@ -421,11 +404,13 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
    * @param {string} hex - Hex color string (#RRGGBB)
    * @returns {Gdk.RGBA} RGBA color object
    */
-  _hexToRGBA(hex) {
+  static hexToRGBA(hex) {
     const r = parseInt(hex.substring(1, 3), 16) / 255;
     const g = parseInt(hex.substring(3, 5), 16) / 255;
     const b = parseInt(hex.substring(5, 7), 16) / 255;
-    return new Gdk.RGBA({ red: r, green: g, blue: b, alpha: 1 });
+    const rgba = new Gdk.RGBA({ red: r, green: g, blue: b, alpha: 1 });
+
+    return rgba;
   }
 
   /**
@@ -433,7 +418,7 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
    * @param {Gdk.RGBA} rgba - RGBA color object
    * @returns {string} Hex color string (#RRGGBB)
    */
-  _RGBAtoHex(rgba) {
+  static RGBAtoHex(rgba) {
     const r = Math.round(rgba.red * 255)
       .toString(16)
       .padStart(2, "0");
@@ -443,6 +428,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     const b = Math.round(rgba.blue * 255)
       .toString(16)
       .padStart(2, "0");
-    return `#${r}${g}${b}`;
+    const hexColor = `#${r}${g}${b}`;
+
+    return hexColor;
   }
 }
