@@ -108,10 +108,19 @@ export function cleanupOnDisable() {
  * @param {string} type - Message type (user or assistant)
  */
 function addMessageToHistory(text, type) {
-  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    conversationHistory.push({ text, type });
-    return GLib.SOURCE_REMOVE;
-  });
+  // Handle empty or invalid text
+  if (!text || typeof text !== "string") {
+    console.error("Invalid message text:", text);
+    text = text ? String(text) : "";
+  }
+
+  // Add to history immediately rather than using idle_add
+  conversationHistory.push({ text, type });
+
+  // Log history size for debugging
+  console.log(
+    `Added message to history. New history size: ${conversationHistory.length}`
+  );
 }
 
 /**
@@ -151,10 +160,16 @@ function handleApiError(error, asyncOnData) {
   console.error("Error sending message to API:", error);
 
   const provider = getProviderForModel(currentModel);
-  const errorMessage =
+  let errorMessage =
     provider === openaiProvider
       ? "Error communicating with OpenAI. Please check your API key in settings."
       : "Error communicating with Ollama. Please check if Ollama is installed and running.";
+
+  // Add more detailed error information if available
+  if (error && error.message) {
+    errorMessage += ` Details: ${error.message}`;
+    console.log("Detailed error:", error.message);
+  }
 
   lastError = errorMessage;
   if (asyncOnData) asyncOnData(errorMessage);
@@ -170,8 +185,13 @@ function createMainThreadCallback(callback) {
   if (!callback) return null;
 
   return (data) => {
-    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-      callback(data);
+    // Use HIGH priority for UI updates to ensure immediate display of chunks
+    GLib.idle_add(GLib.PRIORITY_HIGH, () => {
+      try {
+        callback(data);
+      } catch (e) {
+        console.error("Error in UI callback:", e);
+      }
       return GLib.SOURCE_REMOVE;
     });
   };
@@ -204,23 +224,38 @@ async function sendApiRequest({
     previousCancelFn();
   }
 
-  // Both providers now use object parameter structure
-  const { result, cancel } = await provider.sendMessageToAPI({
-    messageText,
-    modelName,
-    context: provider === openaiProvider ? conversationHistory : contextToUse,
-    onData: asyncOnData,
-  });
+  try {
+    console.log(
+      `Sending message to provider (model: ${modelName}), context size: ${
+        provider === openaiProvider
+          ? conversationHistory.length
+          : contextToUse
+          ? "custom"
+          : "none"
+      }`
+    );
 
-  // Update the cancel function atomically through a dedicated function
-  updateCancelFunction(cancel);
+    // Both providers now use object parameter structure
+    const { result, cancel } = await provider.sendMessageToAPI({
+      messageText,
+      modelName,
+      context: provider === openaiProvider ? conversationHistory : contextToUse,
+      onData: asyncOnData,
+    });
 
-  return {
-    result,
-    responseText: result.then((response) => {
-      return processProviderResponse(response);
-    }),
-  };
+    // Update the cancel function atomically through a dedicated function
+    updateCancelFunction(cancel);
+
+    return {
+      result,
+      responseText: result.then((response) => {
+        return processProviderResponse(response);
+      }),
+    };
+  } catch (error) {
+    console.error("Error in sendApiRequest:", error);
+    throw error; // Re-throw to let the caller handle it
+  }
 }
 
 /**

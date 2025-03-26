@@ -119,14 +119,18 @@ export function executeGetRequest(session, message) {
  * Helper to invoke callback with streaming data
  * @param {Function} callback - Callback function to invoke
  * @param {string} data - Data to pass to callback
- * @returns {Promise<void>}
+ * @returns {void}
  */
-export async function invokeCallback(callback, data) {
+export function invokeCallback(callback, data) {
   if (typeof callback === "function") {
-    try {
-      await callback(data);
-    } catch (e) {
-      console.error("Error in callback:", e);
-    }
+    // Use GLib.idle_add for immediate processing without blocking
+    GLib.idle_add(GLib.PRIORITY_HIGH, () => {
+      try {
+        callback(data);
+      } catch (e) {
+        console.error("Error in streaming callback:", e);
+      }
+      return GLib.SOURCE_REMOVE;
+    });
   }
 }
