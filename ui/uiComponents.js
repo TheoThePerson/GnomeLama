@@ -112,7 +112,7 @@ function executeBashScript(script) {
 
   try {
     // Trim script to remove unwanted spaces and newlines
-    const trimmedScript = script.trim().replace(/(["`$])/g, "\\$1"); // Escape special characters
+    const trimmedScript = script.trim().replace(/(["`$])/gu, "\\$1"); // Escape special characters
     // Use double quotes instead of single quotes
     const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
     GLib.spawn_command_line_async(fullCommand);

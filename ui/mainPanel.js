@@ -245,14 +245,14 @@ export const Indicator = GObject.registerClass(
       });
 
       // Initialize message sender
-      this._messageSender = new MessageSender(
-        this._extensionPath,
-        this._inputField,
-        this._sendButton,
-        this._outputContainer,
-        this._outputScrollView,
-        this._fileHandler
-      );
+      this._messageSender = new MessageSender({
+        extensionPath: this._extensionPath,
+        inputField: this._inputField,
+        sendButton: this._sendButton,
+        outputContainer: this._outputContainer,
+        outputScrollView: this._outputScrollView,
+        fileHandler: this._fileHandler,
+      });
 
       // Initialize model manager with clear callback
       this._modelManager = new ModelManager(

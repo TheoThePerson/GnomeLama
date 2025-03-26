@@ -99,8 +99,8 @@ export function detectFileType(filePath) {
     }
 
     return null;
-  } catch (error) {
-    console.error(`Error detecting file type: ${error.message}`);
+  } catch {
+    // Keep this catch block as it prevents unhandled exceptions
     return null;
   }
 }
@@ -116,8 +116,7 @@ function getFileMimeType(filePath) {
     const file = Gio.File.new_for_path(filePath);
     const fileInfo = file.query_info("standard::content-type", 0, null);
     return fileInfo.get_content_type();
-  } catch (error) {
-    console.error(`Error getting file MIME type: ${error.message}`);
+  } catch {
     return null;
   }
 }
@@ -139,8 +138,7 @@ function readTextFile(filePath) {
         // GJS doesn't have TextDecoder by default, so we need to use toString
         const text = content.toString();
         resolve(text);
-      } catch (error) {
-        console.error(`Error decoding file content: ${error.message}`);
+      } catch {
         resolve(content.toString());
       }
     } else {
@@ -160,23 +158,13 @@ function handleDocumentConversion(filePath, fileType) {
   return new Promise((resolve, reject) => {
     // Special handling for PDF files
     if (fileType.extension === "pdf") {
-      extractPdfText(filePath)
-        .then(resolve)
-        .catch((error) => {
-          console.error("PDF extraction failed:", error);
-          reject(error);
-        });
+      extractPdfText(filePath).then(resolve).catch(reject);
       return;
     }
 
     // Special handling for Word documents
     if (fileType.extension === "docx" || fileType.extension === "doc") {
-      extractWordText(filePath, fileType.extension)
-        .then(resolve)
-        .catch((error) => {
-          console.error(`${fileType.extension} extraction failed:`, error);
-          reject(error);
-        });
+      extractWordText(filePath, fileType.extension).then(resolve).catch(reject);
       return;
     }
 

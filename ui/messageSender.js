@@ -18,20 +18,22 @@ import {
 } from "../services/messaging.js";
 
 export class MessageSender {
-  constructor(
-    extensionPath,
-    inputField,
-    sendButton,
-    outputContainer,
-    outputScrollView,
-    fileHandler = null // Add fileHandler parameter with default value
-  ) {
+  constructor(options) {
+    const {
+      extensionPath,
+      inputField,
+      sendButton,
+      outputContainer,
+      outputScrollView,
+      fileHandler = null,
+    } = options;
+
     this._extensionPath = extensionPath;
     this._inputField = inputField;
     this._sendButton = sendButton;
     this._outputContainer = outputContainer;
     this._outputScrollView = outputScrollView;
-    this._fileHandler = fileHandler; // Store fileHandler reference
+    this._fileHandler = fileHandler;
 
     this._sendIcon = null;
     this._sendButtonClickId = null;
@@ -91,9 +93,7 @@ export class MessageSender {
 
           // Register file paths for lookup during apply operations
           MessageProcessor.registerFilePaths(fileContent);
-        } catch (error) {
-          console.error("Error parsing JSON file content:", error);
-          // Fallback in case of error
+        } catch {
           messageToSend = "Prompt: " + userInput + "\n\n" + fileContent;
         }
       }
@@ -137,7 +137,6 @@ export class MessageSender {
     // If there was an error, show it - prioritize service errors
     const serviceError = getLastError();
     if (serviceError || error) {
-      console.error("Error processing message:", serviceError || error);
       MessageProcessor.addTemporaryMessage(
         this._outputContainer,
         serviceError || "Error processing your message. Please try again."
@@ -202,12 +201,6 @@ export class MessageSender {
       return;
     }
 
-    const partialResponse = stopAiMessage();
-    console.log(
-      "Message stopped with partial response:",
-      partialResponse ? partialResponse.length : 0,
-      "characters"
-    );
     this._handlePostSendUpdates();
   }
 

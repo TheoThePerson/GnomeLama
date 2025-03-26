@@ -10,19 +10,32 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 // Import from services
 import { fetchModelNames, setModel } from "../services/messaging.js";
 
-/* global global */
-
 export class ModelManager {
   constructor(
-    settings,
+    settingsOrOptions,
     outputContainer,
     stopAiMessageCallback,
     inputButtonsContainer
   ) {
-    this._settings = settings;
-    this._outputContainer = outputContainer;
-    this._stopAiMessageCallback = stopAiMessageCallback;
-    this._inputButtonsContainer = inputButtonsContainer;
+    // Support both new options object format and old individual parameters format
+    if (
+      arguments.length === 1 &&
+      settingsOrOptions &&
+      typeof settingsOrOptions === "object"
+    ) {
+      // New format with options object
+      const options = settingsOrOptions;
+      this._settings = options.settings;
+      this._outputContainer = options.outputContainer;
+      this._stopAiMessageCallback = options.stopAiMessageCallback;
+      this._inputButtonsContainer = options.inputButtonsContainer;
+    } else {
+      // Old format with individual parameters
+      this._settings = settingsOrOptions;
+      this._outputContainer = outputContainer;
+      this._stopAiMessageCallback = stopAiMessageCallback;
+      this._inputButtonsContainer = inputButtonsContainer;
+    }
     this._modelMenu = null;
     this._modelButton = null;
     this._modelButtonLabel = null;
@@ -99,7 +112,8 @@ export class ModelManager {
           const menuActor = this._modelMenu.actor || this._modelMenu;
           const [menuX, menuY] = menuActor.get_transformed_position();
           const [menuWidth, menuHeight] = menuActor.get_size();
-          const [buttonX, buttonY] = this._modelButton.get_transformed_position();
+          const [buttonX, buttonY] =
+            this._modelButton.get_transformed_position();
           const [buttonWidth, buttonHeight] = this._modelButton.get_size();
 
           if (
@@ -233,7 +247,7 @@ export class ModelManager {
     this._stopAiMessageCallback();
 
     // Refresh file box formatting after model change
-    const fileHandler = this._getFileHandler();
+    const fileHandler = ModelManager._getFileHandler();
     if (fileHandler && fileHandler.hasLoadedFiles()) {
       // Use a sequence of delays to ensure proper formatting
       [10, 50, 150, 300].forEach((delay) => {
@@ -277,13 +291,14 @@ export class ModelManager {
     // Add to the output container
     this._outputContainer.add_child(messageBox);
 
-    // Remove after a delay
-    const timeoutId = setTimeout(() => {
+    // Remove after a delay (using GLib.timeout_add instead of setTimeout)
+    const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, () => {
       if (messageBox.get_parent()) {
         messageBox.get_parent().remove_child(messageBox);
         messageBox.destroy();
       }
-    }, 5000);
+      return GLib.SOURCE_REMOVE;
+    });
 
     // Store timeout ID to cancel if needed
     messageBox._timeoutId = timeoutId;
@@ -320,7 +335,7 @@ export class ModelManager {
     }
   }
 
-  _getFileHandler() {
+  static _getFileHandler() {
     // Find the panel indicator that contains the file handler
     // Get the extension UUID from metadata (or use the hardcoded value as fallback)
     const extensionUuid = "linux-copilot@TheoThePerson";

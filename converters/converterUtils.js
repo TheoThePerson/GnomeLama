@@ -100,7 +100,6 @@ function handleWordErrors({ converterName, exitStatus, stdout, stderr }) {
  * @param {function} resolve - Promise resolve function
  */
 function retryPdfConversionInRawMode(commandParts, resolve) {
-  console.log("Retrying PDF conversion with raw mode...");
   const rawCommandParts = commandParts.filter((part) => part !== "-layout");
 
   const retrySubprocess = new Gio.Subprocess({
@@ -116,17 +115,14 @@ function retryPdfConversionInRawMode(commandParts, resolve) {
       try {
         const [, retryStdout] = retryProc.communicate_utf8_finish(retryResult);
         if (retryStdout && retryStdout.trim()) {
-          console.log("Raw mode extraction successful");
           resolve(retryStdout);
           return;
         }
 
-        console.log("Raw mode extraction also failed");
         resolve(
           "(The PDF appears to contain no extractable text or may be an image-based document)"
         );
-      } catch (error) {
-        console.error("PDF raw mode retry error:", error);
+      } catch {
         resolve(
           "(The PDF appears to contain no extractable text or may be an image-based document)"
         );
@@ -194,11 +190,6 @@ function processSubprocessResults({
 
       // Log conversion results for debugging
       const converterName = commandParts[0];
-      console.log(`${converterName} conversion exit status: ${exitStatus}`);
-      console.log(`${converterName} stderr: ${stderr || "none"}`);
-      console.log(
-        `${converterName} stdout length: ${stdout ? stdout.length : 0} chars`
-      );
 
       // Handle PDF conversion errors
       if (converterName === "pdftotext") {
@@ -224,7 +215,6 @@ function processSubprocessResults({
       }
 
       if (exitStatus !== 0) {
-        console.error(`Command failed: ${stderr}`);
         reject(new Error(`Conversion failed: ${stderr || "Unknown error"}`));
         return;
       }
@@ -252,10 +242,6 @@ export function executeCommand(commandTemplate, filePath) {
     try {
       // Parse command into an array for subprocess
       const commandParts = parseCommandTemplate(commandTemplate, filePath);
-
-      // Log conversion attempts for all document types for debugging
-      console.log(`Conversion attempt for: ${filePath}`);
-      console.log(`Command: ${commandParts.join(" ")}`);
 
       const subprocess = new Gio.Subprocess({
         argv: commandParts,

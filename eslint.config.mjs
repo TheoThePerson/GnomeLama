@@ -90,7 +90,7 @@ export default [
       "no-await-in-loop": "error",
       "no-caller": "error",
       "no-case-declarations": "error",
-      // "no-console": "warn",
+      "no-console": "error",
       "no-control-regex": "error",
       "no-duplicate-imports": "error",
       "no-else-return": "error",

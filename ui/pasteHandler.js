@@ -12,12 +12,18 @@ const global = Shell.Global.get();
 export class PasteHandler {
   /**
    * Create a new PasteHandler
-   * @param {St.Entry} inputField - The text input field
-   * @param {FileHandler} fileHandler - The file handler for creating file boxes
-   * @param {St.Widget} outputContainer - The output container for messages
-   * @param {Function} updateLayoutCallback - Callback to update layout after changes
+   * @param {Object} options - Configuration options
+   * @param {St.Entry} options.inputField - The text input field
+   * @param {FileHandler} options.fileHandler - The file handler for creating file boxes
+   * @param {St.Widget} options.outputContainer - The output container for messages
+   * @param {Function} options.updateLayoutCallback - Callback to update layout after changes
    */
-  constructor(inputField, fileHandler, outputContainer, updateLayoutCallback) {
+  constructor({
+    inputField,
+    fileHandler,
+    outputContainer,
+    updateLayoutCallback,
+  }) {
     this.inputField = inputField;
     this.fileHandler = fileHandler;
     this.outputContainer = outputContainer;
@@ -68,7 +74,7 @@ export class PasteHandler {
       // Set this flag before the async operation to prevent text-changed from triggering
       this.isProcessingPaste = true;
 
-      clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
+      clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboardObj, text) => {
         if (!text || text === this.lastProcessedText) {
           this.isProcessingPaste = false;
           return;
@@ -76,7 +82,7 @@ export class PasteHandler {
 
         // Count words in pasted text
         const wordCount = text
-          .split(/\s+/)
+          .split(/\s+/u)
           .filter((word) => word.length > 0).length;
 
         // If text is longer than a threshold, create a file box
@@ -154,7 +160,7 @@ export class PasteHandler {
    * @param {string} currentText - The text after paste
    * @returns {string|null} The likely pasted content or null
    */
-  findLikelyPastedContent(previousText, currentText) {
+  static findLikelyPastedContent(previousText, currentText) {
     // If no previous text, the entire current text was likely pasted
     if (!previousText) {
       return currentText;
