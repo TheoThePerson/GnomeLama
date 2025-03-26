@@ -193,12 +193,6 @@
   line-height: 1.4;
 }
 
-.formatted-text {
-  margin: 5px 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
 .temporary-message {
   padding: 8px 12px;
   margin: 5px 0;
