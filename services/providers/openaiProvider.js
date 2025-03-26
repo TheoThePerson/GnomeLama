@@ -6,6 +6,15 @@ const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
 
 let availableModels = [];
 let apiSession = null;
+const errorMessages = [];
+
+/**
+ * Records errors without console.log for later reporting
+ * @param {string} message - Error message to record
+ */
+function recordError(message) {
+  errorMessages.push(message);
+}
 
 /**
  * Checks if the given model name is an OpenAI model
@@ -73,6 +82,24 @@ function selectFinalModels(modelGroups) {
 }
 
 /**
+ * Safely terminates any existing API session
+ * @returns {string} Any partial response
+ */
+function safelyTerminateSession() {
+  if (!apiSession) return "";
+
+  try {
+    const partial = apiSession.cancelRequest();
+    apiSession = null;
+    return partial;
+  } catch (error) {
+    recordError(`Failed to terminate API session: ${error.message}`);
+    apiSession = null;
+    return "";
+  }
+}
+
+/**
  * Fetches available OpenAI model names
  * @returns {Promise<string[]>} Array of available model names
  */
@@ -81,7 +108,7 @@ export async function fetchModelNames() {
   const apiKey = settings.get_string("openai-api-key");
 
   if (!apiKey) {
-    console.warn("OpenAI API key not configured");
+    recordError("OpenAI API key not configured");
     return [];
   }
 
@@ -93,8 +120,10 @@ export async function fetchModelNames() {
 
     availableModels = processModelData(data.data);
     return availableModels;
-  } catch (e) {
-    console.error("Error fetching OpenAI models:", e);
+  } catch (error) {
+    recordError(
+      `Error fetching OpenAI models: ${error.message || "Unknown error"}`
+    );
     return [];
   }
 }
@@ -106,14 +135,9 @@ export async function fetchModelNames() {
  * @returns {Array} Formatted messages for the API
  */
 function prepareMessages(messageText, context = []) {
-  // Log the incoming context for debugging
-  console.log(
-    "Context types:",
-    context.map((msg) => `${msg.type}: ${typeof msg.text}`)
-  );
-
   // Add a system message if there isn't one
   const messages = [];
+  const invalidMessages = [];
 
   // Add system message at the beginning if not already present
   const hasSystemMessage = context.some((msg) => msg.type === "system");
@@ -125,10 +149,10 @@ function prepareMessages(messageText, context = []) {
   }
 
   // Map context messages to the format expected by OpenAI API
-  context.forEach((msg) => {
+  context.forEach((msg, index) => {
     // Validate message format
     if (!msg.text || typeof msg.text !== "string") {
-      console.error("Invalid message format:", msg);
+      invalidMessages.push(`Message at index ${index} has invalid format`);
       return; // Skip invalid messages
     }
 
@@ -147,44 +171,67 @@ function prepareMessages(messageText, context = []) {
   messages.push({ role: "user", content: messageText });
 
   // Validate all messages have the correct format
+  const fixedMessages = [];
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (!msg.role || !msg.content || typeof msg.content !== "string") {
-      console.error(`Invalid message at position ${i}:`, msg);
+      invalidMessages.push(
+        `Message at position ${i} has invalid role or content`
+      );
+
       // Fix the message if possible
-      if (!msg.role) msg.role = "user";
-      if (!msg.content || typeof msg.content !== "string") msg.content = "";
+      const fixedMsg = { ...msg };
+      if (!fixedMsg.role) fixedMsg.role = "user";
+      if (!fixedMsg.content || typeof fixedMsg.content !== "string") {
+        fixedMsg.content = "";
+      }
+
+      fixedMessages.push(fixedMsg);
+    } else {
+      fixedMessages.push(msg);
     }
   }
 
-  return messages;
+  if (invalidMessages.length > 0) {
+    recordError(`Message preparation issues: ${invalidMessages.join(", ")}`);
+  }
+
+  return fixedMessages;
 }
 
 /**
  * Validates the message array to ensure it meets OpenAI API requirements
  * @param {Array} messages - Array of message objects to validate
- * @returns {boolean} True if the messages are valid
+ * @returns {Object} Validation result with isValid flag and errors
  */
 function validateMessages(messages) {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    console.error("Invalid messages: must be a non-empty array");
-    return false;
+  const errors = [];
+
+  if (!Array.isArray(messages)) {
+    errors.push("Messages must be an array");
+    return { isValid: false, errors };
+  }
+
+  if (messages.length === 0) {
+    errors.push("Messages array cannot be empty");
+    return { isValid: false, errors };
   }
 
   // Check each message
-  for (const msg of messages) {
+  for (const [index, msg] of messages.entries()) {
     if (!msg.role || !["user", "assistant", "system"].includes(msg.role)) {
-      console.error("Message has invalid role:", msg);
-      return false;
+      errors.push(`Message at index ${index} has invalid role: ${msg.role}`);
     }
 
     if (!msg.content || typeof msg.content !== "string") {
-      console.error("Message has invalid content:", msg);
-      return false;
+      errors.push(`Message at index ${index} has invalid content`);
     }
   }
 
-  return true;
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
 }
 
 /**
@@ -195,8 +242,12 @@ function validateMessages(messages) {
  */
 function createApiPayload(modelName, messages) {
   // Validate messages before creating payload
-  if (!validateMessages(messages)) {
-    console.error("Invalid messages for API payload. Attempting to fix...");
+  const validation = validateMessages(messages);
+
+  if (!validation.isValid) {
+    recordError(
+      `Invalid messages for API payload: ${validation.errors.join(", ")}`
+    );
 
     // Try to fix messages as a last resort
     const fixedMessages = messages.filter(
@@ -209,6 +260,7 @@ function createApiPayload(modelName, messages) {
         role: "user",
         content: "Hello",
       });
+      recordError("All messages were invalid, using fallback message");
     }
 
     messages = fixedMessages;
@@ -229,37 +281,45 @@ function createApiPayload(modelName, messages) {
  * @returns {Function} Chunk processor function
  */
 function createChunkProcessor(onData) {
-  return async (lineText) => {
-    if (lineText.startsWith("data: ")) {
-      const jsonString = lineText.replace("data: ", "").trim();
-      if (jsonString === "[DONE]") return null;
-
-      try {
-        const json = JSON.parse(jsonString);
-        if (
-          json.choices &&
-          json.choices[0].delta &&
-          json.choices[0].delta.content
-        ) {
-          const chunk = json.choices[0].delta.content;
-
-          // Send the chunk immediately without waiting for async operations
-          if (onData) {
-            try {
-              // Call directly without awaiting to avoid blocking the stream
-              invokeCallback(onData, chunk);
-            } catch (callbackError) {
-              console.error("Error in streaming callback:", callbackError);
-            }
-          }
-
-          return chunk;
-        }
-      } catch (parseError) {
-        console.error("Error parsing JSON chunk:", parseError);
-      }
+  return (lineText) => {
+    if (!lineText.startsWith("data: ")) {
+      return null;
     }
-    return null;
+
+    const jsonString = lineText.replace("data: ", "").trim();
+    if (jsonString === "[DONE]") return null;
+
+    try {
+      const json = JSON.parse(jsonString);
+      if (
+        !json.choices ||
+        !json.choices[0].delta ||
+        !json.choices[0].delta.content
+      ) {
+        return null;
+      }
+
+      const chunk = json.choices[0].delta.content;
+
+      // Send the chunk immediately without waiting for async operations
+      if (onData) {
+        try {
+          // Call directly without awaiting to avoid blocking the stream
+          invokeCallback(onData, chunk);
+        } catch (error) {
+          recordError(
+            `Error in streaming callback: ${error.message || "Unknown error"}`
+          );
+        }
+      }
+
+      return chunk;
+    } catch (error) {
+      recordError(
+        `Error parsing JSON chunk: ${error.message || "Invalid JSON"}`
+      );
+      return null;
+    }
   };
 }
 
@@ -270,8 +330,9 @@ function createChunkProcessor(onData) {
  */
 function transformApiResponse(requestHandler) {
   const resultPromise = requestHandler.result.then((result) => {
-    const { response } = result;
-    return { response };
+    // Extract just the response text string, not an object with response property
+    const responseText = result && result.response ? result.response : "";
+    return responseText; // Return just the string, not an object
   });
 
   const cancelFn = () => {
@@ -287,7 +348,7 @@ function transformApiResponse(requestHandler) {
   apiSession = null;
 
   return {
-    result: resultPromise,
+    result: resultPromise, // This Promise resolves to a string, not an object
     cancel: cancelFn,
   };
 }
@@ -338,23 +399,22 @@ export async function sendMessageToAPI({
 
   // Ensure previous session is properly closed before creating a new one
   if (apiSession) {
-    try {
-      apiSession.cancelRequest();
-    } catch (e) {
-      console.log("Error cancelling previous session:", e);
-    }
-    apiSession = null;
+    safelyTerminateSession();
   }
 
   try {
     apiSession = createCancellableSession();
     const messages = prepareMessages(messageText, context);
 
-    // Debug the messages structure
-    console.log(
-      `OpenAI context size: ${context.length}, Messages formatted: ${messages.length}`
-    );
-    console.log(`Message sample: ${JSON.stringify(messages.slice(0, 2))}`);
+    // Log message stats for debugging
+    const contextSize = context.length;
+    const messagesSize = messages.length;
+    if (contextSize > 0 && messagesSize !== contextSize + 1) {
+      // Only record if there's a discrepancy that might indicate a problem
+      recordError(
+        `Message count mismatch: context size ${contextSize}, messages formatted ${messagesSize}`
+      );
+    }
 
     const payload = createApiPayload(modelName, messages);
     const processChunk = createChunkProcessor(onData);
@@ -372,7 +432,9 @@ export async function sendMessageToAPI({
 
     return transformApiResponse(requestHandler);
   } catch (error) {
-    console.error("OpenAI API request error:", error);
+    recordError(
+      `OpenAI API request error: ${error.message || "Unknown error"}`
+    );
 
     // Try to extract more detailed error information
     let errorMessage = "Error communicating with OpenAI API";
@@ -383,7 +445,6 @@ export async function sendMessageToAPI({
     // Check for accumulated partial response
     const errorResponse = handleApiError();
     if (errorResponse) {
-      console.log("Returning partial response from error handler");
       return errorResponse;
     }
 
@@ -400,14 +461,5 @@ export async function sendMessageToAPI({
  * @returns {string} Partial response if available, empty string otherwise
  */
 export function stopMessage() {
-  if (!apiSession) {
-    return "";
-  }
-
-  const partialResponse = apiSession.cancelRequest();
-  console.log("OpenAI API request cancelled with partial response saved");
-
-  apiSession = null;
-
-  return partialResponse;
+  return safelyTerminateSession();
 }

@@ -105,8 +105,13 @@ function createChunkProcessor(onData) {
 function transformApiResponse(requestHandler) {
   return {
     result: requestHandler.result.then((result) => {
-      const { response } = result;
-      const responseContext = currentContext;
+      // Extract just the response text
+      const responseText = result && result.response ? result.response : "";
+
+      // Store context separately but return just the string
+      if (result && result.context) {
+        currentContext = result.context;
+      }
 
       // Reset the API session once completed successfully
       GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
@@ -114,7 +119,7 @@ function transformApiResponse(requestHandler) {
         return GLib.SOURCE_REMOVE;
       });
 
-      return { response, context: responseContext };
+      return responseText;
     }),
     cancel: () => {
       if (apiSession) {
@@ -139,10 +144,7 @@ function handleApiError() {
 
   if (accumulatedResponse) {
     return {
-      result: Promise.resolve({
-        response: accumulatedResponse,
-        context: currentContext,
-      }),
+      result: Promise.resolve(accumulatedResponse),
       cancel: () => accumulatedResponse,
     };
   }

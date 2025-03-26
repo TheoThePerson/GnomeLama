@@ -40,7 +40,7 @@ async function readAndProcessLines(
   const { isCancelled, cancellable } = options;
   let done = false;
 
-  // eslint-disable-next-line no-await-in-loop
+   
   while (!done && !isCancelled() && !cancellable.is_cancelled()) {
     try {
       // Read a line from the stream
@@ -99,7 +99,7 @@ export function createStreamProcessor(options) {
       const lines = [];
       let done = false;
 
-      // eslint-disable-next-line no-await-in-loop
+       
       while (!done && !isCancelled() && !cancellable.is_cancelled()) {
         try {
           // eslint-disable-next-line no-await-in-loop

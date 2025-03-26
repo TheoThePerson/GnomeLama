@@ -110,8 +110,16 @@ export function cleanupOnDisable() {
 function addMessageToHistory(text, type) {
   // Handle empty or invalid text
   if (!text || typeof text !== "string") {
-    console.error("Invalid message text:", text);
-    text = text ? String(text) : "";
+    console.log("Invalid message text, converting to string:", typeof text);
+
+    // Handle Promise objects explicitly
+    if (text instanceof Promise) {
+      console.log("Warning: Attempted to add Promise to history");
+      text = "Error: Message was a Promise object. Please try again.";
+    } else {
+      // For other non-string values, convert to string safely
+      text = text ? String(text) : "";
+    }
   }
 
   // Add to history immediately rather than using idle_add
@@ -139,15 +147,28 @@ export function getLastError() {
 
 /**
  * Process the response from the AI provider
- * @param {Object} response - Response from the provider
+ * @param {Object|string} response - Response from the provider
  * @returns {string} Processed response text
  */
 function processProviderResponse(response) {
-  return response && typeof response === "object" && "response" in response
-    ? response.response
-    : typeof response === "string"
-    ? response
-    : "No valid response received";
+  // Handle Promise objects
+  if (response instanceof Promise) {
+    console.log("Warning: Response is a Promise, not actual data");
+    return "Error: Response was a Promise object. Please try again.";
+  }
+
+  // If it's already a string, just return it
+  if (typeof response === "string") {
+    return response;
+  }
+
+  // Handle old response format for backward compatibility
+  if (response && typeof response === "object" && "response" in response) {
+    return response.response;
+  }
+
+  // Fallback for unexpected response format
+  return "No valid response received";
 }
 
 /**
@@ -259,17 +280,31 @@ async function sendApiRequest({
 }
 
 /**
- * Handle the successful API response
- * @param {string} responseText - The response text
+ * Handle successful API response
+ * @param {string|Object} responseText - Response from the API
+ * @returns {string} Processed response text
  */
 function handleSuccessResponse(responseText) {
-  addMessageToHistory(responseText, "assistant");
+  // Reset error state
+  lastError = null;
+
+  // Make sure we have a string
+  const finalResponse = processProviderResponse(responseText);
 
   // Update the cancel function atomically
   updateCancelFunction(null);
 
+  // Reset message processing state
   isMessageInProgress = false;
-  return responseText;
+
+  // Add to conversation history if valid
+  if (typeof finalResponse === "string") {
+    addMessageToHistory(finalResponse, "assistant");
+  } else {
+    console.log("Skipping invalid response:", typeof finalResponse);
+  }
+
+  return finalResponse;
 }
 
 /**
@@ -280,20 +315,14 @@ function handleSuccessResponse(responseText) {
  */
 async function processApiResult(apiResult, asyncOnData) {
   try {
-    const { responseText } = await apiResult;
-    return handleSuccessResponse(responseText);
-  } catch (resultError) {
-    console.error("Error processing AI response:", resultError);
+    // Extract response from result
+    const responseObject = await apiResult.result;
 
-    lastError =
-      "Error processing the AI's response. The message may be incomplete.";
-    if (asyncOnData) asyncOnData(lastError);
-
-    // Reset state atomically
-    updateCancelFunction(null);
-    isMessageInProgress = false;
-
-    return lastError;
+    // Process the response
+    const responseText = handleSuccessResponse(responseObject);
+    return responseText;
+  } catch (error) {
+    return handleApiError(error, asyncOnData);
   }
 }
 

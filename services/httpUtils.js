@@ -22,20 +22,6 @@ export const TextDecoder =
   };
 
 /**
- * Helper to yield to the main thread
- * @param {number} ms - Milliseconds to yield
- * @returns {Promise<void>}
- */
-export function yieldToMainThread(ms) {
-  return new Promise((resolve) => {
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
-      resolve();
-      return GLib.SOURCE_REMOVE;
-    });
-  });
-}
-
-/**
  * Clean up resources (streams, etc.)
  * @param {Gio.InputStream} inputStream - Input stream to close
  * @param {Gio.DataInputStream} dataInputStream - Data input stream to close
