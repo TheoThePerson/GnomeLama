@@ -1,4 +1,4 @@
-/* global imports */
+// ESLint handles imports as globals in the config, no need for directive
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import St from "gi://St";
@@ -236,517 +236,22 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
   let jsonData;
   let confidenceLevel = 0;
 
-  try {
-    jsonData = JSON.parse(responseText);
-    confidenceLevel = 5;
-  } catch {
-    const codeBlockMatch = responseText.match(
-      /```(?:json)?\s*\n([\s\S]*?)\n```/
-    );
-    if (codeBlockMatch) {
-      try {
-        jsonData = JSON.parse(codeBlockMatch[1]);
-        confidenceLevel = 5;
-      } catch {
-        console.log("Failed to parse JSON in code block");
-      }
-    }
-
-    if (!jsonData) {
-      jsonData = tryExtractJsonFromText(responseText);
-
-      if (jsonData) {
-        confidenceLevel = 3;
-      } else {
-        console.log("Failed to extract any valid JSON from the response");
-        return false;
-      }
-    }
+  jsonData = parseJsonFromResponse(responseText);
+  if (!jsonData) {
+    return false;
   }
 
-  if (jsonData.files && Array.isArray(jsonData.files) && hadFiles) {
-    confidenceLevel += 2;
-  }
+  confidenceLevel = calculateConfidenceLevel(jsonData, hadFiles);
 
-  if (
-    jsonData.files &&
-    Array.isArray(jsonData.files) &&
-    jsonData.files.length > 0 &&
-    jsonData.files[0].filename &&
-    "content" in jsonData.files[0]
-  ) {
-    confidenceLevel += 2;
-  }
-
-  if (jsonData.summary && jsonData.files) {
-    confidenceLevel += 1;
-  }
-
-  if (!jsonData.files && jsonData.filename && "content" in jsonData) {
-    jsonData = {
-      summary: `File: ${jsonData.filename}`,
-      files: [jsonData],
-    };
-    confidenceLevel += 2;
-  }
+  // Normalize the JSON structure
+  jsonData = normalizeJsonStructure(jsonData);
 
   if (!jsonData.files || !Array.isArray(jsonData.files)) {
     return false;
   }
 
   if (hadFiles || confidenceLevel >= 4) {
-    if (!jsonData.summary) {
-      jsonData.summary = "File modifications";
-    }
-
-    const summaryLabel = new St.Label({
-      text: jsonData.summary,
-      style_class: "text-label",
-      x_expand: true,
-      style: "font-weight: bold; margin-bottom: 12px;",
-    });
-    summaryLabel.clutter_text.set_line_wrap(true);
-    summaryLabel.clutter_text.set_selectable(true);
-    container.add_child(summaryLabel);
-
-    jsonData.files.forEach((file) => {
-      if (!file.filename) {
-        console.log("Skipping file entry with no filename");
-        return;
-      }
-
-      if (file.content === undefined || file.content === null) {
-        file.content = "";
-        console.log(`File ${file.filename} has no content, using empty string`);
-      }
-
-      const fileBox = new St.BoxLayout({
-        vertical: true,
-        style_class: "file-response-box",
-        style:
-          "background-color: #333; border-radius: 8px; margin: 8px 0 12px 0; border: 1px solid #444;",
-        x_expand: true,
-      });
-
-      const headerBox = new St.BoxLayout({
-        style_class: "file-response-header",
-        style:
-          "background-color: #444; padding: 8px 10px; border-radius: 8px 8px 0 0;",
-        x_expand: true,
-      });
-
-      const filenameLabel = new St.Label({
-        text: file.filename,
-        style_class: "filename-label",
-        style: "color: #fff; font-weight: bold; font-size: 14px;",
-        x_expand: true,
-      });
-
-      filenameLabel.clutter_text.set_selectable(true);
-      headerBox.add_child(filenameLabel);
-
-      const copyButton = new St.Button({
-        style_class: "copy-button",
-        style:
-          "background-color: #555; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
-        label: "Copy",
-        x_expand: false,
-      });
-
-      let copyTimeoutId = null;
-      copyButton.connect("clicked", () => {
-        const clipboard = St.Clipboard.get_default();
-        clipboard.set_text(St.ClipboardType.CLIPBOARD, file.content);
-
-        copyButton.set_label("Copied!");
-
-        if (copyTimeoutId) {
-          GLib.Source.remove(copyTimeoutId);
-        }
-
-        copyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-          if (!copyButton.destroyed) {
-            copyButton.set_label("Copy");
-          }
-          copyTimeoutId = null;
-          return GLib.SOURCE_REMOVE;
-        });
-
-        copyButton.connect("destroy", () => {
-          if (copyTimeoutId) {
-            GLib.Source.remove(copyTimeoutId);
-            copyTimeoutId = null;
-          }
-        });
-      });
-
-      headerBox.add_child(copyButton);
-
-      // Check if this is a document type that can't be converted back to original format
-      const isNonConvertibleDocument =
-        file.filename &&
-        (file.filename.toLowerCase().endsWith(".pdf") ||
-          file.filename.toLowerCase().endsWith(".doc") ||
-          file.filename.toLowerCase().endsWith(".docx") ||
-          file.filename.toLowerCase().endsWith(".rtf") ||
-          file.filename.toLowerCase().endsWith(".odt"));
-
-      // Add Save As button for all file types
-      const saveAsButton = new St.Button({
-        style_class: "save-as-button",
-        style:
-          "background-color: #347EC1; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
-        label: `Save As...`,
-        x_expand: false,
-      });
-
-      let saveAsTimeoutId = null;
-
-      saveAsButton.connect("clicked", () => {
-        saveAsButton.set_label(`Saving...`);
-
-        const { GLib } = imports.gi;
-        const { Gio } = imports.gi;
-
-        try {
-          if (!file.content) {
-            addTemporaryMessage(
-              container.get_parent(),
-              `Error: No content to save for ${file.filename}`
-            );
-
-            if (saveAsTimeoutId) {
-              GLib.Source.remove(saveAsTimeoutId);
-            }
-
-            saveAsTimeoutId = GLib.timeout_add(
-              GLib.PRIORITY_DEFAULT,
-              1000,
-              () => {
-                if (!saveAsButton.destroyed) {
-                  saveAsButton.set_label(`Save As...`);
-                }
-                saveAsTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-              }
-            );
-
-            return;
-          }
-
-          // Use zenity to get a file save location
-          const baseFilename =
-            file.filename.substring(0, file.filename.lastIndexOf(".")) ||
-            file.filename;
-          const saveCommand = [
-            "zenity",
-            "--file-selection",
-            "--save",
-            `--filename=${GLib.get_home_dir()}/${baseFilename}.txt`,
-            "--title=Save file as TXT",
-            `--file-filter=*.txt`,
-          ];
-
-          try {
-            // Run the zenity dialog asynchronously to avoid freezing the shell
-            const subprocess = new Gio.Subprocess({
-              argv: saveCommand,
-              flags:
-                Gio.SubprocessFlags.STDOUT_PIPE |
-                Gio.SubprocessFlags.STDERR_PIPE,
-            });
-
-            subprocess.init(null);
-            subprocess.communicate_utf8_async(null, null, (proc, result) => {
-              try {
-                const [, stdout, stderr] = proc.communicate_utf8_finish(result);
-
-                if (proc.get_exit_status() === 0 && stdout && stdout.trim()) {
-                  const savePath = stdout.trim();
-
-                  if (savePath) {
-                    const ByteArray = imports.byteArray;
-                    const contentBytes = ByteArray.fromString(file.content);
-
-                    if (GLib.file_set_contents(savePath, contentBytes)) {
-                      addTemporaryMessage(
-                        container.get_parent(),
-                        `Successfully saved to ${savePath}`
-                      );
-                    } else {
-                      addTemporaryMessage(
-                        container.get_parent(),
-                        `Error: Failed to write to ${savePath}. Check file permissions.`
-                      );
-                    }
-                  }
-                } else if (stderr && stderr.trim()) {
-                  console.error(`Save dialog error: ${stderr}`);
-                }
-
-                // Reset button state
-                if (saveAsTimeoutId) {
-                  GLib.Source.remove(saveAsTimeoutId);
-                }
-
-                saveAsTimeoutId = GLib.timeout_add(
-                  GLib.PRIORITY_DEFAULT,
-                  1000,
-                  () => {
-                    if (!saveAsButton.destroyed) {
-                      saveAsButton.set_label(`Save As...`);
-                    }
-                    saveAsTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                  }
-                );
-              } catch (error) {
-                console.error("Error processing save dialog result:", error);
-
-                if (saveAsTimeoutId) {
-                  GLib.Source.remove(saveAsTimeoutId);
-                }
-
-                saveAsTimeoutId = GLib.timeout_add(
-                  GLib.PRIORITY_DEFAULT,
-                  1000,
-                  () => {
-                    if (!saveAsButton.destroyed) {
-                      saveAsButton.set_label(`Save As...`);
-                    }
-                    saveAsTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                  }
-                );
-              }
-            });
-          } catch (error) {
-            console.error("Error launching save dialog:", error);
-            addTemporaryMessage(
-              container.get_parent(),
-              `Error launching save dialog: ${error}`
-            );
-
-            if (saveAsTimeoutId) {
-              GLib.Source.remove(saveAsTimeoutId);
-            }
-
-            saveAsTimeoutId = GLib.timeout_add(
-              GLib.PRIORITY_DEFAULT,
-              1000,
-              () => {
-                if (!saveAsButton.destroyed) {
-                  saveAsButton.set_label(`Save As...`);
-                }
-                saveAsTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-              }
-            );
-          }
-        } catch (error) {
-          console.error("Error in Save As operation:", error);
-          addTemporaryMessage(
-            container.get_parent(),
-            `Error: ${
-              error.message || "Unknown error during Save As operation"
-            }`
-          );
-
-          if (saveAsTimeoutId) {
-            GLib.Source.remove(saveAsTimeoutId);
-          }
-
-          saveAsTimeoutId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            1000,
-            () => {
-              if (!saveAsButton.destroyed) {
-                saveAsButton.set_label(`Save As...`);
-              }
-              saveAsTimeoutId = null;
-              return GLib.SOURCE_REMOVE;
-            }
-          );
-        }
-      });
-
-      saveAsButton.connect("destroy", () => {
-        if (saveAsTimeoutId) {
-          GLib.Source.remove(saveAsTimeoutId);
-          saveAsTimeoutId = null;
-        }
-      });
-
-      headerBox.add_child(saveAsButton);
-
-      // Only show Apply button for files that can be converted back
-      if (!isNonConvertibleDocument) {
-        const applyButton = new St.Button({
-          style_class: "apply-button",
-          style:
-            "background-color: #2e8b57; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
-          label: `Apply to ${file.filename}`,
-          x_expand: false,
-        });
-
-        let applyTimeoutId = null;
-
-        applyButton.connect("clicked", () => {
-          applyButton.set_label(`Applying to ${file.filename}...`);
-
-          const { Gio } = imports.gi;
-          const { GLib } = imports.gi;
-
-          try {
-            if (!file.content) {
-              addTemporaryMessage(
-                container.get_parent(),
-                `Error: No content to save for ${file.filename}`
-              );
-
-              if (applyTimeoutId) {
-                GLib.Source.remove(applyTimeoutId);
-              }
-
-              applyTimeoutId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                1000,
-                () => {
-                  if (!applyButton.destroyed) {
-                    applyButton.set_label(`Apply to ${file.filename}`);
-                  }
-                  applyTimeoutId = null;
-                  return GLib.SOURCE_REMOVE;
-                }
-              );
-
-              return;
-            }
-
-            let fullPath;
-            if (file.path && file.path.trim() !== "") {
-              fullPath = file.path;
-            } else {
-              const registeredPath = FilePathRegistry.get(file.filename);
-
-              if (registeredPath) {
-                fullPath = registeredPath;
-                console.log(
-                  `Found registered path for ${file.filename}: ${fullPath}`
-                );
-              } else {
-                const homeDir = GLib.get_home_dir();
-                fullPath = GLib.build_filenamev([homeDir, file.filename]);
-                addTemporaryMessage(
-                  container.get_parent(),
-                  `Warning: No original path found for ${file.filename}. Using ${fullPath} instead.`
-                );
-              }
-            }
-
-            const fileObj = Gio.File.new_for_path(fullPath);
-
-            if (!fileObj.query_exists(null)) {
-              addTemporaryMessage(
-                container.get_parent(),
-                `Warning: File ${fullPath} doesn't exist. Creating a new file.`
-              );
-            }
-
-            try {
-              const ByteArray = imports.byteArray;
-              const contentBytes = ByteArray.fromString(file.content);
-
-              if (GLib.file_set_contents(fullPath, contentBytes)) {
-                addTemporaryMessage(
-                  container.get_parent(),
-                  `Successfully applied changes to ${fullPath}`
-                );
-              } else {
-                addTemporaryMessage(
-                  container.get_parent(),
-                  `Error: Failed to write to ${fullPath}. Check file permissions.`
-                );
-              }
-            } catch {
-              console.error("Error writing to file");
-              addTemporaryMessage(
-                container.get_parent(),
-                `Error writing to file`
-              );
-            }
-
-            if (applyTimeoutId) {
-              GLib.Source.remove(applyTimeoutId);
-            }
-
-            applyTimeoutId = GLib.timeout_add(
-              GLib.PRIORITY_DEFAULT,
-              1000,
-              () => {
-                if (!applyButton.destroyed) {
-                  applyButton.set_label(`Apply to ${file.filename}`);
-                }
-                applyTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-              }
-            );
-          } catch {
-            console.error("Error applying file content");
-            addTemporaryMessage(
-              container.get_parent(),
-              `Error: Error applying file content`
-            );
-
-            if (applyTimeoutId) {
-              GLib.Source.remove(applyTimeoutId);
-            }
-
-            applyTimeoutId = GLib.timeout_add(
-              GLib.PRIORITY_DEFAULT,
-              1000,
-              () => {
-                if (!applyButton.destroyed) {
-                  applyButton.set_label(`Apply to ${file.filename}`);
-                }
-                applyTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-              }
-            );
-          }
-        });
-
-        applyButton.connect("destroy", () => {
-          if (applyTimeoutId) {
-            GLib.Source.remove(applyTimeoutId);
-            applyTimeoutId = null;
-          }
-        });
-
-        headerBox.add_child(applyButton);
-      }
-      fileBox.add_child(headerBox);
-
-      const contentBox = new St.BoxLayout({
-        vertical: true,
-        style: "padding: 10px;",
-        x_expand: true,
-      });
-
-      const contentLabel = new St.Label({
-        text: file.content,
-        style: "font-family: monospace; white-space: pre-wrap;",
-        x_expand: true,
-      });
-
-      contentLabel.clutter_text.set_line_wrap(true);
-      contentLabel.clutter_text.set_selectable(true);
-      contentBox.add_child(contentLabel);
-      fileBox.add_child(contentBox);
-
-      container.add_child(fileBox);
-    });
-
+    renderJsonResponse(container, jsonData);
     return true;
   }
 
@@ -946,12 +451,466 @@ function tryExtractJsonFromText(text) {
  */
 function cleanJsonString(jsonString) {
   return jsonString
-    .replace(/\n+/g, " ")
-    .replace(/\\n/g, "\\\\n")
-    .replace(/\\"/g, '\\\\"')
-    .replace(/`/g, "")
-    .replace(/\\+/g, "\\")
-    .replace(/([^\\])\\([^"\\nrbftu/])/g, "$1$2")
-    .replace(/\s+/g, " ")
+    .replace(/\n+/gu, " ")
+    .replace(/\\n/gu, "\\\\n")
+    .replace(/\\"/gu, '\\\\"')
+    .replace(/`/gu, "")
+    .replace(/\\+/gu, "\\")
+    .replace(/([^\\])\\([^"\\nrbftu/])/gu, "$1$2")
+    .replace(/\s+/gu, " ")
     .trim();
+}
+
+// Refactoring handleSaveDialogResult to use fewer parameters
+function handleSaveDialogResult(proc, result, context) {
+  const { saveAsButton, saveAsTimeoutId, file, container } = context;
+
+  try {
+    const [, stdout, stderr] = proc.communicate_utf8_finish(result);
+
+    if (proc.get_exit_status() === 0 && stdout && stdout.trim()) {
+      const savePath = stdout.trim();
+
+      if (savePath) {
+        const ByteArray = imports.byteArray;
+        const contentBytes = ByteArray.fromString(file.content);
+
+        if (GLib.file_set_contents(savePath, contentBytes)) {
+          addTemporaryMessage(
+            container.get_parent(),
+            `Successfully saved to ${savePath}`
+          );
+        } else {
+          addTemporaryMessage(
+            container.get_parent(),
+            `Error: Failed to write to ${savePath}. Check file permissions.`
+          );
+        }
+      }
+    } else if (stderr && stderr.trim()) {
+      console.error(`Save dialog error: ${stderr}`);
+    }
+
+    resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
+  } catch (error) {
+    console.error("Error processing save dialog result:", error);
+    resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
+  }
+}
+
+// Helper function to reset button state
+function resetButtonState(button, timeoutId, label) {
+  if (timeoutId) {
+    GLib.Source.remove(timeoutId);
+  }
+
+  return GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+    if (!button.destroyed) {
+      button.set_label(label);
+    }
+    return GLib.SOURCE_REMOVE;
+  });
+}
+
+// Refactoring tryParseJsonResponse by extracting helper methods
+function parseJsonFromResponse(responseText) {
+  try {
+    // Try direct parsing
+    return JSON.parse(responseText);
+  } catch {
+    // Try parsing from code block
+    const codeBlockMatch = responseText.match(
+      /```(?:json)?\s*\n([\s\S]*?)\n```/u
+    );
+    if (codeBlockMatch) {
+      try {
+        return JSON.parse(codeBlockMatch[1]);
+      } catch {
+        console.log("Failed to parse JSON in code block");
+      }
+    }
+
+    // Try extracting JSON from text
+    const extractedJson = tryExtractJsonFromText(responseText);
+    if (extractedJson) {
+      return extractedJson;
+    }
+
+    console.log("Failed to extract any valid JSON from the response");
+    return null;
+  }
+}
+
+// Helper function to calculate confidence level
+function calculateConfidenceLevel(jsonData, hadFiles) {
+  let confidence = 5; // Base confidence from successful parse
+
+  if (jsonData.files && Array.isArray(jsonData.files) && hadFiles) {
+    confidence += 2;
+  }
+
+  if (
+    jsonData.files &&
+    Array.isArray(jsonData.files) &&
+    jsonData.files.length > 0 &&
+    jsonData.files[0].filename &&
+    "content" in jsonData.files[0]
+  ) {
+    confidence += 2;
+  }
+
+  if (jsonData.summary && jsonData.files) {
+    confidence += 1;
+  }
+
+  return confidence;
+}
+
+// Helper function to normalize JSON structure
+function normalizeJsonStructure(jsonData) {
+  // Handle single file format
+  if (!jsonData.files && jsonData.filename && "content" in jsonData) {
+    return {
+      summary: `File: ${jsonData.filename}`,
+      files: [jsonData],
+    };
+  }
+
+  // Ensure summary exists
+  if (jsonData.files && !jsonData.summary) {
+    jsonData.summary = "File modifications";
+  }
+
+  return jsonData;
+}
+
+// Helper function to render the JSON response
+function renderJsonResponse(container, jsonData) {
+  // Create summary label
+  const summaryLabel = new St.Label({
+    text: jsonData.summary,
+    style_class: "text-label",
+    x_expand: true,
+    style: "font-weight: bold; margin-bottom: 12px;",
+  });
+  summaryLabel.clutter_text.set_line_wrap(true);
+  summaryLabel.clutter_text.set_selectable(true);
+  container.add_child(summaryLabel);
+
+  // Render each file
+  jsonData.files.forEach((file) => renderFileItem(container, file));
+}
+
+// Add the renderFileItem function that's missing
+function renderFileItem(container, file) {
+  if (!file.filename) {
+    console.log("Skipping file entry with no filename");
+    return;
+  }
+
+  if (file.content === null) {
+    file.content = "";
+    console.log(`File ${file.filename} has no content, using empty string`);
+  }
+
+  const fileBox = new St.BoxLayout({
+    vertical: true,
+    style_class: "file-response-box",
+    style:
+      "background-color: #333; border-radius: 8px; margin: 8px 0 12px 0; border: 1px solid #444;",
+    x_expand: true,
+  });
+
+  const headerBox = new St.BoxLayout({
+    style_class: "file-response-header",
+    style:
+      "background-color: #444; padding: 8px 10px; border-radius: 8px 8px 0 0;",
+    x_expand: true,
+  });
+
+  const filenameLabel = new St.Label({
+    text: file.filename,
+    style_class: "filename-label",
+    style: "color: #fff; font-weight: bold; font-size: 14px;",
+    x_expand: true,
+  });
+
+  filenameLabel.clutter_text.set_selectable(true);
+  headerBox.add_child(filenameLabel);
+
+  const copyButton = new St.Button({
+    style_class: "copy-button",
+    style:
+      "background-color: #555; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
+    label: "Copy",
+    x_expand: false,
+  });
+
+  let copyTimeoutId = null;
+  copyButton.connect("clicked", () => {
+    const clipboard = St.Clipboard.get_default();
+    clipboard.set_text(St.ClipboardType.CLIPBOARD, file.content);
+
+    copyButton.set_label("Copied!");
+
+    if (copyTimeoutId) {
+      GLib.Source.remove(copyTimeoutId);
+    }
+
+    copyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+      if (!copyButton.destroyed) {
+        copyButton.set_label("Copy");
+      }
+      copyTimeoutId = null;
+      return GLib.SOURCE_REMOVE;
+    });
+
+    copyButton.connect("destroy", () => {
+      if (copyTimeoutId) {
+        GLib.Source.remove(copyTimeoutId);
+        copyTimeoutId = null;
+      }
+    });
+  });
+
+  headerBox.add_child(copyButton);
+
+  // Check if this is a document type that can't be converted back to original format
+  const isNonConvertibleDocument =
+    file.filename &&
+    (file.filename.toLowerCase().endsWith(".pdf") ||
+      file.filename.toLowerCase().endsWith(".doc") ||
+      file.filename.toLowerCase().endsWith(".docx") ||
+      file.filename.toLowerCase().endsWith(".rtf") ||
+      file.filename.toLowerCase().endsWith(".odt"));
+
+  // Add Save As button for all file types
+  const saveAsButton = new St.Button({
+    style_class: "save-as-button",
+    style:
+      "background-color: #347EC1; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
+    label: `Save As...`,
+    x_expand: false,
+  });
+
+  let saveAsTimeoutId = null;
+
+  saveAsButton.connect("clicked", () => {
+    saveAsButton.set_label(`Saving...`);
+
+    const { Gio } = imports.gi;
+
+    try {
+      if (!file.content) {
+        addTemporaryMessage(
+          container.get_parent(),
+          `Error: No content to save for ${file.filename}`
+        );
+
+        saveAsTimeoutId = resetButtonState(
+          saveAsButton,
+          saveAsTimeoutId,
+          "Save As..."
+        );
+        return;
+      }
+
+      // Use zenity to get a file save location
+      const baseFilename =
+        file.filename.substring(0, file.filename.lastIndexOf(".")) ||
+        file.filename;
+      const saveCommand = [
+        "zenity",
+        "--file-selection",
+        "--save",
+        `--filename=${GLib.get_home_dir()}/${baseFilename}.txt`,
+        "--title=Save file as TXT",
+        `--file-filter=*.txt`,
+      ];
+
+      try {
+        // Run the zenity dialog asynchronously to avoid freezing the shell
+        const subprocess = new Gio.Subprocess({
+          argv: saveCommand,
+          flags:
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+        });
+
+        subprocess.init(null);
+        subprocess.communicate_utf8_async(null, null, (proc, result) => {
+          handleSaveDialogResult(proc, result, {
+            saveAsButton,
+            saveAsTimeoutId,
+            file,
+            container,
+          });
+        });
+      } catch (error) {
+        console.error("Error launching save dialog:", error);
+        addTemporaryMessage(
+          container.get_parent(),
+          `Error launching save dialog: ${error}`
+        );
+
+        saveAsTimeoutId = resetButtonState(
+          saveAsButton,
+          saveAsTimeoutId,
+          "Save As..."
+        );
+      }
+    } catch (error) {
+      console.error("Error in Save As operation:", error);
+      addTemporaryMessage(
+        container.get_parent(),
+        `Error: ${error.message || "Unknown error during Save As operation"}`
+      );
+
+      saveAsTimeoutId = resetButtonState(
+        saveAsButton,
+        saveAsTimeoutId,
+        "Save As..."
+      );
+    }
+  });
+
+  saveAsButton.connect("destroy", () => {
+    if (saveAsTimeoutId) {
+      GLib.Source.remove(saveAsTimeoutId);
+      saveAsTimeoutId = null;
+    }
+  });
+
+  headerBox.add_child(saveAsButton);
+
+  // Only show Apply button for files that can be converted back
+  if (!isNonConvertibleDocument) {
+    const applyButton = new St.Button({
+      style_class: "apply-button",
+      style:
+        "background-color: #2e8b57; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
+      label: `Apply to ${file.filename}`,
+      x_expand: false,
+    });
+
+    let applyTimeoutId = null;
+
+    applyButton.connect("clicked", () => {
+      applyButton.set_label(`Applying to ${file.filename}...`);
+
+      const { Gio } = imports.gi;
+
+      try {
+        if (!file.content) {
+          addTemporaryMessage(
+            container.get_parent(),
+            `Error: No content to save for ${file.filename}`
+          );
+
+          applyTimeoutId = resetButtonState(
+            applyButton,
+            applyTimeoutId,
+            `Apply to ${file.filename}`
+          );
+          return;
+        }
+
+        let fullPath;
+        if (file.path && file.path.trim() !== "") {
+          fullPath = file.path;
+        } else {
+          const registeredPath = FilePathRegistry.get(file.filename);
+
+          if (registeredPath) {
+            fullPath = registeredPath;
+            console.log(
+              `Found registered path for ${file.filename}: ${fullPath}`
+            );
+          } else {
+            const homeDir = GLib.get_home_dir();
+            fullPath = GLib.build_filenamev([homeDir, file.filename]);
+            addTemporaryMessage(
+              container.get_parent(),
+              `Warning: No original path found for ${file.filename}. Using ${fullPath} instead.`
+            );
+          }
+        }
+
+        const fileObj = Gio.File.new_for_path(fullPath);
+
+        if (!fileObj.query_exists(null)) {
+          addTemporaryMessage(
+            container.get_parent(),
+            `Warning: File ${fullPath} doesn't exist. Creating a new file.`
+          );
+        }
+
+        try {
+          const ByteArray = imports.byteArray;
+          const contentBytes = ByteArray.fromString(file.content);
+
+          if (GLib.file_set_contents(fullPath, contentBytes)) {
+            addTemporaryMessage(
+              container.get_parent(),
+              `Successfully applied changes to ${fullPath}`
+            );
+          } else {
+            addTemporaryMessage(
+              container.get_parent(),
+              `Error: Failed to write to ${fullPath}. Check file permissions.`
+            );
+          }
+        } catch {
+          console.error("Error writing to file");
+          addTemporaryMessage(container.get_parent(), `Error writing to file`);
+        }
+
+        applyTimeoutId = resetButtonState(
+          applyButton,
+          applyTimeoutId,
+          `Apply to ${file.filename}`
+        );
+      } catch {
+        console.error("Error applying file content");
+        addTemporaryMessage(
+          container.get_parent(),
+          `Error: Error applying file content`
+        );
+
+        applyTimeoutId = resetButtonState(
+          applyButton,
+          applyTimeoutId,
+          `Apply to ${file.filename}`
+        );
+      }
+    });
+
+    applyButton.connect("destroy", () => {
+      if (applyTimeoutId) {
+        GLib.Source.remove(applyTimeoutId);
+        applyTimeoutId = null;
+      }
+    });
+
+    headerBox.add_child(applyButton);
+  }
+  fileBox.add_child(headerBox);
+
+  const contentBox = new St.BoxLayout({
+    vertical: true,
+    style: "padding: 10px;",
+    x_expand: true,
+  });
+
+  const contentLabel = new St.Label({
+    text: file.content,
+    style: "font-family: monospace; white-space: pre-wrap;",
+    x_expand: true,
+  });
+
+  contentLabel.clutter_text.set_line_wrap(true);
+  contentLabel.clutter_text.set_selectable(true);
+  contentBox.add_child(contentLabel);
+  fileBox.add_child(contentBox);
+
+  container.add_child(fileBox);
 }

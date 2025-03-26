@@ -1,4 +1,3 @@
-/* global imports, global */
 import Clutter from "gi://Clutter";
 import GObject from "gi://GObject";
 import St from "gi://St";
@@ -161,7 +160,7 @@ export const Indicator = GObject.registerClass(
 
         // Only process sudden text changes with multiple words (likely pastes)
         const wordCount = currentText
-          .split(/\s+/)
+          .split(/\s+/u)
           .filter((word) => word.length > 0).length;
 
         if (wordCount > 100) {
@@ -237,13 +236,13 @@ export const Indicator = GObject.registerClass(
 
     _initializeComponents(safeUpdateLayout) {
       // Initialize file handler
-      this._fileHandler = new FileHandler(
-        this._extensionPath,
-        this._outputContainer,
-        this._panelOverlay,
-        this._inputButtonsContainer,
-        safeUpdateLayout
-      );
+      this._fileHandler = new FileHandler({
+        extensionPath: this._extensionPath,
+        outputContainer: this._outputContainer,
+        panelOverlay: this._panelOverlay,
+        inputButtonsContainer: this._inputButtonsContainer,
+        updateLayoutCallback: safeUpdateLayout,
+      });
 
       // Initialize message sender
       this._messageSender = new MessageSender(
@@ -332,7 +331,7 @@ export const Indicator = GObject.registerClass(
      * Toggle the panel overlay with improved animation
      * @returns {Promise<void>}
      */
-    async _togglePanelOverlay() {
+    _togglePanelOverlay() {
       // Prevent multiple rapid toggles
       if (this._isTogglingPanel) {
         return;

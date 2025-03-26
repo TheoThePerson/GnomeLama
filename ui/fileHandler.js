@@ -1,5 +1,3 @@
-/* global imports */
-
 /**
  * File handling functionality for the panel UI
  */
@@ -61,19 +59,22 @@ export class FileHandler {
   /**
    * Creates a new FileHandler instance
    *
-   * @param {string} extensionPath - Path to the extension directory
-   * @param {St.Widget} outputContainer - Container for output messages
-   * @param {St.Widget} panelOverlay - Panel overlay container
-   * @param {St.Widget} inputButtonsContainer - Container for input buttons
-   * @param {Function} updateLayoutCallback - Callback to update layout
+   * @param {Object} options - Configuration options
+   * @param {string} options.extensionPath - Path to the extension directory
+   * @param {St.Widget} options.outputContainer - Container for output messages
+   * @param {St.Widget} options.panelOverlay - Panel overlay container
+   * @param {St.Widget} options.inputButtonsContainer - Container for input buttons
+   * @param {Function} options.updateLayoutCallback - Callback to update layout
    */
-  constructor(
-    extensionPath,
-    outputContainer,
-    panelOverlay,
-    inputButtonsContainer,
-    updateLayoutCallback
-  ) {
+  constructor(options) {
+    const {
+      extensionPath,
+      outputContainer,
+      panelOverlay,
+      inputButtonsContainer,
+      updateLayoutCallback,
+    } = options;
+
     this._extensionPath = extensionPath;
     this._outputContainer = outputContainer;
     this._panelOverlay = panelOverlay;
@@ -236,7 +237,7 @@ export class FileHandler {
    * @param {string} toolName - Name of the missing tool
    * @returns {string} - Installation instructions
    */
-  _getToolInstallationInstructions(toolName) {
+  static _getToolInstallationInstructions(toolName) {
     const toolsInfo = {
       docx2txt: "Convert .docx files",
       odt2txt: "Convert .odt files",
@@ -290,7 +291,7 @@ export class FileHandler {
         if (this._availableTools && !this._availableTools[toolName]) {
           MessageProcessor.addTemporaryMessage(
             this._outputContainer,
-            this._getToolInstallationInstructions(toolName)
+            FileHandler._getToolInstallationInstructions(toolName)
           );
           return;
         }
@@ -314,7 +315,7 @@ export class FileHandler {
   _convertAndLoadFile(filePath, fileName, fileType) {
     DocumentConverter.convertToText(filePath, fileType)
       .then((content) => {
-        const truncatedContent = this._truncateContent(content);
+        const truncatedContent = FileHandler._truncateContent(content);
         this._displayFileContentBox(truncatedContent, fileName);
 
         // Store the full path
@@ -356,7 +357,7 @@ export class FileHandler {
    * @param {string} content - Content to truncate
    * @returns {string} - Truncated content
    */
-  _truncateContent(content) {
+  static _truncateContent(content) {
     const maxLength = UI.FILE_BOX.CONTENT.TEXT.MAX_LENGTH;
     if (content.length > maxLength) {
       return content.substring(0, maxLength) + "...\n(Content truncated)";
@@ -466,7 +467,7 @@ export class FileHandler {
     const existingFileBox = this._findExistingFileBox(fileName);
 
     if (existingFileBox) {
-      this._updateFileBoxContent(existingFileBox, content);
+      FileHandler._updateFileBoxContent(existingFileBox, content);
     } else {
       const fileBox = this._createFileBox(fileName, content);
       container.add_child(fileBox);
@@ -511,7 +512,7 @@ export class FileHandler {
    * @param {St.BoxLayout} fileBox - The file box to update
    * @param {string} content - New content
    */
-  _updateFileBoxContent(fileBox, content) {
+  static _updateFileBoxContent(fileBox, content) {
     const children = fileBox.get_children();
     if (children.length >= 2) {
       const contentView = children[1];
@@ -553,7 +554,7 @@ export class FileHandler {
     fileBox.set_size(fileBoxSize, fileBoxSize);
 
     const headerBox = this._createHeaderBox(fileName, fileBox);
-    const contentView = this._createContentView(content);
+    const contentView = FileHandler._createContentView(content);
 
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
@@ -581,7 +582,7 @@ export class FileHandler {
       x_expand: true,
     });
 
-    const titleLabel = this._createTitleLabel(fileName);
+    const titleLabel = FileHandler._createTitleLabel(fileName);
     const closeButton = this._createCloseButton(fileBox);
 
     headerBox.add_child(titleLabel);
@@ -597,7 +598,7 @@ export class FileHandler {
    * @param {string} fileName - Name of the file
    * @returns {St.Label} - The title label
    */
-  _createTitleLabel(fileName) {
+  static _createTitleLabel(fileName) {
     let displayName = fileName;
     const maxLength = UI.FILE_BOX.HEADER.TITLE.MAX_LENGTH;
     const truncateLength = UI.FILE_BOX.HEADER.TITLE.TRUNCATE_LENGTH;
@@ -644,7 +645,7 @@ export class FileHandler {
    * @param {string} content - File content
    * @returns {St.BoxLayout} - The content view (non-scrollable as requested)
    */
-  _createContentView(content) {
+  static _createContentView(content) {
     // Create a simple box layout instead of a scroll view
     const contentBox = new St.BoxLayout({
       vertical: true,
@@ -854,6 +855,23 @@ export class FileHandler {
     // Get the current size directly from settings to ensure consistency
     const fileBoxSize = getSettings().get_double("file-box-size");
 
+    this._updateContainerStyles(fileBoxSize);
+    this._updateFileBoxesStyles(fileBoxSize);
+
+    // Force the container to update its layout
+    this._fileBoxesContainer.queue_relayout();
+
+    // Schedule updates at different priorities to ensure they happen
+    this._scheduleLayoutUpdates(fileBoxSize);
+  }
+
+  /**
+   * Updates container styles and layout manager
+   *
+   * @private
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  _updateContainerStyles(fileBoxSize) {
     // First, ensure the container has the right style class
     this._fileBoxesContainer.set_style_class_name("file-boxes-container");
 
@@ -867,111 +885,191 @@ export class FileHandler {
     });
 
     this._fileBoxesContainer.set_layout_manager(flowLayout);
+  }
 
+  /**
+   * Updates styles for all file boxes
+   *
+   * @private
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  _updateFileBoxesStyles(fileBoxSize) {
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
-      // Ensure style class is set
-      fileBox.set_style_class_name("file-content-box");
+      FileHandler._updateSingleFileBox(fileBox, fileBoxSize);
+    }
+  }
 
-      // Ensure size is set
-      fileBox.width = fileBoxSize;
-      fileBox.height = fileBoxSize;
-      fileBox.set_width(fileBoxSize);
-      fileBox.set_height(fileBoxSize);
-      fileBox.set_size(fileBoxSize, fileBoxSize);
+  /**
+   * Updates the style and layout of a single file box
+   *
+   * @private
+   * @param {St.BoxLayout} fileBox - The file box to update
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  static _updateSingleFileBox(fileBox, fileBoxSize) {
+    // Ensure style class is set
+    fileBox.set_style_class_name("file-content-box");
 
-      if (fileBox.get_n_children() >= 2) {
-        const headerBox = fileBox.get_children()[0];
-        const contentView = fileBox.get_children()[1];
+    // Ensure size is set
+    fileBox.width = fileBoxSize;
+    fileBox.height = fileBoxSize;
+    fileBox.set_width(fileBoxSize);
+    fileBox.set_height(fileBoxSize);
+    fileBox.set_size(fileBoxSize, fileBoxSize);
 
-        if (headerBox) {
-          headerBox.set_style_class_name("file-content-header");
-          headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
+    if (fileBox.get_n_children() < 2) return;
 
-          if (headerBox.get_n_children() >= 2) {
-            const titleLabel = headerBox.get_children()[0];
-            const closeButton = headerBox.get_children()[1];
+    const headerBox = fileBox.get_children()[0];
+    const contentView = fileBox.get_children()[1];
 
-            if (titleLabel) {
-              titleLabel.set_style_class_name("file-content-title");
-            }
+    FileHandler._updateHeaderBox(headerBox);
+    FileHandler._updateContentView(contentView, fileBox, fileBoxSize);
+  }
 
-            if (closeButton) {
-              closeButton.set_style_class_name("file-content-close-button");
-            }
-          }
-        }
+  /**
+   * Updates header box styles
+   *
+   * @private
+   * @param {St.BoxLayout} headerBox - The header box to update
+   */
+  static _updateHeaderBox(headerBox) {
+    if (!headerBox) return;
 
-        if (contentView) {
-          const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
-          contentView.set_height(contentHeight);
+    headerBox.set_style_class_name("file-content-header");
+    headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-          // If it's a ScrollView (old style), replace it with a BoxLayout
-          if (contentView instanceof imports.gi.St.ScrollView) {
-            const oldContentBox = contentView.get_child();
-            let contentLabel = null;
+    if (headerBox.get_n_children() < 2) return;
 
-            if (oldContentBox && oldContentBox.get_n_children() > 0) {
-              contentLabel = oldContentBox.get_children()[0];
-            }
+    const titleLabel = headerBox.get_children()[0];
+    const closeButton = headerBox.get_children()[1];
 
-            if (contentLabel) {
-              const text = contentLabel.get_text();
-              fileBox.remove_child(contentView);
-              contentView.destroy();
-
-              const newContentView = this._createContentView(text);
-              newContentView.set_height(contentHeight);
-              fileBox.add_child(newContentView);
-            }
-          } else if (contentView.get_n_children() > 0) {
-            // It's already a BoxLayout (new style)
-            const contentLabel = contentView.get_children()[0];
-            if (contentLabel) {
-              contentLabel.set_style_class_name("file-content-text");
-            }
-          }
-        }
-      }
+    if (titleLabel) {
+      titleLabel.set_style_class_name("file-content-title");
     }
 
-    // Force the container to update its layout
-    this._fileBoxesContainer.queue_relayout();
+    if (closeButton) {
+      closeButton.set_style_class_name("file-content-close-button");
+    }
+  }
 
-    // Apply changes with multiple scheduling priorities to ensure it happens
+  /**
+   * Updates content view styles and layout
+   *
+   * @private
+   * @param {St.Widget} contentView - The content view to update
+   * @param {St.BoxLayout} fileBox - The parent file box
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  static _updateContentView(contentView, fileBox, fileBoxSize) {
+    if (!contentView) return;
+
+    const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
+    contentView.set_height(contentHeight);
+
+    // Handle ScrollView (old style)
+    if (contentView instanceof imports.gi.St.ScrollView) {
+      FileHandler._replaceScrollViewWithBoxLayout(
+        contentView,
+        fileBox,
+        contentHeight
+      );
+      return;
+    }
+
+    // It's already a BoxLayout (new style)
+    if (contentView.get_n_children() > 0) {
+      const contentLabel = contentView.get_children()[0];
+      if (contentLabel) {
+        contentLabel.set_style_class_name("file-content-text");
+      }
+    }
+  }
+
+  /**
+   * Replaces a ScrollView with a BoxLayout
+   *
+   * @private
+   * @param {imports.gi.St.ScrollView} scrollView - The scroll view to replace
+   * @param {St.BoxLayout} fileBox - The parent file box
+   * @param {number} contentHeight - The height for the content
+   */
+  static _replaceScrollViewWithBoxLayout(scrollView, fileBox, contentHeight) {
+    const oldContentBox = scrollView.get_child();
+    if (!oldContentBox || oldContentBox.get_n_children() === 0) return;
+
+    const contentLabel = oldContentBox.get_children()[0];
+    if (!contentLabel) return;
+
+    const text = contentLabel.get_text();
+    fileBox.remove_child(scrollView);
+    scrollView.destroy();
+
+    // Create a new content view
+    const newContentView = FileHandler._createContentView(text);
+    newContentView.set_height(contentHeight);
+    fileBox.add_child(newContentView);
+  }
+
+  /**
+   * Schedules layout updates at different priorities
+   *
+   * @private
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  _scheduleLayoutUpdates(fileBoxSize) {
+    // Immediate high priority update
     imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_HIGH, () => {
       this._adjustInputContainerHeight();
       return imports.gi.GLib.SOURCE_REMOVE;
     });
 
-    // Schedule another refresh at a lower priority
+    // Medium delay update for transition handling
     imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 100, () => {
-      // Apply sizes again to ensure consistency
-      const children = this._fileBoxesContainer.get_children();
-      for (const fileBox of children) {
-        fileBox.set_width(fileBoxSize);
-        fileBox.set_height(fileBoxSize);
-      }
-
-      // Force update again
-      this._fileBoxesContainer.queue_relayout();
-      this._adjustInputContainerHeight();
-
+      this._applyDelayedSizeUpdates(fileBoxSize);
       return imports.gi.GLib.SOURCE_REMOVE;
     });
 
-    // Set up one more delayed refresh to catch any transition animations
+    // Final update to catch any late transitions
     imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
-      const children = this._fileBoxesContainer.get_children();
-      for (const fileBox of children) {
-        // Ensure classes and sizes are still correct
-        fileBox.set_style_class_name("file-content-box");
-        fileBox.set_width(fileBoxSize);
-        fileBox.set_height(fileBoxSize);
-      }
-
+      this._applyFinalSizeUpdates(fileBoxSize);
       return imports.gi.GLib.SOURCE_REMOVE;
     });
+  }
+
+  /**
+   * Applies size updates with a small delay
+   *
+   * @private
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  _applyDelayedSizeUpdates(fileBoxSize) {
+    // Apply sizes again to ensure consistency
+    const fileBoxChildren = this._fileBoxesContainer.get_children();
+    for (const fileBox of fileBoxChildren) {
+      fileBox.set_width(fileBoxSize);
+      fileBox.set_height(fileBoxSize);
+    }
+
+    // Force update again
+    this._fileBoxesContainer.queue_relayout();
+    this._adjustInputContainerHeight();
+  }
+
+  /**
+   * Applies final size updates after animations
+   *
+   * @private
+   * @param {number} fileBoxSize - The size of file boxes
+   */
+  _applyFinalSizeUpdates(fileBoxSize) {
+    const refreshChildren = this._fileBoxesContainer.get_children();
+    for (const fileBox of refreshChildren) {
+      // Ensure classes and sizes are still correct
+      fileBox.set_style_class_name("file-content-box");
+      fileBox.set_width(fileBoxSize);
+      fileBox.set_height(fileBoxSize);
+    }
   }
 
   /**
@@ -986,7 +1084,7 @@ export class FileHandler {
     }
 
     // Check if title contains a number (like "Pasted 1")
-    const hasNumber = /\d+$/.test(title.trim());
+    const hasNumber = /\d+$/u.test(title.trim());
 
     // Create a unique title
     let uniqueTitle = title;
@@ -998,7 +1096,7 @@ export class FileHandler {
     while (this._findExistingFileBox(uniqueTitle)) {
       if (hasNumber) {
         // Extract base and number part - e.g., "Pasted 1" -> "Pasted " and "1"
-        const match = title.match(/^(.*?)(\d+)$/);
+        const match = title.match(/^(.*?)(\d+)$/u);
         if (match) {
           const basePart = match[1];
           const numberPart = parseInt(match[2], 10);
