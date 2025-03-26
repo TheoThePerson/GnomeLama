@@ -56,10 +56,10 @@ export async function processUserMessage({
   let errorOccurred = false;
 
   try {
-    await sendMessage(
-      userMessage,
+    await sendMessage({
+      message: userMessage,
       context,
-      (chunk) => {
+      onData: (chunk) => {
         if (!chunk) return;
 
         if (chunk.includes("Error communicating with")) {
@@ -87,8 +87,8 @@ export async function processUserMessage({
         updateResponseContainer(responseContainer, fullResponse);
         PanelElements.scrollToBottom(scrollView);
       },
-      displayMessage
-    );
+      displayMessage,
+    });
 
     if (!errorOccurred && onResponseEnd) onResponseEnd();
   } catch (error) {
@@ -405,8 +405,8 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
       saveAsButton.connect("clicked", () => {
         saveAsButton.set_label(`Saving...`);
 
-        const {GLib} = imports.gi;
-        const {Gio} = imports.gi;
+        const { GLib } = imports.gi;
+        const { Gio } = imports.gi;
 
         try {
           if (!file.content) {
@@ -594,8 +594,8 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
         applyButton.connect("clicked", () => {
           applyButton.set_label(`Applying to ${file.filename}...`);
 
-          const {Gio} = imports.gi;
-          const {GLib} = imports.gi;
+          const { Gio } = imports.gi;
+          const { GLib } = imports.gi;
 
           try {
             if (!file.content) {

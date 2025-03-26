@@ -6,6 +6,108 @@ import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 
 /**
+ * Creates an enhanced process chunk function that gracefully handles errors
+ * @param {Function} processChunk - Original process chunk function
+ * @returns {Function} Enhanced function with error handling
+ */
+function createEnhancedChunkProcessor(processChunk) {
+  return async (chunk) => {
+    try {
+      return await processChunk(chunk);
+    } catch (error) {
+      console.error("Error in processing chunk", error);
+      return null;
+    }
+  };
+}
+
+/**
+ * Processes the stream data
+ * @param {Object} options - Processing options
+ * @returns {Promise<void>} Completes when stream is processed
+ */
+async function processRequestStream({
+  inputStream,
+  dataInputStream,
+  enhancedProcessChunk,
+  streamProcessor,
+  cleanupCallback,
+  resolve,
+  accumulatedResponse,
+}) {
+  try {
+    // Process the stream data with our enhanced processor
+    await streamProcessor.readStreamLines(
+      dataInputStream,
+      enhancedProcessChunk
+    );
+
+    cleanupCallback({ inputStream, dataInputStream });
+    resolve({ response: accumulatedResponse() });
+  } catch (error) {
+    console.error("Error processing stream:", error);
+    cleanupCallback();
+    throw error;
+  }
+}
+
+/**
+ * Prepares the data input stream
+ * @param {Object} options - Stream options
+ * @returns {Object|null} Input stream and data input stream or null if cancelled
+ */
+async function prepareInputStream({
+  message,
+  httpSession,
+  cancellable,
+  isCancelled,
+  resolve,
+  accumulatedResponse,
+}) {
+  const inputStream = await initializeRequestStream({
+    message,
+    httpSession,
+    cancellable,
+    isCancelled,
+  });
+
+  if (isCancelled() || !inputStream) {
+    resolve({ response: accumulatedResponse() });
+    return null;
+  }
+
+  const dataInputStream = new Gio.DataInputStream({
+    base_stream: inputStream,
+    close_base_stream: true,
+  });
+
+  return { inputStream, dataInputStream };
+}
+
+/**
+ * Handles request errors
+ * @param {Error} error - The error that occurred
+ * @param {Function} cleanupCallback - Cleanup function
+ * @param {Function} isCancelled - Function to check if request was cancelled
+ * @param {Function} accumulatedResponse - Function to get accumulated response
+ * @param {Function} resolve - Promise resolve function
+ * @param {Function} reject - Promise reject function
+ */
+function handleRequestError(
+  error,
+  { cleanupCallback, isCancelled, accumulatedResponse, resolve, reject }
+) {
+  console.error("API request error:", error);
+  cleanupCallback();
+
+  if (isCancelled() && accumulatedResponse()) {
+    resolve({ response: accumulatedResponse() });
+  } else {
+    reject(error);
+  }
+}
+
+/**
  * Creates a request handler function
  * @param {Object} options - Handler options
  * @returns {Function} Async function to handle the request
@@ -24,55 +126,38 @@ export function createRequestHandler(options) {
     cleanupCallback,
   } = options;
 
-  // Create a process function that gracefully handles errors
-  const enhancedProcessChunk = async (chunk) => {
-    try {
-      return await processChunk(chunk);
-    } catch (error) {
-      console.error("Error in processing chunk", error);
-      return null;
-    }
-  };
+  // Create an enhanced process chunk function
+  const enhancedProcessChunk = createEnhancedChunkProcessor(processChunk);
 
   return async function handleRequest() {
     try {
-      const inputStream = await initializeRequestStream({
+      const streams = await prepareInputStream({
         message,
         httpSession,
         cancellable,
         isCancelled,
+        resolve,
+        accumulatedResponse,
       });
 
-      if (isCancelled() || !inputStream) {
-        resolve({ response: accumulatedResponse() });
-        return;
-      }
+      if (!streams) return;
 
-      const dataInputStream = new Gio.DataInputStream({
-        base_stream: inputStream,
-        close_base_stream: true,
+      await processRequestStream({
+        ...streams,
+        enhancedProcessChunk,
+        streamProcessor,
+        cleanupCallback,
+        resolve,
+        accumulatedResponse,
       });
-
-      // Set active streams for cleanup
-      const activeStreams = { inputStream, dataInputStream };
-
-      // Process the stream data with our enhanced processor
-      await streamProcessor.readStreamLines(
-        dataInputStream,
-        enhancedProcessChunk
-      );
-
-      cleanupCallback(activeStreams);
-      resolve({ response: accumulatedResponse() });
     } catch (error) {
-      console.error("API request error:", error);
-      cleanupCallback();
-
-      if (isCancelled() && accumulatedResponse()) {
-        resolve({ response: accumulatedResponse() });
-      } else {
-        reject(error);
-      }
+      handleRequestError(error, {
+        cleanupCallback,
+        isCancelled,
+        accumulatedResponse,
+        resolve,
+        reject,
+      });
     }
   };
 }

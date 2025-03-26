@@ -129,14 +129,154 @@ export function getLastError() {
 }
 
 /**
+ * Process the response from the AI provider
+ * @param {Object} response - Response from the provider
+ * @returns {string} Processed response text
+ */
+function processProviderResponse(response) {
+  return response && typeof response === "object" && "response" in response
+    ? response.response
+    : typeof response === "string"
+    ? response
+    : "No valid response received";
+}
+
+/**
+ * Handles errors during API communication
+ * @param {Error} error - The error that occurred
+ * @param {Function|null} asyncOnData - Optional callback for streaming data
+ * @returns {string} Error message
+ */
+function handleApiError(error, asyncOnData) {
+  console.error("Error sending message to API:", error);
+
+  const provider = getProviderForModel(currentModel);
+  const errorMessage =
+    provider === openaiProvider
+      ? "Error communicating with OpenAI. Please check your API key in settings."
+      : "Error communicating with Ollama. Please check if Ollama is installed and running.";
+
+  lastError = errorMessage;
+  if (asyncOnData) asyncOnData(errorMessage);
+  return errorMessage;
+}
+
+/**
+ * Creates a callback function that runs on the main thread
+ * @param {Function} callback - Original callback function
+ * @returns {Function|null} Wrapped callback or null
+ */
+function createMainThreadCallback(callback) {
+  if (!callback) return null;
+
+  return (data) => {
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      callback(data);
+      return GLib.SOURCE_REMOVE;
+    });
+  };
+}
+
+/**
+ * Updates the cancel request function atomically
+ * @param {Function|null} newCancelFn - The new cancel function
+ */
+function updateCancelFunction(newCancelFn) {
+  // Using a separate function to update the value atomically
+  cancelCurrentRequest = newCancelFn;
+}
+
+/**
+ * Send the API request and handle the cancel function
+ * @param {Object} options - API call options
+ * @returns {Promise<{result: Promise, responseText: Promise<string>}>} Result and response text promises
+ */
+async function sendApiRequest({
+  provider,
+  messageText,
+  modelName,
+  contextToUse,
+  asyncOnData,
+}) {
+  // Store the cancel function to avoid race conditions
+  const previousCancelFn = cancelCurrentRequest;
+  if (previousCancelFn) {
+    previousCancelFn();
+  }
+
+  // Both providers now use object parameter structure
+  const { result, cancel } = await provider.sendMessageToAPI({
+    messageText,
+    modelName,
+    context: provider === openaiProvider ? conversationHistory : contextToUse,
+    onData: asyncOnData,
+  });
+
+  // Update the cancel function atomically through a dedicated function
+  updateCancelFunction(cancel);
+
+  return {
+    result,
+    responseText: result.then((response) => {
+      return processProviderResponse(response);
+    }),
+  };
+}
+
+/**
+ * Handle the successful API response
+ * @param {string} responseText - The response text
+ */
+function handleSuccessResponse(responseText) {
+  addMessageToHistory(responseText, "assistant");
+
+  // Update the cancel function atomically
+  updateCancelFunction(null);
+
+  isMessageInProgress = false;
+  return responseText;
+}
+
+/**
+ * Process the API result and finalize the response
+ * @param {Promise} apiResult - API result promise
+ * @param {Function} asyncOnData - Callback for streaming data
+ * @returns {Promise<string>} The response text
+ */
+async function processApiResult(apiResult, asyncOnData) {
+  try {
+    const { responseText } = await apiResult;
+    return handleSuccessResponse(responseText);
+  } catch (resultError) {
+    console.error("Error processing AI response:", resultError);
+
+    lastError =
+      "Error processing the AI's response. The message may be incomplete.";
+    if (asyncOnData) asyncOnData(lastError);
+
+    // Reset state atomically
+    updateCancelFunction(null);
+    isMessageInProgress = false;
+
+    return lastError;
+  }
+}
+
+/**
  * Send a message to the AI and process the response
- * @param {string} message - The message to send
- * @param {string} context - Optional conversation context
- * @param {Function} onData - Callback function for streaming response
- * @param {string} displayMessage - Optional simplified message for history (without file content) for files
+ * @param {Object} options - Message options
+ * @param {string} options.message - The message to send
+ * @param {string} [options.context] - Optional conversation context
+ * @param {Function} [options.onData] - Callback function for streaming response
+ * @param {string} [options.displayMessage] - Optional simplified message for history
  * @returns {Promise<string>} The complete response
  */
-export async function sendMessage(message, context, onData, displayMessage) {
+export async function sendMessage({
+  message,
+  context,
+  onData,
+  displayMessage,
+}) {
   if (!currentModel) {
     currentModel = getSettings().get_string("default-model");
   }
@@ -145,15 +285,7 @@ export async function sendMessage(message, context, onData, displayMessage) {
   isMessageInProgress = true;
 
   addMessageToHistory(displayMessage || message, "user");
-
-  const asyncOnData = onData
-    ? (data) => {
-        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-          onData(data);
-          return GLib.SOURCE_REMOVE;
-        });
-      }
-    : null;
+  const asyncOnData = createMainThreadCallback(onData);
 
   try {
     const provider = getProviderForModel(currentModel);
@@ -161,63 +293,23 @@ export async function sendMessage(message, context, onData, displayMessage) {
       context ||
       (provider === ollamaProvider ? ollamaProvider.getCurrentContext() : null);
 
-    if (cancelCurrentRequest) {
-      cancelCurrentRequest();
-    }
+    const apiResult = await sendApiRequest({
+      provider,
+      messageText: message,
+      modelName: currentModel,
+      contextToUse,
+      asyncOnData,
+    });
 
-    const { result, cancel } = await provider.sendMessageToAPI(
-      message,
-      currentModel,
-      provider === openaiProvider ? conversationHistory : contextToUse,
-      asyncOnData
-    );
-
-    cancelCurrentRequest = cancel;
-
-    try {
-      const response = await result;
-
-      const responseText =
-        response && typeof response === "object" && "response" in response
-          ? response.response
-          : typeof response === "string"
-          ? response
-          : "No valid response received";
-
-      addMessageToHistory(responseText, "assistant");
-
-      cancelCurrentRequest = null;
-      isMessageInProgress = false;
-
-      return responseText;
-    } catch (resultError) {
-      console.error("Error processing AI response:", resultError);
-
-      lastError =
-        "Error processing the AI's response. The message may be incomplete.";
-
-      if (asyncOnData) asyncOnData(lastError);
-
-      cancelCurrentRequest = null;
-      isMessageInProgress = false;
-
-      return lastError;
-    }
+    return await processApiResult(apiResult, asyncOnData);
   } catch (e) {
-    console.error("Error sending message to API:", e);
+    const errorMessage = handleApiError(e, asyncOnData);
 
-    const provider = getProviderForModel(currentModel);
-    lastError =
-      provider === openaiProvider
-        ? "Error communicating with OpenAI. Please check your API key in settings."
-        : "Error communicating with Ollama. Please check if Ollama is installed and running.";
-
-    if (asyncOnData) asyncOnData(lastError);
-
-    cancelCurrentRequest = null;
+    // Update the cancel function atomically
+    updateCancelFunction(null);
     isMessageInProgress = false;
 
-    return lastError;
+    return errorMessage;
   }
 }
 
@@ -230,9 +322,11 @@ export function stopAiMessage() {
     return null;
   }
 
-  if (cancelCurrentRequest) {
-    cancelCurrentRequest();
-    cancelCurrentRequest = null;
+  // Store in a local variable first to avoid race conditions
+  const cancelFn = cancelCurrentRequest;
+  if (cancelFn) {
+    cancelFn();
+    updateCancelFunction(null);
   }
 
   isMessageInProgress = false;
