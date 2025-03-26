@@ -591,7 +591,7 @@ function renderJsonResponse(container, jsonData) {
     text: jsonData.summary,
     style_class: "text-label",
     x_expand: true,
-    style: "font-weight: bold; margin-bottom: 12px;",
+    style: "margin-bottom: 12px;",
   });
   summaryLabel.clutter_text.set_line_wrap(true);
   summaryLabel.clutter_text.set_selectable(true);
