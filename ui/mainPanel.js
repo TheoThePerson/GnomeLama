@@ -20,6 +20,8 @@ import {
   getConversationHistory,
 } from "../services/messaging.js";
 
+import * as UIComponents from "./uiComponents.js";
+
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init(extension) {
@@ -38,12 +40,14 @@ export const Indicator = GObject.registerClass(
       this._initUI();
 
       // Connect settings and monitor change events
-      this._settingsChangedId = this._settings.connect("changed", () =>
-        this._updateLayout()
-      );
-      Main.layoutManager.connect("monitors-changed", () =>
-        this._updateLayout()
-      );
+      this._settingsChangedId = this._settings.connect("changed", () => {
+        LayoutManager.invalidateCache(); // Invalidate the layout cache when settings change
+        this._updateLayout();
+      });
+      Main.layoutManager.connect("monitors-changed", () => {
+        LayoutManager.invalidateCache(); // Invalidate the layout cache when monitor changes
+        this._updateLayout();
+      });
       this.connect("button-press-event", this._togglePanelOverlay.bind(this));
     }
 
@@ -527,9 +531,52 @@ export const Indicator = GObject.registerClass(
           this._sendButton
         );
 
+        // Update file boxes if we have a file handler
+        if (
+          this._fileHandler &&
+          typeof this._fileHandler.refreshFileBoxFormatting === "function"
+        ) {
+          this._fileHandler.refreshFileBoxFormatting();
+        }
+
+        // Update message box colors to reflect current settings
+        this._updateMessageBoxColors();
+
         PanelElements.scrollToBottom(this._outputScrollView);
       } catch {
         // Silent error in production when updating layout
+      }
+    }
+
+    /**
+     * Updates all message box colors based on current settings
+     * @private
+     */
+    _updateMessageBoxColors() {
+      if (!this._outputContainer) return;
+
+      // Update all user message containers
+      const userMessages = this._outputContainer
+        .get_children()
+        .filter(
+          (child) =>
+            child.style_class && child.style_class.includes("user-message")
+        );
+
+      for (const container of userMessages) {
+        UIComponents.updateMessageContainerStyle(container, true);
+      }
+
+      // Update all AI message containers
+      const aiMessages = this._outputContainer
+        .get_children()
+        .filter(
+          (child) =>
+            child.style_class && child.style_class.includes("ai-message")
+        );
+
+      for (const container of aiMessages) {
+        UIComponents.updateMessageContainerStyle(container, false);
       }
     }
 

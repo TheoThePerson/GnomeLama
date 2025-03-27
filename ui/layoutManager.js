@@ -11,6 +11,17 @@ import { getSettings } from "../lib/settings.js";
 let cachedDimensions = null;
 let lastMonitorWidth = 0;
 let lastMonitorHeight = 0;
+let lastSettingsUpdate = 0;
+
+// Initialize settings listener to invalidate cache on any settings change
+getSettings(() => invalidateCache());
+
+/**
+ * Invalidates the cached dimensions to force a recalculation
+ */
+export function invalidateCache() {
+  cachedDimensions = null;
+}
 
 /**
  * @returns {Object} Object containing calculated dimensions
@@ -18,15 +29,20 @@ let lastMonitorHeight = 0;
 export function calculatePanelDimensions() {
   const monitor = Main.layoutManager.primaryMonitor;
   const settings = getSettings();
+  const currentTime = Date.now();
 
-  // Return cached dimensions if monitor size hasn't changed
+  // Return cached dimensions if monitor size hasn't changed and settings haven't been updated recently
   if (
     cachedDimensions &&
     monitor.width === lastMonitorWidth &&
-    monitor.height === lastMonitorHeight
+    monitor.height === lastMonitorHeight &&
+    currentTime - lastSettingsUpdate > 500 // Only use cache if settings weren't updated in the last 500ms
   ) {
     return cachedDimensions;
   }
+
+  // Update last settings update time
+  lastSettingsUpdate = currentTime;
 
   // Store current monitor dimensions
   lastMonitorWidth = monitor.width;
@@ -247,7 +263,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
     inputButtonsContainer.userData &&
     inputButtonsContainer.userData.outputScrollView
   ) {
-    const {outputScrollView} = inputButtonsContainer.userData;
+    const { outputScrollView } = inputButtonsContainer.userData;
     outputScrollView.set_height(remainingHeight);
   }
 

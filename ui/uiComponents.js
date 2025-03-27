@@ -412,3 +412,21 @@ export function createHorizontalRuleElement() {
 
   return rule;
 }
+
+/**
+ * Updates an existing message container with current settings colors
+ * @param {St.BoxLayout} container - Message container to update
+ * @param {boolean} isUser - Whether this is a user message
+ */
+export function updateMessageContainerStyle(container, isUser) {
+  const settings = getSettings();
+  const bgColor = isUser
+    ? settings.get_string("user-message-color")
+    : settings.get_string("ai-message-color");
+
+  const borderRadius = isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px";
+
+  container.set_style(
+    `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${borderRadius};`
+  );
+}

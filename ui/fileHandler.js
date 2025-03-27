@@ -859,6 +859,9 @@ export class FileHandler {
     // Force the container to update its layout
     this._fileBoxesContainer.queue_relayout();
 
+    // Invalidate layout cache to ensure dimensions are recalculated immediately
+    LayoutManager.invalidateCache();
+
     // Schedule updates at different priorities to ensure they happen
     this._scheduleLayoutUpdates(fileBoxSize);
   }
@@ -883,6 +886,9 @@ export class FileHandler {
     });
 
     this._fileBoxesContainer.set_layout_manager(flowLayout);
+
+    // Force immediate layout update to apply new box size
+    this._fileBoxesContainer.queue_relayout();
   }
 
   /**
@@ -894,7 +900,7 @@ export class FileHandler {
   _updateFileBoxesStyles(fileBoxSize) {
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
-      FileHandler._updateSingleFileBox(fileBox, fileBoxSize);
+      this._updateSingleFileBox(fileBox, fileBoxSize);
     }
   }
 
@@ -905,7 +911,7 @@ export class FileHandler {
    * @param {St.BoxLayout} fileBox - The file box to update
    * @param {number} fileBoxSize - The size of file boxes
    */
-  static _updateSingleFileBox(fileBox, fileBoxSize) {
+  _updateSingleFileBox(fileBox, fileBoxSize) {
     // Ensure style class is set
     fileBox.set_style_class_name("file-content-box");
 
@@ -921,8 +927,8 @@ export class FileHandler {
     const headerBox = fileBox.get_children()[0];
     const contentView = fileBox.get_children()[1];
 
-    FileHandler._updateHeaderBox(headerBox);
-    FileHandler._updateContentView(contentView, fileBox, fileBoxSize);
+    this._updateHeaderBox(headerBox);
+    this._updateContentView(contentView, fileBox, fileBoxSize);
   }
 
   /**
@@ -965,74 +971,47 @@ export class FileHandler {
     const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
     contentView.set_height(contentHeight);
 
-    // Handle ScrollView (old style)
-    if (contentView instanceof imports.gi.St.ScrollView) {
-      FileHandler._replaceScrollViewWithBoxLayout(
-        contentView,
-        fileBox,
-        contentHeight
-      );
-      return;
-    }
-
-    // It's already a BoxLayout (new style)
+    // It's a BoxLayout (new style)
     if (contentView.get_n_children() > 0) {
-      const contentLabel = contentView.get_children()[0];
-      if (contentLabel) {
-        contentLabel.set_style_class_name("file-content-text");
+      const contentBox = contentView.get_children()[0];
+      if (contentBox) {
+        const contentLabel = contentBox.get_children()[0];
+        if (contentLabel) {
+          contentLabel.set_style_class_name("file-content-text");
+        }
       }
     }
   }
 
   /**
-   * Replaces a ScrollView with a BoxLayout
-   *
-   * @private
-   * @param {imports.gi.St.ScrollView} scrollView - The scroll view to replace
-   * @param {St.BoxLayout} fileBox - The parent file box
-   * @param {number} contentHeight - The height for the content
-   */
-  static _replaceScrollViewWithBoxLayout(scrollView, fileBox, contentHeight) {
-    const oldContentBox = scrollView.get_child();
-    if (!oldContentBox || oldContentBox.get_n_children() === 0) return;
-
-    const contentLabel = oldContentBox.get_children()[0];
-    if (!contentLabel) return;
-
-    const text = contentLabel.get_text();
-    fileBox.remove_child(scrollView);
-    scrollView.destroy();
-
-    // Create a new content view
-    const newContentView = FileHandler._createContentView(text);
-    newContentView.set_height(contentHeight);
-    fileBox.add_child(newContentView);
-  }
-
-  /**
-   * Schedules layout updates at different priorities
+   * Schedules layout updates at different priorities to ensure UI updates
    *
    * @private
    * @param {number} fileBoxSize - The size of file boxes
    */
   _scheduleLayoutUpdates(fileBoxSize) {
-    // Immediate high priority update
-    imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_HIGH, () => {
-      this._adjustInputContainerHeight();
-      return imports.gi.GLib.SOURCE_REMOVE;
-    });
+    // Apply immediate size updates
+    this._applyDelayedSizeUpdates(fileBoxSize);
 
-    // Medium delay update for transition handling
-    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 100, () => {
-      this._applyDelayedSizeUpdates(fileBoxSize);
-      return imports.gi.GLib.SOURCE_REMOVE;
-    });
+    // Schedule update for after size transition (shorter timeframe for immediate feedback)
+    imports.gi.GLib.timeout_add(
+      imports.gi.GLib.PRIORITY_DEFAULT,
+      50, // Reduced from 200 to 50 for quicker updates
+      () => {
+        this._applyFinalSizeUpdates(fileBoxSize);
+        return false; // Don't repeat
+      }
+    );
 
-    // Final update to catch any late transitions
-    imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 300, () => {
-      this._applyFinalSizeUpdates(fileBoxSize);
-      return imports.gi.GLib.SOURCE_REMOVE;
-    });
+    // Schedule container height adjustment
+    imports.gi.GLib.timeout_add(
+      imports.gi.GLib.PRIORITY_DEFAULT,
+      100, // Reduced from 300 to 100 for quicker updates
+      () => {
+        this._adjustInputContainerHeight();
+        return false; // Don't repeat
+      }
+    );
   }
 
   /**
