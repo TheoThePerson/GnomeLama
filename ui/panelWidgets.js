@@ -174,7 +174,7 @@ export function createOutputArea(dimensions) {
   });
 
   // Ensure scrollbar is properly sized
-  const vscroll = outputScrollView.get_vscroll_bar();
+  const vscroll = outputScrollView.vscroll;
   if (vscroll) {
     vscroll.set_width(8);
 

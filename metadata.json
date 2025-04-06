@@ -1,9 +1,9 @@
 {
     "uuid": "linux-copilot@TheoThePerson",
     "name": "GnomeLama",
-    "description": "GnomeLama is a GNOME extension that integrates a powerful AI copilot directly into your desktop. It supports local AI chat functionalities through ollama (you can download ollama here: https://ollama.com/). This extension also works with an OpenAI API key to allow the use of ChatGPT. The extension allows you to chat, paste highlighted text with a middle click, and run bash commands easily. While the name GnomeLama suggests Llama models would be a good model to run with this, they have issues labelling the code properly and don’t allow the running of commands. Instead, models like Qwen through Ollama or ChatGpt through the API provide better results.",
-    "version": 2,
-    "shell-version": ["47"],
+    "description": "GnomeLama is a GNOME extension that integrates a powerful AI copilot directly into your desktop. It supports local AI chat functionalities through ollama (you can download ollama here: https://ollama.com/). This extension also works with an OpenAI API key to allow the use of ChatGPT. The extension allows you to chat, paste highlighted text with a middle click, and run bash commands easily. While the name GnomeLama suggests Llama models would be a good model to run with this, they have issues labelling the code properly and don't allow the running of commands. Instead, models like Qwen through Ollama or ChatGpt through the API provide better results.",
+    "version": 3,
+    "shell-version": ["47", "48"],
     "settings-schema": "org.gnome.shell.extensions.gnomelama",
     "url": "https://github.com/TheoThePerson/GnomeLama",
     "gettext-domain": "gnome-lama"

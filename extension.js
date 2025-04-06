@@ -16,14 +16,9 @@ import { Indicator } from "./ui/mainPanel.js";
 
 export default class LinuxCopilotExtension extends Extension {
   enable() {
-    try {
       ExtensionManager.init(this);
       this._indicator = new Indicator(this);
       Main.panel.addToStatusArea(this.metadata.uuid, this._indicator);
-    } catch {
-      // Silent error in production
-      this._cleanup();
-    }
   }
 
   disable() {
