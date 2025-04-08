@@ -92,7 +92,7 @@ export function updatePanelOverlay(panelOverlay) {
   panelOverlay.set_size(panelWidth, panelHeight);
   panelOverlay.set_position(
     monitor.width - panelWidth,
-    Main.panel.actor.height
+    Main.panel.height
   );
 
   // Apply background color with fixed opacity (fully opaque)

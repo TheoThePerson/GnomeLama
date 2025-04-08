@@ -350,6 +350,9 @@ export async function sendMessage({
 
     return await processApiResult(apiResult, asyncOnData);
   } catch (e) {
+    console.error(`Error in sendMessage: ${e.message}`);
+    console.error(e.stack);
+    
     const errorMessage = handleApiError(e, asyncOnData);
 
     // Update the cancel function atomically

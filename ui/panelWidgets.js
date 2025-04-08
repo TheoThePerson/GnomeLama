@@ -304,7 +304,6 @@ export function createResponseContainer(bgColor) {
     x_align: Clutter.ActorAlign.START,
     vertical: true,
     x_expand: true,
-    pack_start: false,
   });
 }
 
@@ -313,15 +312,18 @@ export function createResponseContainer(bgColor) {
  * @param {St.ScrollView} scrollView - The scroll view to scroll
  */
 export function scrollToBottom(scrollView) {
+  if (!scrollView) return;
+
+  // Use idle_add to ensure the scroll happens after the content is added
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-    const { adjustment } = scrollView.vscroll;
-    if (adjustment) {
-      const targetValue = adjustment.upper - adjustment.page_size;
-      // Use smooth animation when scrolling
-      adjustment.ease(targetValue, {
-        duration: 250,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-      });
+    try {
+      const vscroll = scrollView.vscroll;
+      if (vscroll && vscroll.adjustment) {
+        const adjustment = vscroll.adjustment;
+        adjustment.value = adjustment.upper - adjustment.page_size;
+      }
+    } catch (error) {
+      console.error(`Error scrolling to bottom: ${error.message}`);
     }
     return GLib.SOURCE_REMOVE;
   });

@@ -16,8 +16,9 @@ function createEnhancedChunkProcessor(processChunk) {
 
     try {
       return await processChunk(chunk);
-    } catch {
-      // Error in processing chunk
+    } catch (error) {
+      console.error(`Error in chunk processor: ${error.message}`);
+      console.error(error.stack);
       return null;
     }
   };
@@ -38,7 +39,6 @@ async function processRequestStream({
   accumulatedResponse,
 }) {
   try {
-    // Process the stream data with our enhanced processor
     await streamProcessor.readStreamLines(
       dataInputStream,
       enhancedProcessChunk
@@ -47,7 +47,8 @@ async function processRequestStream({
     cleanupCallback({ inputStream, dataInputStream });
     resolve({ response: accumulatedResponse() });
   } catch (error) {
-    // Error processing stream
+    console.error(`Error processing request stream: ${error.message}`);
+    console.error(error.stack);
     cleanupCallback();
     throw error;
   }
@@ -185,17 +186,22 @@ export function initializeRequestStream(options) {
           }
 
           if (message.get_status() !== Soup.Status.OK) {
-            throw new Error(`HTTP error: ${message.get_status()}`);
+            const error = new Error(`HTTP error: ${message.get_status()}`);
+            console.error(`HTTP request failed: ${error.message}`);
+            throw error;
           }
 
           const stream = httpSession.send_finish(result);
           if (!stream) {
-            throw new Error("No response stream available");
+            const error = new Error("No response stream available");
+            console.error(error.message);
+            throw error;
           }
 
           streamResolve(stream);
         } catch (error) {
-          // Error sending request
+          console.error(`Error in request stream: ${error.message}`);
+          console.error(error.stack);
           streamReject(error);
         }
       }

@@ -19,8 +19,9 @@ async function processSingleChunk(chunk, processChunk, accumulatedResponse) {
         accumulatedResponse(result);
       }
     }
-  } catch {
-    // Error processing chunk (silently handle)
+  } catch (error) {
+    console.error(`Error processing chunk: ${error.message}`);
+    console.error(error.stack);
   }
 }
 
@@ -58,8 +59,9 @@ async function readAndProcessLines(
         // eslint-disable-next-line no-await-in-loop
         await processSingleChunk(textLine, processChunk, accumulatedResponse);
       }
-    } catch {
-      // Error reading line (silently handle)
+    } catch (error) {
+      console.error(`Error reading line: ${error.message}`);
+      console.error(error.stack);
       done = true;
     }
   }
