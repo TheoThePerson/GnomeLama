@@ -124,13 +124,6 @@ export function updateButtonsContainer(
     calculatePanelDimensions();
   const settings = getSettings();
 
-  // Position container
-  buttonsBox.set_size(panelWidth - horizontalPadding * 2, buttonsHeight);
-  buttonsBox.set_position(
-    horizontalPadding,
-    panelHeight - buttonsHeight - horizontalPadding
-  );
-
   // Configure model button
   modelButton.set_width(panelWidth * 0.6);
   modelButton.set_height(buttonsHeight);
@@ -270,7 +263,7 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   // Set container size and position
   inputButtonsContainer.set_height(containerHeight);
   inputButtonsContainer.set_position(
-    horizontalPadding,
+    (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
     panelHeight - containerHeight
   );
   inputButtonsContainer.set_size(

@@ -51,7 +51,7 @@ export class ModelManager {
     const modelButtonLabel = new St.Label({
       text: "Loading...",
       style_class: "model-button-label",
-      style: "color: #808080; padding: 6px;", // do not question the values. these are the only ones that seem to work
+      style: "color: #808080; padding: 8px;", // do not question the values. these are the only ones that seem to work
       y_align: Clutter.ActorAlign.CENTER,
       x_align: Clutter.ActorAlign.START,
     });
