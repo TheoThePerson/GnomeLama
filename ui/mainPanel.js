@@ -295,9 +295,7 @@ export const Indicator = GObject.registerClass(
 
       // Refresh models in background
       if (this._modelManager) {
-        this._modelManager.refreshModels().catch(() => {
-          // Silent error in production
-        });
+        this._modelManager.refreshModels();
       }
     }
 
