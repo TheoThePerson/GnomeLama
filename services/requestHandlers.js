@@ -89,7 +89,7 @@ function handleRequestError(
  * @param {Object} options - Handler options
  * @returns {Function} Async function to handle the request
  */
-export function createRequestHandler(options) {
+function createRequestHandler(options) {
   const {
     message,
     processChunk,
@@ -141,7 +141,7 @@ export function createRequestHandler(options) {
  * @param {Object} options - Options for initializing the request stream
  * @returns {Promise<Gio.InputStream>} The input stream
  */
-export function initializeRequestStream(options) {
+function initializeRequestStream(options) {
   const { message, httpSession, cancellable, isCancelled } = options;
 
   return new Promise((streamResolve, streamReject) => {

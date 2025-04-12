@@ -5,7 +5,7 @@ import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 
 // Polyfills for TextEncoder and TextDecoder if not available
-export const TextEncoder =
+const TextEncoder =
   globalThis.TextEncoder ||
   function () {
     this.encode = (str) => {
