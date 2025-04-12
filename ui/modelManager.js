@@ -246,6 +246,13 @@ export class ModelManager {
     this._modelMenu.close();
     this._stopAiMessageCallback();
 
+    // Get the panel indicator to update the model button
+    const extensionUuid = "linux-copilot@TheoThePerson";
+    const extension = Main.panel.statusArea[extensionUuid];
+    if (extension && typeof extension._updateModelButton === "function") {
+      extension._updateModelButton();
+    }
+
     // Refresh file box formatting after model change
     const fileHandler = ModelManager._getFileHandler();
     if (fileHandler && fileHandler.hasLoadedFiles()) {

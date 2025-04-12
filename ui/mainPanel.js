@@ -69,26 +69,29 @@ export const Indicator = GObject.registerClass(
         })
       );
 
-      // Create panel overlay
+      // Create panel overlay with initial dimensions
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
 
-      // Create containers
+      // Create containers with proper initialization
       this._inputButtonsContainer = new St.BoxLayout({
         style_class: "input-buttons-container",
         vertical: true,
         reactive: true,
+        x_expand: true,
+        y_expand: false
       });
 
       this._buttonsContainer = new St.BoxLayout({
         style_class: "buttons-container",
         vertical: false,
         reactive: true,
+        x_expand: true,
+        y_expand: false
       });
 
-      // Create output area
-      const { outputScrollView, outputContainer } =
-        PanelElements.createOutputArea(dimensions);
+      // Create output area with proper initialization
+      const { outputScrollView, outputContainer } = PanelElements.createOutputArea(dimensions);
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
 
@@ -99,130 +102,40 @@ export const Indicator = GObject.registerClass(
 
       // Set up input field based on conversation history
       const history = getConversationHistory();
-      const isNewChat =
-        history.length === 0 ||
-        (history.length > 0 && history[history.length - 1].type === "user");
+      const isNewChat = history.length === 0 || 
+                       (history.length > 0 && history[history.length - 1].type === "user");
 
-      const { inputFieldBox, inputField, sendButton } =
+      const { inputFieldBox, inputField, sendButton } = 
         PanelElements.createInputArea(this._extensionPath, isNewChat);
       this._inputFieldBox = inputFieldBox;
       this._inputField = inputField;
       this._sendButton = sendButton;
 
-      // Create a safe update layout callback
+      // Create a safe update layout callback with proper error handling
       let isUpdatingLayout = false;
       const safeUpdateLayout = () => {
         if (!isUpdatingLayout) {
           isUpdatingLayout = true;
-          this._updateLayout();
-          isUpdatingLayout = false;
+          try {
+            this._updateLayout();
+          } catch (error) {
+            if (typeof global.log !== "undefined") {
+              global.log(`Error in safeUpdateLayout: ${error.message}`);
+            }
+          } finally {
+            isUpdatingLayout = false;
+          }
         }
       };
 
-      // Initialize components
-      this._initializeComponents(safeUpdateLayout);
-
-      // Set up input field events
-      this._inputField.connect("button-press-event", () => {
-        if (this._modelManager && this._modelManager.isMenuOpen()) {
-          this._modelManager.closeMenu();
+      // Initialize components with proper error handling
+      try {
+        this._initializeComponents(safeUpdateLayout);
+      } catch (error) {
+        if (typeof global.log !== "undefined") {
+          global.log(`Error initializing components: ${error.message}`);
         }
-        return Clutter.EVENT_PROPAGATE;
-      });
-
-      // Initialize paste handler
-      this._pasteHandler = new PasteHandler(
-        this._inputField,
-        this._fileHandler,
-        this._outputContainer,
-        () => this._updateLayout()
-      );
-
-      // Connect input field to paste handler
-      this._inputField.clutter_text.connect(
-        "key-press-event",
-        this._pasteHandler.handleKeyPress.bind(this._pasteHandler)
-      );
-
-      // Handle text changes, potentially from other paste sources (like right-click menu)
-      this._inputField.clutter_text.connect("text-changed", () => {
-        // If we're processing a paste via Ctrl+V, skip this handler
-        if (this._pasteHandler.isProcessingPaste) {
-          return;
-        }
-
-        const currentText = this._inputField.get_text();
-
-        // Skip if empty or already processed
-        if (
-          !currentText ||
-          currentText.length === 0 ||
-          currentText === this._pasteHandler.lastProcessedText
-        ) {
-          return;
-        }
-
-        // Only process sudden text changes with multiple words (likely pastes)
-        const wordCount = currentText
-          .split(/\s+/u)
-          .filter((word) => word.length > 0).length;
-
-        if (wordCount > 100) {
-          // The problem here is that we need to identify which part of the text was pasted
-          // Since we can't directly know, we'll look for chunks that have many words together
-          this._pasteHandler.isProcessingPaste = true;
-
-          // Get the text before this change event
-          const previousTextSnapshot =
-            this._pasteHandler.lastProcessedText || "";
-
-          // Find the largest new chunk of text (likely the paste)
-          const pastedContent = this._pasteHandler.findLikelyPastedContent(
-            previousTextSnapshot,
-            currentText
-          );
-
-          if (pastedContent) {
-            // Update lastProcessedText to current to prevent re-processing
-            this._pasteHandler.lastProcessedText = currentText;
-
-            // Increment counter for unique naming
-            this._pasteHandler.pastedTextCount++;
-
-            // Create file box for the detected chunk
-            if (this._fileHandler) {
-              this._fileHandler.createFileBoxFromText(
-                pastedContent,
-                `Pasted ${this._pasteHandler.pastedTextCount}`
-              );
-
-              // Remove just the pasted content from the input field
-              const updatedText = currentText.replace(pastedContent, "");
-              this._inputField.set_text(updatedText);
-
-              // Update layout and show confirmation
-              this._updateLayout();
-              MessageProcessor.addTemporaryMessage(
-                this._outputContainer,
-                `Long text added as file box "Pasted ${this._pasteHandler.pastedTextCount}"`
-              );
-            }
-          }
-
-          // Reset processing flag after delay
-          imports.gi.GLib.timeout_add(
-            imports.gi.GLib.PRIORITY_DEFAULT,
-            500,
-            () => {
-              this._pasteHandler.isProcessingPaste = false;
-              return false;
-            }
-          );
-        } else {
-          // For shorter text, update lastProcessedText to prevent repeat processing
-          this._pasteHandler.lastProcessedText = currentText;
-        }
-      });
+      }
 
       // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
@@ -233,9 +146,15 @@ export const Indicator = GObject.registerClass(
         return Clutter.EVENT_PROPAGATE;
       });
 
-      // Finalize UI setup
-      this._finalizeUISetup();
-      this._updateLayout();
+      // Finalize UI setup with proper error handling
+      try {
+        this._finalizeUISetup();
+        this._updateLayout();
+      } catch (error) {
+        if (typeof global.log !== "undefined") {
+          global.log(`Error finalizing UI setup: ${error.message}`);
+        }
+      }
     }
 
     _initializeComponents(safeUpdateLayout) {
@@ -332,6 +251,80 @@ export const Indicator = GObject.registerClass(
     }
 
     /**
+     * Initialize or reset the panel state
+     * @private
+     */
+    _initializePanelState() {
+      // Reset input field
+      this._inputField.set_text("");
+      
+      // Reset UI element opacity
+      this._inputField.opacity = 255;
+      this._buttonsContainer.opacity = 255;
+
+      // Update layout first to ensure proper dimensions
+      this._updateLayout(true); // Force full update on initialization
+
+      // Restore file UI if needed
+      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+        this._fileHandler.restoreFileUI();
+        this._updateLayout(true); // Force full update after file UI restore
+
+        // Apply a sequence of timed refreshes to ensure proper formatting
+        const refreshSequence = [10, 50, 100, 200];
+        refreshSequence.forEach((delay) => {
+          imports.gi.GLib.timeout_add(
+            imports.gi.GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+              if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+                this._fileHandler.refreshFileBoxFormatting();
+                this._updateLayout(false); // No need for full update during refresh
+              }
+              return imports.gi.GLib.SOURCE_REMOVE;
+            }
+          );
+        });
+      }
+
+      // Load history in background
+      this._loadHistoryAsync();
+
+      // Give focus to input field
+      global.stage.set_key_focus(this._inputField.clutter_text);
+
+      // Refresh models in background
+      if (this._modelManager) {
+        this._modelManager.refreshModels().catch(() => {
+          // Silent error in production
+        });
+      }
+    }
+
+    /**
+     * Clean up panel state
+     * @private
+     */
+    _cleanupPanelState() {
+      // Clear input field
+      this._inputField.set_text("");
+
+      // Hide sensitive UI elements
+      this._inputField.opacity = 0;
+      this._buttonsContainer.opacity = 0;
+
+      // Close model menu
+      if (this._modelManager) {
+        this._modelManager.closeMenu();
+      }
+
+      // Clean up file UI only (preserve file data)
+      if (this._fileHandler) {
+        this._fileHandler.cleanupFileUI();
+      }
+    }
+
+    /**
      * Toggle the panel overlay with improved animation
      * @returns {Promise<void>}
      */
@@ -347,79 +340,23 @@ export const Indicator = GObject.registerClass(
         const isOpening = !this._panelOverlay.visible;
         this._panelOverlay.visible = isOpening;
 
-        if (!isOpening) {
-          // If closing the panel
-          this._inputField.set_text("");
-
-          // Immediately hide sensitive UI elements for faster perceived performance
-          this._inputField.opacity = 0;
-          this._buttonsContainer.opacity = 0;
-
-          // Close model menu
-          if (this._modelManager) {
-            this._modelManager.closeMenu();
-          }
-
-          // Clean up file UI only (preserve file data)
-          if (this._fileHandler) {
-            this._fileHandler.cleanupFileUI();
-          }
+        if (isOpening) {
+          this._initializePanelState();
         } else {
-          // If opening panel
-          // Reset opacity of UI elements that were hidden when closing
-          this._inputField.opacity = 255;
-          this._buttonsContainer.opacity = 255;
-
-          // Update layout first to ensure proper dimensions
-          this._updateLayout();
-
-          // Use a sequence of timed operations to restore file UI
-          if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-            // First restore the basic UI
-            this._fileHandler.restoreFileUI();
-
-            // Then update layout
-            this._updateLayout();
-
-            // Then apply a sequence of timed refreshes to ensure proper formatting
-            const refreshSequence = [10, 50, 100, 200];
-            refreshSequence.forEach((delay) => {
-              imports.gi.GLib.timeout_add(
-                imports.gi.GLib.PRIORITY_DEFAULT,
-                delay,
-                () => {
-                  if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-                    this._fileHandler.refreshFileBoxFormatting();
-                    this._updateLayout();
-                  }
-                  return imports.gi.GLib.SOURCE_REMOVE;
-                }
-              );
-            });
-          }
-
-          // Start loading history in background
-          this._loadHistoryAsync();
-
-          // Give focus to input field
-          global.stage.set_key_focus(this._inputField.clutter_text);
-
-          // Refresh models in background
-          if (this._modelManager) {
-            this._modelManager.refreshModels().catch(() => {
-              // Silent error in production
-            });
-          }
+          this._cleanupPanelState();
         }
 
         // Update layout
         this._updateLayout();
-      } catch {
-        // Silent error in production during panel toggle
+      } catch (error) {
         // Ensure panel is in a consistent state even if error occurs
         this._panelOverlay.visible = false;
         this._inputField.opacity = 255;
         this._buttonsContainer.opacity = 255;
+        
+        if (typeof global.log !== "undefined") {
+          global.log(`Error toggling panel: ${error.message}`);
+        }
       } finally {
         // Reset toggle flag after a small delay
         imports.gi.GLib.timeout_add(
@@ -427,7 +364,7 @@ export const Indicator = GObject.registerClass(
           300,
           () => {
             this._isTogglingPanel = false;
-            return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
+            return imports.gi.GLib.SOURCE_REMOVE;
           }
         );
       }
@@ -510,41 +447,82 @@ export const Indicator = GObject.registerClass(
       MessageProcessor.clearOutput(this._outputContainer);
     }
 
-    _updateLayout() {
+    _updateLayout(forceFullUpdate = false) {
       try {
-        // Update each component's layout
-        LayoutManager.updatePanelOverlay(this._panelOverlay);
-        LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+        // Ensure all components exist before updating
+        if (!this._panelOverlay || !this._inputButtonsContainer || 
+            !this._buttonsContainer || !this._outputScrollView || 
+            !this._outputContainer || !this._inputFieldBox || 
+            !this._inputField || !this._sendButton) {
+          return;
+        }
+
+        // Only do full layout updates when forced or when panel visibility changes
+        if (forceFullUpdate || this._panelOverlay.visible !== this._lastPanelVisibility) {
+          this._lastPanelVisibility = this._panelOverlay.visible;
+          
+          // Update each component's layout in a specific order
+          LayoutManager.updatePanelOverlay(this._panelOverlay);
+          LayoutManager.updateOutputArea(this._outputScrollView, this._outputContainer);
+          LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+          LayoutManager.updateButtonsContainer(
+            this._buttonsContainer,
+            this._modelButton,
+            this._clearButton,
+            this._fileButton
+          );
+          LayoutManager.updateInputArea(
+            this._inputFieldBox,
+            this._inputField,
+            this._sendButton
+          );
+
+          // Update file boxes if we have a file handler
+          if (this._fileHandler && typeof this._fileHandler.refreshFileBoxFormatting === "function") {
+            this._fileHandler.refreshFileBoxFormatting();
+          }
+
+          // Update message box colors to reflect current settings
+          this._updateMessageBoxColors();
+        }
+
+        // Always ensure proper scrolling after updates
+        imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_DEFAULT, () => {
+          PanelElements.scrollToBottom(this._outputScrollView);
+          return imports.gi.GLib.SOURCE_REMOVE;
+        });
+      } catch (error) {
+        // Log error in development, silent in production
+        if (typeof global.log !== "undefined") {
+          global.log(`Error updating layout: ${error.message}`);
+        }
+      }
+    }
+
+    /**
+     * Update only the model button and related components
+     * @private
+     */
+    _updateModelButton() {
+      if (!this._modelButton || !this._buttonsContainer) {
+        return;
+      }
+
+      try {
+        // Update only the buttons container and model button
         LayoutManager.updateButtonsContainer(
           this._buttonsContainer,
           this._modelButton,
           this._clearButton,
           this._fileButton
         );
-        LayoutManager.updateOutputArea(
-          this._outputScrollView,
-          this._outputContainer
-        );
-        LayoutManager.updateInputArea(
-          this._inputFieldBox,
-          this._inputField,
-          this._sendButton
-        );
 
-        // Update file boxes if we have a file handler
-        if (
-          this._fileHandler &&
-          typeof this._fileHandler.refreshFileBoxFormatting === "function"
-        ) {
-          this._fileHandler.refreshFileBoxFormatting();
+        // Ensure the model button is properly positioned
+        this._modelButton.queue_relayout();
+      } catch (error) {
+        if (typeof global.log !== "undefined") {
+          global.log(`Error updating model button: ${error.message}`);
         }
-
-        // Update message box colors to reflect current settings
-        this._updateMessageBoxColors();
-
-        PanelElements.scrollToBottom(this._outputScrollView);
-      } catch {
-        // Silent error in production when updating layout
       }
     }
 
