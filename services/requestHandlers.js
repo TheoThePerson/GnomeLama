@@ -6,25 +6,6 @@ import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 
 /**
- * Creates an enhanced process chunk function that gracefully handles errors
- * @param {Function} processChunk - Original process chunk function
- * @returns {Function} Enhanced function with error handling
- */
-function createEnhancedChunkProcessor(processChunk) {
-  return async (chunk) => {
-    if (!processChunk) return null;
-
-    try {
-      return await processChunk(chunk);
-    } catch (error) {
-      console.error(`Error in chunk processor: ${error.message}`);
-      console.error(error.stack);
-      return null;
-    }
-  };
-}
-
-/**
  * Processes the stream data
  * @param {Object} options - Processing options
  * @returns {Promise<void>} Completes when stream is processed

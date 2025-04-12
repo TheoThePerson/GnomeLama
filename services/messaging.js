@@ -170,30 +170,6 @@ function handleApiError(error, asyncOnData) {
 }
 
 /**
- * Creates a callback function that runs on the main thread
- * @param {Function} callback - Original callback function
- * @returns {Function|null} Wrapped callback or null
- */
-function createMainThreadCallback(callback) {
-  if (!callback) return null;
-  return (data) => {
-    GLib.idle_add(GLib.PRIORITY_HIGH, () => {
-      callback(data);
-      return GLib.SOURCE_REMOVE;
-    });
-  };
-}
-
-/**
- * Updates the cancel request function atomically
- * @param {Function|null} newCancelFn - The new cancel function
- */
-function updateCancelFunction(newCancelFn) {
-  // Using a separate function to update the value atomically
-  cancelCurrentRequest = newCancelFn;
-}
-
-/**
  * Send the API request and handle the cancel function
  * @param {Object} options - API call options
  * @returns {Promise<{result: Promise, responseText: Promise<string>}>} Result and response text promises
@@ -218,53 +194,6 @@ async function sendApiRequest({
 
   cancelCurrentRequest = cancel;
   return result;
-}
-
-/**
- * Handle successful API response
- * @param {string|Object} responseText - Response from the API
- * @returns {string} Processed response text
- */
-function handleSuccessResponse(responseText) {
-  // Reset error state
-  lastError = null;
-
-  // Make sure we have a string
-  const finalResponse = processProviderResponse(responseText);
-
-  // Update the cancel function atomically
-  updateCancelFunction(null);
-
-  // Reset message processing state
-  isMessageInProgress = false;
-
-  // Add to conversation history if valid
-  if (typeof finalResponse === "string") {
-    addMessageToHistory(finalResponse, "assistant");
-  } else {
-    // Skip invalid response, silent in production
-  }
-
-  return finalResponse;
-}
-
-/**
- * Process the API result and finalize the response
- * @param {Promise} apiResult - API result promise
- * @param {Function} asyncOnData - Callback for streaming data
- * @returns {Promise<string>} The response text
- */
-async function processApiResult(apiResult, asyncOnData) {
-  try {
-    // Extract response from result
-    const responseObject = await apiResult.result;
-
-    // Process the response
-    const responseText = handleSuccessResponse(responseObject);
-    return responseText;
-  } catch (error) {
-    return handleApiError(error, asyncOnData);
-  }
 }
 
 /**

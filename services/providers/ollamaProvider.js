@@ -12,14 +12,6 @@ let currentContext = null; // Store the context from previous interactions
 let apiSession = null; // API session handler
 
 /**
- * Gets the current context from previous interactions
- * @returns {string|null} The current context
- */
-export function getCurrentContext() {
-  return currentContext;
-}
-
-/**
  * Resets the current context
  */
 export function resetContext() {
