@@ -217,6 +217,8 @@ export class MessageSender {
       return;
     }
 
+    stopAiMessage();
+    
     this._handlePostSendUpdates();
   }
 

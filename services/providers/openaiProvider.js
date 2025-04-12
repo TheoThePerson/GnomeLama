@@ -332,6 +332,8 @@ function transformApiResponse(requestHandler) {
   const resultPromise = requestHandler.result.then((result) => {
     // Extract just the response text string, not an object with response property
     const responseText = result && result.response ? result.response : "";
+    // Reset the API session once completed successfully
+    apiSession = null;
     return responseText; // Return just the string, not an object
   });
 
@@ -343,9 +345,6 @@ function transformApiResponse(requestHandler) {
     }
     return "";
   };
-
-  // Reset the API session immediately
-  apiSession = null;
 
   return {
     result: resultPromise, // This Promise resolves to a string, not an object
