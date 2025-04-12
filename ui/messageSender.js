@@ -4,6 +4,7 @@
 import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import GLib from "gi://GLib";
 
 // Import from reorganized modules
 import * as MessageProcessor from "./messageProcessor.js";
@@ -68,6 +69,18 @@ export class MessageSender {
 
     // Update input field hint based on conversation history
     this._updateInputFieldHint();
+
+    // Connect to the input field's parent to handle focus when it's added to the stage
+    this._inputField.get_parent().connect("notify::mapped", () => {
+      if (this._inputField.get_parent().mapped) {
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+          if (Main && Main.global && Main.global.stage) {
+            Main.global.stage.set_key_focus(this._inputField.clutter_text);
+          }
+          return GLib.SOURCE_REMOVE;
+        });
+      }
+    });
   }
 
   /**
@@ -143,10 +156,13 @@ export class MessageSender {
       );
     }
 
-    // Give focus back to input field
-    if (Main && Main.global && Main.global.stage) {
-      Main.global.stage.set_key_focus(this._inputField.clutter_text);
-    }
+    // Give focus back to input field with a small delay
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+      if (Main && Main.global && Main.global.stage) {
+        Main.global.stage.set_key_focus(this._inputField.clutter_text);
+      }
+      return GLib.SOURCE_REMOVE;
+    });
   }
 
   /**

@@ -105,7 +105,10 @@ export function cleanupOnDisable() {
  */
 function addMessageToHistory(text, type) {
   if (!text) return;
-  conversationHistory.push({ text: String(text), type });
+  
+  // Remove any "Prompt:" prefix from the text
+  const cleanText = text.replace(/^Prompt:\s*/i, '');
+  conversationHistory.push({ text: cleanText, type });
 }
 
 /**
@@ -121,8 +124,31 @@ export function isProcessingMessage() {
  * @returns {string} Processed response text
  */
 function processProviderResponse(response) {
-  if (typeof response === "string") return response;
-  if (response?.response) return response.response;
+  // Handle string responses directly
+  if (typeof response === "string") {
+    return response.replace(/^Prompt:\s*/i, '');
+  }
+
+  // Handle object responses
+  if (response && typeof response === "object") {
+    // Handle OpenAI-style response
+    if (response.choices && response.choices[0]?.message?.content) {
+      return response.choices[0].message.content.replace(/^Prompt:\s*/i, '');
+    }
+    
+    // Handle Ollama-style response
+    if (response.response) {
+      return response.response.replace(/^Prompt:\s*/i, '');
+    }
+
+    // Handle direct response property
+    if (response.content) {
+      return response.content.replace(/^Prompt:\s*/i, '');
+    }
+  }
+
+  // If we get here, log the response for debugging
+  console.warn("Unexpected response format:", response);
   return "No valid response received";
 }
 
@@ -179,13 +205,10 @@ async function sendApiRequest({
   contextToUse,
   asyncOnData,
 }) {
-  // Store the cancel function to avoid race conditions
-  const previousCancelFn = cancelCurrentRequest;
-  if (previousCancelFn) {
-    previousCancelFn();
+  if (cancelCurrentRequest) {
+    cancelCurrentRequest();
   }
 
-  // Both providers now use object parameter structure
   const { result, cancel } = await provider.sendMessageToAPI({
     messageText,
     modelName,
@@ -193,15 +216,8 @@ async function sendApiRequest({
     onData: asyncOnData,
   });
 
-  // Update the cancel function atomically through a dedicated function
-  updateCancelFunction(cancel);
-
-  return {
-    result,
-    responseText: result.then((response) => {
-      return processProviderResponse(response);
-    }),
-  };
+  cancelCurrentRequest = cancel;
+  return result;
 }
 
 /**
@@ -270,22 +286,30 @@ export async function sendMessage({
   if (!currentModel) return;
 
   isMessageInProgress = true;
-  addMessageToHistory(message, "user");
+  
+  // Clean the message before adding to history
+  const cleanMessage = message.replace(/^Prompt:\s*/i, '');
+  addMessageToHistory(cleanMessage, "user");
 
   try {
     const provider = getProviderForModel(currentModel);
     const result = await sendApiRequest({
       provider,
-      messageText: message,
+      messageText: cleanMessage,
       modelName: currentModel,
       contextToUse: context,
       asyncOnData: onData,
     });
 
-    const responseText = processProviderResponse(result);
-    addMessageToHistory(responseText, "assistant");
-    if (typeof displayMessage === 'function') {
-      displayMessage(responseText);
+    // Wait for the result to resolve
+    const response = await result;
+    const responseText = processProviderResponse(response);
+    
+    if (responseText && responseText !== "No valid response received") {
+      addMessageToHistory(responseText, "assistant");
+      if (typeof displayMessage === 'function') {
+        displayMessage(responseText);
+      }
     }
   } catch (error) {
     const errorMessage = handleApiError(error, onData);

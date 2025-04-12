@@ -273,6 +273,18 @@ export function createInputArea(extensionPath, isNewChat = true) {
   // Only add the input field to the box, the send button will be in the buttons container
   inputFieldBox.add_child(inputField);
 
+  // Connect to the input field's parent to handle focus when it's added to the stage
+  inputFieldBox.connect("notify::mapped", () => {
+    if (inputFieldBox.mapped) {
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+        if (Main && Main.global && Main.global.stage) {
+          Main.global.stage.set_key_focus(inputField.clutter_text);
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+    }
+  });
+
   return { inputFieldBox, inputField, sendButton };
 }
 
