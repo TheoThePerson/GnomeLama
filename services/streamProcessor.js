@@ -12,16 +12,10 @@ import { TextDecoder } from "./httpUtils.js";
  * @returns {Promise<void>}
  */
 async function processSingleChunk(chunk, processChunk, accumulatedResponse) {
-  try {
-    if (chunk) {
-      const result = await processChunk(chunk);
-      if (result) {
-        accumulatedResponse(result);
-      }
-    }
-  } catch (error) {
-    console.error(`Error processing chunk: ${error.message}`);
-    console.error(error.stack);
+  if (!chunk) return;
+  const result = await processChunk(chunk);
+  if (result) {
+    accumulatedResponse(result);
   }
 }
 
@@ -44,8 +38,6 @@ async function readAndProcessLines(
 
   while (!done && !isCancelled() && !cancellable.is_cancelled()) {
     try {
-      // Read a line from the stream
-      // eslint-disable-next-line no-await-in-loop
       const [line] = await dataInputStream.read_line_async(
         GLib.PRIORITY_DEFAULT,
         cancellable
@@ -54,14 +46,10 @@ async function readAndProcessLines(
       if (!line) {
         done = true;
       } else {
-        // Process the line immediately
         const textLine = new TextDecoder().decode(line);
-        // eslint-disable-next-line no-await-in-loop
         await processSingleChunk(textLine, processChunk, accumulatedResponse);
       }
-    } catch (error) {
-      console.error(`Error reading line: ${error.message}`);
-      console.error(error.stack);
+    } catch {
       done = true;
     }
   }
@@ -83,17 +71,12 @@ export function createStreamProcessor(options) {
      * @returns {Promise<void>}
      */
     async readStreamLines(dataInputStream, processChunk) {
-      try {
-        // Read and process lines immediately as they arrive
-        await readAndProcessLines(
-          dataInputStream,
-          { isCancelled, cancellable },
-          processChunk,
-          accumulatedResponse
-        );
-      } catch {
-        // Error reading stream lines (silently handle)
-      }
+      await readAndProcessLines(
+        dataInputStream,
+        { isCancelled, cancellable },
+        processChunk,
+        accumulatedResponse
+      );
     },
 
     // Keep legacy methods for backward compatibility

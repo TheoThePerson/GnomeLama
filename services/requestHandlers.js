@@ -32,23 +32,17 @@ function createEnhancedChunkProcessor(processChunk) {
 async function processRequestStream({
   inputStream,
   dataInputStream,
-  enhancedProcessChunk,
+  processChunk,
   streamProcessor,
   cleanupCallback,
   resolve,
   accumulatedResponse,
 }) {
   try {
-    await streamProcessor.readStreamLines(
-      dataInputStream,
-      enhancedProcessChunk
-    );
-
+    await streamProcessor.readStreamLines(dataInputStream, processChunk);
     cleanupCallback({ inputStream, dataInputStream });
     resolve({ response: accumulatedResponse() });
   } catch (error) {
-    console.error(`Error processing request stream: ${error.message}`);
-    console.error(error.stack);
     cleanupCallback();
     throw error;
   }
@@ -79,12 +73,13 @@ async function prepareInputStream({
     return null;
   }
 
-  const dataInputStream = new Gio.DataInputStream({
-    base_stream: inputStream,
-    close_base_stream: true,
-  });
-
-  return { inputStream, dataInputStream };
+  return {
+    inputStream,
+    dataInputStream: new Gio.DataInputStream({
+      base_stream: inputStream,
+      close_base_stream: true,
+    }),
+  };
 }
 
 /**
@@ -100,9 +95,7 @@ function handleRequestError(
   error,
   { cleanupCallback, isCancelled, accumulatedResponse, resolve, reject }
 ) {
-  // API request error
   cleanupCallback();
-
   if (isCancelled() && accumulatedResponse()) {
     resolve({ response: accumulatedResponse() });
   } else {
@@ -129,9 +122,6 @@ export function createRequestHandler(options) {
     cleanupCallback,
   } = options;
 
-  // Create an enhanced process chunk function
-  const enhancedProcessChunk = createEnhancedChunkProcessor(processChunk);
-
   return async function handleRequest() {
     try {
       const streams = await prepareInputStream({
@@ -147,7 +137,7 @@ export function createRequestHandler(options) {
 
       await processRequestStream({
         ...streams,
-        enhancedProcessChunk,
+        processChunk,
         streamProcessor,
         cleanupCallback,
         resolve,
@@ -186,22 +176,16 @@ export function initializeRequestStream(options) {
           }
 
           if (message.get_status() !== Soup.Status.OK) {
-            const error = new Error(`HTTP error: ${message.get_status()}`);
-            console.error(`HTTP request failed: ${error.message}`);
-            throw error;
+            throw new Error(`HTTP error: ${message.get_status()}`);
           }
 
           const stream = httpSession.send_finish(result);
           if (!stream) {
-            const error = new Error("No response stream available");
-            console.error(error.message);
-            throw error;
+            throw new Error("No response stream available");
           }
 
           streamResolve(stream);
         } catch (error) {
-          console.error(`Error in request stream: ${error.message}`);
-          console.error(error.stack);
           streamReject(error);
         }
       }
@@ -227,7 +211,7 @@ export function createRequestPromise(options) {
   } = options;
 
   return new Promise((resolve, reject) => {
-    const handlerOptions = {
+    const handleRequest = createRequestHandler({
       message,
       processChunk,
       resolve,
@@ -238,9 +222,7 @@ export function createRequestPromise(options) {
       accumulatedResponse,
       streamProcessor,
       cleanupCallback,
-    };
-
-    const handleRequest = createRequestHandler(handlerOptions);
+    });
     handleRequest().catch(reject);
   });
 }

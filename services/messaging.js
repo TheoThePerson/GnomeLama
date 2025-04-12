@@ -8,9 +8,9 @@ import * as openaiProvider from "./providers/openaiProvider.js";
 
 let conversationHistory = [];
 let currentModel = null;
-let lastError = null;
 let isMessageInProgress = false;
 let cancelCurrentRequest = null;
+let lastError = null;
 
 /**
  * Sets the current AI model
@@ -51,19 +51,15 @@ export async function fetchModelNames() {
       ...(openaiModels.status === "fulfilled" ? openaiModels.value : []),
     ];
 
-    let error = null;
-    if (models.length === 0) {
-      error =
-        "No models found. Please check if Ollama is running with models installed, or that you have an API key in settings.";
-    }
-
-    return { models, error };
+    return {
+      models,
+      error: models.length === 0 ? "No models found. Please check if Ollama is running with models installed, or that you have an API key in settings." : null
+    };
   } catch {
     // Error fetching models, silent in production
     return {
       models: [],
-      error:
-        "Error fetching models. Please check network connection and service availability.",
+      error: "Error fetching models. Please check network connection and service availability."
     };
   }
 }
@@ -97,9 +93,9 @@ export function cleanupOnDisable() {
 
   conversationHistory = [];
   currentModel = null;
-  lastError = null;
   isMessageInProgress = false;
   cancelCurrentRequest = null;
+  lastError = null;
   ollamaProvider.resetContext();
 }
 
@@ -108,25 +104,8 @@ export function cleanupOnDisable() {
  * @param {string} type - Message type (user or assistant)
  */
 function addMessageToHistory(text, type) {
-  // Handle empty or invalid text
-  if (!text || typeof text !== "string") {
-    // Invalid message text, converting to string
-
-    // Handle Promise objects explicitly
-    if (text instanceof Promise) {
-      // Warning: Attempted to add Promise to history
-      text = "Error: Message was a Promise object. Please try again.";
-    } else {
-      // For other non-string values, convert to string safely
-      text = text ? String(text) : "";
-    }
-  }
-
-  // Add to history immediately rather than using idle_add
-  conversationHistory.push({ text, type });
-
-  // Log history size for debugging
-  // Added message to history. New history size: ${conversationHistory.length}
+  if (!text) return;
+  conversationHistory.push({ text: String(text), type });
 }
 
 /**
@@ -137,35 +116,13 @@ export function isProcessingMessage() {
 }
 
 /**
- * @returns {string|null} Last error message or null if no error
- */
-export function getLastError() {
-  return lastError;
-}
-
-/**
  * Process the response from the AI provider
  * @param {Object|string} response - Response from the provider
  * @returns {string} Processed response text
  */
 function processProviderResponse(response) {
-  // Handle Promise objects
-  if (response instanceof Promise) {
-    // Warning: Response is a Promise, not actual data
-    return "Error: Response was a Promise object. Please try again.";
-  }
-
-  // If it's already a string, just return it
-  if (typeof response === "string") {
-    return response;
-  }
-
-  // Handle old response format for backward compatibility
-  if (response && typeof response === "object" && "response" in response) {
-    return response.response;
-  }
-
-  // Fallback for unexpected response format
+  if (typeof response === "string") return response;
+  if (response?.response) return response.response;
   return "No valid response received";
 }
 
@@ -176,19 +133,10 @@ function processProviderResponse(response) {
  * @returns {string} Error message
  */
 function handleApiError(error, asyncOnData) {
-  // Silent error in production
-
   const provider = getProviderForModel(currentModel);
-  let errorMessage =
-    provider === openaiProvider
-      ? "Error communicating with OpenAI. Please check your API key in settings."
-      : "Error communicating with Ollama. Please check if Ollama is installed and running.";
-
-  // Add more detailed error information if available
-  if (error && error.message) {
-    errorMessage += ` Details: ${error.message}`;
-    // Details silent in production
-  }
+  const errorMessage = provider === openaiProvider
+    ? "Error communicating with OpenAI. Please check your API key in settings."
+    : "Error communicating with Ollama. Please check if Ollama is installed and running.";
 
   lastError = errorMessage;
   if (asyncOnData) asyncOnData(errorMessage);
@@ -202,15 +150,9 @@ function handleApiError(error, asyncOnData) {
  */
 function createMainThreadCallback(callback) {
   if (!callback) return null;
-
   return (data) => {
-    // Use HIGH priority for UI updates to ensure immediate display of chunks
     GLib.idle_add(GLib.PRIORITY_HIGH, () => {
-      try {
-        callback(data);
-      } catch {
-        // Silent error in production
-      }
+      callback(data);
       return GLib.SOURCE_REMOVE;
     });
   };
@@ -324,42 +266,36 @@ export async function sendMessage({
   onData,
   displayMessage,
 }) {
-  if (!currentModel) {
-    currentModel = getSettings().get_string("default-model");
-  }
+  if (isMessageInProgress) return;
+  if (!currentModel) return;
 
-  lastError = null;
   isMessageInProgress = true;
-
-  addMessageToHistory(displayMessage || message, "user");
-  const asyncOnData = createMainThreadCallback(onData);
+  addMessageToHistory(message, "user");
 
   try {
     const provider = getProviderForModel(currentModel);
-    const contextToUse =
-      context ||
-      (provider === ollamaProvider ? ollamaProvider.getCurrentContext() : null);
-
-    const apiResult = await sendApiRequest({
+    const result = await sendApiRequest({
       provider,
       messageText: message,
       modelName: currentModel,
-      contextToUse,
-      asyncOnData,
+      contextToUse: context,
+      asyncOnData: onData,
     });
 
-    return await processApiResult(apiResult, asyncOnData);
-  } catch (e) {
-    console.error(`Error in sendMessage: ${e.message}`);
-    console.error(e.stack);
-    
-    const errorMessage = handleApiError(e, asyncOnData);
-
-    // Update the cancel function atomically
-    updateCancelFunction(null);
+    const responseText = processProviderResponse(result);
+    addMessageToHistory(responseText, "assistant");
+    if (typeof displayMessage === 'function') {
+      displayMessage(responseText);
+    }
+  } catch (error) {
+    const errorMessage = handleApiError(error, onData);
+    addMessageToHistory(errorMessage, "assistant");
+    if (typeof displayMessage === 'function') {
+      displayMessage(errorMessage);
+    }
+  } finally {
     isMessageInProgress = false;
-
-    return errorMessage;
+    cancelCurrentRequest = null;
   }
 }
 
@@ -368,18 +304,13 @@ export async function sendMessage({
  * @returns {string|null} Partial response or null if no message was in progress
  */
 export function stopAiMessage() {
-  if (!isMessageInProgress) {
-    return null;
+  if (cancelCurrentRequest) {
+    cancelCurrentRequest();
+    cancelCurrentRequest = null;
   }
-
-  // Store in a local variable first to avoid race conditions
-  const cancelFn = cancelCurrentRequest;
-  if (cancelFn) {
-    cancelFn();
-    updateCancelFunction(null);
-  }
-
   isMessageInProgress = false;
-  const provider = getProviderForModel(currentModel);
-  return provider.stopMessage();
+}
+
+export function getLastError() {
+  return lastError;
 }
