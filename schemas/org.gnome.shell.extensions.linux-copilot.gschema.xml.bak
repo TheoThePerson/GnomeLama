@@ -1,0 +1,5 @@
+  <key name="gemini-api-key" type="s">
+    <default>""</default>
+    <summary>Gemini API Key</summary>
+    <description>API key for Google's Gemini AI service</description>
+  </key> 

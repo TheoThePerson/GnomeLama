@@ -84,7 +84,7 @@
     <key name="gemini-api-key" type="s">
       <default>""</default>
       <summary>Gemini API Key</summary>
-      <description>Your Gemini API key for using Google's Gemini models.</description>
+      <description>Your Google Gemini API key for using Gemini models.</description>
     </key>
     <key name="background-opacity" type="d">
       <default>1.0</default>

@@ -5,7 +5,7 @@ import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
-import { processOpenAIModels } from "./utils/modelProcessing/openaiModelFilter.js";
+import * as geminiProvider from "./providers/geminiProvider.js";
 
 let conversationHistory = [];
 let currentModel = null;
@@ -49,9 +49,13 @@ export function setModel(modelName) {
  * @returns {Object} Provider object with standardized interface
  */
 function getProviderForModel(modelName) {
-  return openaiProvider.isOpenAIModel(modelName)
-    ? openaiProvider
-    : ollamaProvider;
+  if (openaiProvider.isOpenAIModel(modelName)) {
+    return openaiProvider;
+  } else if (geminiProvider.isGeminiModel(modelName)) {
+    return geminiProvider;
+  } else {
+    return ollamaProvider;
+  }
 }
 
 /**
@@ -60,9 +64,10 @@ function getProviderForModel(modelName) {
  */
 export async function fetchModelNames() {
   try {
-    const [ollamaModels, openaiModels] = await Promise.allSettled([
+    const [ollamaModels, openaiModels, geminiModels] = await Promise.allSettled([
       ollamaProvider.fetchModelNames(),
       openaiProvider.fetchModelNames(),
+      geminiProvider.fetchModelNames(),
     ]);
     
     // Check for errors from providers
@@ -71,11 +76,12 @@ export async function fetchModelNames() {
     const models = [
       ...(ollamaModels.status === "fulfilled" ? ollamaModels.value : []),
       ...(openaiModels.status === "fulfilled" ? openaiModels.value : []),
+      ...(geminiModels.status === "fulfilled" ? geminiModels.value : []),
     ];
 
     return {
       models,
-      error: models.length === 0 ? "No models found. Please check if Ollama is running with models installed, or that you have an API key in settings." : null
+      error: models.length === 0 ? "No models found. Please check if services are running with models installed, or that you have API keys in settings." : null
     };
   } catch (error) {
     console.error("Error fetching models:", error);
@@ -168,6 +174,11 @@ function processProviderResponse(response) {
     if (response.content) {
       return response.content.replace(/^Prompt:\s*/i, '');
     }
+    
+    // Handle text property from parsed responses
+    if (response.text) {
+      return response.text.replace(/^Prompt:\s*/i, '');
+    }
   }
 
   // If we get here, log the response for debugging
@@ -183,9 +194,15 @@ function processProviderResponse(response) {
  */
 function handleApiError(error, asyncOnData) {
   const provider = getProviderForModel(currentModel);
-  const errorMessage = provider === openaiProvider
-    ? "Error communicating with OpenAI. Please check your API key in settings."
-    : "Error communicating with Ollama. Please check if Ollama is installed and running.";
+  let errorMessage;
+  
+  if (provider === openaiProvider) {
+    errorMessage = "Error communicating with OpenAI. Please check your API key in settings.";
+  } else if (provider === geminiProvider) {
+    errorMessage = "Error communicating with Gemini. Please check your API key in settings.";
+  } else {
+    errorMessage = "Error communicating with Ollama. Please check if Ollama is installed and running.";
+  }
 
   lastError = errorMessage;
   if (asyncOnData) asyncOnData(errorMessage);
@@ -269,7 +286,11 @@ export async function sendMessage({
 
   try {
     const provider = getProviderForModel(currentModel);
-    debugLog(`Using provider: ${provider === openaiProvider ? 'OpenAI' : 'Ollama'}`);
+    let providerName = 'Ollama';
+    if (provider === openaiProvider) providerName = 'OpenAI';
+    if (provider === geminiProvider) providerName = 'Gemini';
+    
+    debugLog(`Using provider: ${providerName}`);
     
     const asyncOnData = (data) => {
       responseText += data;
@@ -359,6 +380,13 @@ function checkProviderErrors() {
     const errors = openaiProvider.getErrorMessages();
     if (errors.length > 0) {
       console.log("OpenAI provider errors:", errors);
+    }
+  }
+  
+  if (typeof geminiProvider.getErrorMessages === 'function') {
+    const errors = geminiProvider.getErrorMessages();
+    if (errors.length > 0) {
+      console.log("Gemini provider errors:", errors);
     }
   }
 }
