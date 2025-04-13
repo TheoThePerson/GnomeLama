@@ -5,12 +5,31 @@ import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
+import { processOpenAIModels } from "./utils/models/openaiModelFilter.js";
 
 let conversationHistory = [];
 let currentModel = null;
 let isMessageInProgress = false;
 let cancelCurrentRequest = null;
 let lastError = null;
+
+// Constants for debugging
+const DEBUG = true;
+
+/**
+ * Debug logger for provider issues
+ * @param {string} message - Debug message
+ * @param {Object} [data] - Optional data to log
+ */
+function debugLog(message, data) {
+  if (!DEBUG) return;
+  
+  if (data) {
+    console.log(`[DEBUG] ${message}`, data);
+  } else {
+    console.log(`[DEBUG] ${message}`);
+  }
+}
 
 /**
  * Sets the current AI model
@@ -45,6 +64,9 @@ export async function fetchModelNames() {
       ollamaProvider.fetchModelNames(),
       openaiProvider.fetchModelNames(),
     ]);
+    
+    // Check for errors from providers
+    checkProviderErrors();
 
     const models = [
       ...(ollamaModels.status === "fulfilled" ? ollamaModels.value : []),
@@ -55,7 +77,8 @@ export async function fetchModelNames() {
       models,
       error: models.length === 0 ? "No models found. Please check if Ollama is running with models installed, or that you have an API key in settings." : null
     };
-  } catch {
+  } catch (error) {
+    console.error("Error fetching models:", error);
     // Error fetching models, silent in production
     return {
       models: [],
@@ -185,10 +208,16 @@ async function sendApiRequest({
     cancelCurrentRequest();
   }
 
+  // For OpenAI, use the conversation history directly
+  // For Ollama, use contextToUse parameter or let the provider handle context
+  const context = provider === openaiProvider ? 
+    conversationHistory : 
+    contextToUse;
+
   const { result, cancel } = await provider.sendMessageToAPI({
     messageText,
     modelName,
-    context: provider === openaiProvider ? conversationHistory : contextToUse,
+    context,
     onData: asyncOnData,
   });
 
@@ -209,47 +238,103 @@ export async function sendMessage({
   message,
   context,
   onData,
-  displayMessage,
+  displayMessage = null,
 }) {
   if (isMessageInProgress) return;
-  if (!currentModel) return;
+  if (!currentModel) {
+    // Use the default model from settings
+    const settings = getSettings();
+    currentModel = settings.get_string("default-model");
+    if (!currentModel) return;
+  }
 
   isMessageInProgress = true;
-  
+  lastError = null;
+
   // Clean the message before adding to history
   const cleanMessage = message.replace(/^Prompt:\s*/i, '');
   addMessageToHistory(cleanMessage, "user");
 
+  // Only call displayMessage if it's provided and is a function
+  if (displayMessage && typeof displayMessage === 'function') {
+    try {
+      displayMessage(cleanMessage, "user");
+    } catch (error) {
+      console.error("Error calling displayMessage:", error);
+    }
+  }
+
+  let responseText = "";
+  debugLog(`Starting message to model: ${currentModel}`);
+
   try {
     const provider = getProviderForModel(currentModel);
+    debugLog(`Using provider: ${provider === openaiProvider ? 'OpenAI' : 'Ollama'}`);
+    
+    const asyncOnData = (data) => {
+      responseText += data;
+      debugLog(`Received chunk: ${data.substring(0, 20)}...`);
+      
+      if (onData) {
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          onData(data);
+          return GLib.SOURCE_REMOVE;
+        });
+      }
+    };
+
+    const contextToUse = context || (provider === openaiProvider ? conversationHistory : null);
+    debugLog(`Context length: ${contextToUse ? contextToUse.length : 0}`);
+    
     const result = await sendApiRequest({
       provider,
       messageText: cleanMessage,
       modelName: currentModel,
-      contextToUse: context,
-      asyncOnData: onData,
+      contextToUse,
+      asyncOnData,
     });
 
+    // Check for errors from providers after API request
+    checkProviderErrors();
+    
     // Wait for the result to resolve
+    debugLog(`Waiting for full response`);
     const response = await result;
-    const responseText = processProviderResponse(response);
+    responseText = processProviderResponse(response);
+    debugLog(`Got full response: ${responseText.substring(0, 50)}...`);
     
     if (responseText && responseText !== "No valid response received") {
       addMessageToHistory(responseText, "assistant");
-      if (typeof displayMessage === 'function') {
-        displayMessage(responseText);
+      // Only call displayMessage if it's provided and is a function
+      if (displayMessage && typeof displayMessage === 'function') {
+        try {
+          displayMessage(responseText, "assistant");
+        } catch (error) {
+          console.error("Error calling displayMessage for response:", error);
+        }
       }
     }
   } catch (error) {
-    const errorMessage = handleApiError(error, onData);
+    console.error("Error sending message:", error);
+    debugLog(`Error in sendMessage: ${error.message}`);
+    const errorMessage = handleApiError(error, asyncOnData);
     addMessageToHistory(errorMessage, "assistant");
-    if (typeof displayMessage === 'function') {
-      displayMessage(errorMessage);
+    
+    // Only call displayMessage if it's provided and is a function
+    if (displayMessage && typeof displayMessage === 'function') {
+      try {
+        displayMessage(errorMessage, "assistant");
+      } catch (error) {
+        console.error("Error calling displayMessage for error:", error);
+      }
     }
   } finally {
     isMessageInProgress = false;
     cancelCurrentRequest = null;
+    debugLog(`Message completed`);
   }
+  
+  return responseText;
 }
 
 /**
@@ -266,4 +351,14 @@ export function stopAiMessage() {
 
 export function getLastError() {
   return lastError;
+}
+
+// Add this helper function to check providers for errors
+function checkProviderErrors() {
+  if (typeof openaiProvider.getErrorMessages === 'function') {
+    const errors = openaiProvider.getErrorMessages();
+    if (errors.length > 0) {
+      console.log("OpenAI provider errors:", errors);
+    }
+  }
 }

@@ -73,47 +73,4 @@ export function sortModels(models, keyFn = null) {
   }
   
   return [...models].sort((a, b) => String(a).localeCompare(String(b)));
-}
-
-/**
- * Prepares message context for API call
- * @param {string} messageText - User's message text
- * @param {Array} context - Previous conversation context
- * @param {Object} options - Optional parameters
- * @returns {Array} Formatted messages
- */
-export function prepareBasicMessages(messageText, context = [], options = {}) {
-  const { 
-    defaultSystemMessage = "You are a helpful assistant.",
-    roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant"
-  } = options;
-  
-  const messages = [];
-  
-  // Add system message at the beginning if not already present
-  const hasSystemMessage = context.some((msg) => msg.type === "system");
-  if (!hasSystemMessage) {
-    messages.push({
-      role: "system",
-      content: defaultSystemMessage,
-    });
-  }
-
-  // Add context messages
-  context.forEach((msg) => {
-    if (!msg.text || typeof msg.text !== "string") return;
-    
-    messages.push({
-      role: roleMapping(msg.type),
-      content: msg.text,
-    });
-  });
-
-  // Add current user message
-  messages.push({ 
-    role: "user", 
-    content: messageText 
-  });
-  
-  return messages;
 } 
