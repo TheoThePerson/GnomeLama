@@ -221,6 +221,33 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     window.add(apiPage);
 
     this._addApiConfigGroup(apiPage, settings);
+    this._addApiKeysGroup(apiPage, settings);
+  }
+
+  /**
+   * Add API keys group to the API settings page
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addApiKeysGroup(page, settings) {
+    const apiKeysGroup = new Adw.PreferencesGroup({
+      title: _("API Keys"),
+    });
+    page.add(apiKeysGroup);
+
+    // OpenAI API Key
+    this._addEntryRow(apiKeysGroup, settings, {
+      key: "openai-api-key",
+      title: _("OpenAI API Key"),
+      subtitle: _("Your OpenAI API key for using GPT models"),
+    });
+
+    // Gemini API Key
+    this._addEntryRow(apiKeysGroup, settings, {
+      key: "gemini-api-key",
+      title: _("Gemini API Key"),
+      subtitle: _("Your Gemini API key for using Google's Gemini models"),
+    });
   }
 
   /**
@@ -246,13 +273,6 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       key: "models-api-endpoint",
       title: _("Models API Endpoint"),
       subtitle: _("The URL for fetching available models"),
-    });
-
-    // OpenAI API Key
-    this._addEntryRow(apiSettingsGroup, settings, {
-      key: "openai-api-key",
-      title: _("OpenAI API Key"),
-      subtitle: _("Your OpenAI API key for using GPT models"),
     });
 
     // Default model

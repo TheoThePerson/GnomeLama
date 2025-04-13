@@ -3,13 +3,21 @@
  * Manages Ollama model interactions and streaming responses
  */
 
-import GLib from "gi://GLib";
 import { getSettings } from "../../lib/settings.js";
-import { createCancellableSession, invokeCallback } from "../apiUtils.js";
+import { createCancellableSession } from "../apiUtils.js";
+import {
+  createChunkProcessor,
+  transformApiResponse,
+  sendMessageToAPI as sendToAPI,
+  safelyTerminateSession
+} from "./providerUtils.js";
+import {
+  removeDuplicateModels,
+  sortModels
+} from "./modelUtils.js";
 
 // Module state
 let currentContext = null; // Store the context from previous interactions
-let apiSession = null; // API session handler
 
 /**
  * Resets the current context
@@ -30,10 +38,9 @@ export async function fetchModelNames() {
     const tempSession = createCancellableSession();
     const data = await tempSession.get(endpoint);
 
-    return data.models
-      .map((model) => model.name)
-      .filter((value, index, self) => self.indexOf(value) === index)
-      .sort();
+    // Extract model names, remove duplicates, and sort
+    const modelNames = data.models.map((model) => model.name);
+    return sortModels(removeDuplicateModels(modelNames));
   } catch {
     // Error fetching Ollama model names
     return [];
@@ -59,89 +66,37 @@ function createApiPayload(modelName, messageText, context) {
 }
 
 /**
- * Creates a processor function for API response chunks
- * @param {Function} onData - Callback for streaming data
- * @returns {Function} Chunk processor function
+ * Process JSON from Ollama API responses
+ * @param {Object} json - Parsed JSON from API
+ * @returns {string|null} Processed chunk or null
  */
-function createChunkProcessor(onData) {
-  return async (lineText) => {
-    try {
-      const json = JSON.parse(lineText);
+function processOllamaJson(json) {
+  if (json.context) {
+    currentContext = json.context;
+  }
 
-      if (json.context) {
-        currentContext = json.context;
-      }
-
-      if (json.response) {
-        const chunk = json.response;
-
-        if (onData) {
-          await invokeCallback(onData, chunk);
-        }
-
-        return chunk;
-      }
-    } catch {
-      // Error parsing JSON chunk from Ollama API
-    }
-
-    return null;
-  };
-}
-
-/**
- * Transforms API response to match provider interface
- * @param {Object} requestHandler - Request handler from API session
- * @returns {Object} Provider interface response
- */
-function transformApiResponse(requestHandler) {
-  return {
-    result: requestHandler.result.then((result) => {
-      // Extract just the response text
-      const responseText = result && result.response ? result.response : "";
-
-      // Store context separately but return just the string
-      if (result && result.context) {
-        currentContext = result.context;
-      }
-
-      // Reset the API session once completed successfully
-      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-        apiSession = null;
-        return GLib.SOURCE_REMOVE;
-      });
-
-      return responseText;
-    }),
-    cancel: () => {
-      if (apiSession) {
-        const partial = apiSession.cancelRequest();
-        apiSession = null;
-        return partial;
-      }
-      return "";
-    },
-  };
-}
-
-/**
- * Handle errors during API calls
- * @returns {Object|null} Error response or null to throw
- */
-function handleApiError() {
-  const accumulatedResponse = apiSession
-    ? apiSession.getAccumulatedResponse()
-    : "";
-  apiSession = null;
-
-  if (accumulatedResponse) {
-    return {
-      result: Promise.resolve(accumulatedResponse),
-      cancel: () => accumulatedResponse,
-    };
+  if (json.response) {
+    return json.response;
   }
 
   return null;
+}
+
+/**
+ * Process result from Ollama API
+ * @param {Object} result - API result
+ * @returns {string} Processed response text
+ */
+function processOllamaResult(result) {
+  // Extract just the response text
+  const responseText = result && result.response ? result.response : "";
+
+  // Store context separately but return just the string
+  if (result && result.context) {
+    currentContext = result.context;
+  }
+
+  return responseText;
 }
 
 /**
@@ -151,7 +106,7 @@ function handleApiError() {
  * @param {string} options.modelName - Model to use
  * @param {string} [options.context] - Optional context from previous interactions
  * @param {Function} [options.onData] - Callback for streaming data
- * @returns {Promise<{result: Promise<{response: string, context: string}>, cancel: Function}>} Response promise and cancel function
+ * @returns {Promise<{result: Promise<string>, cancel: Function}>} Response promise and cancel function
  */
 export async function sendMessageToAPI({
   messageText,
@@ -160,32 +115,21 @@ export async function sendMessageToAPI({
   onData,
 }) {
   const settings = getSettings();
-  apiSession = createCancellableSession();
-
-  const payload = createApiPayload(modelName, messageText, context);
   const endpoint = settings.get_string("api-endpoint");
-  const processChunk = createChunkProcessor(onData);
-
-  try {
-    const requestHandler = await apiSession.sendRequest(
-      "POST",
-      endpoint,
-      { "Content-Type": "application/json" },
-      payload,
-      processChunk
-    );
-
-    return transformApiResponse(requestHandler);
-  } catch (error) {
-    // Error sending message to Ollama API
-
-    const errorResponse = handleApiError();
-    if (errorResponse) {
-      return errorResponse;
-    }
-
-    throw error;
-  }
+  const payload = createApiPayload(modelName, messageText, context || currentContext);
+  
+  // Create chunk processor specific to Ollama
+  const processChunk = createChunkProcessor(onData, processOllamaJson);
+  
+  return sendToAPI({
+    method: "POST",
+    endpoint,
+    headers: { "Content-Type": "application/json" },
+    payload,
+    processChunk,
+    transformResponse: (requestHandler) => 
+      transformApiResponse(requestHandler, processOllamaResult)
+  });
 }
 
 /**
@@ -193,13 +137,5 @@ export async function sendMessageToAPI({
  * @returns {string} The accumulated response text so far
  */
 export function stopMessage() {
-  if (!apiSession) {
-    return "";
-  }
-
-  // Cancelling message stream
-  const partialResponse = apiSession.cancelRequest();
-  apiSession = null;
-
-  return partialResponse;
+  return safelyTerminateSession(resetContext);
 }
