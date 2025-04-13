@@ -130,14 +130,14 @@ export const sendMessageToAPI = async ({ messageText, modelName, context = [], o
   
   log(`Prepared ${contents.length} messages for Gemini`);
   
-  // Create the request URL
-  const requestUrl = `${GEMINI_BASE_URL}/models/${actualModel}:generateContent?key=${apiKey}`;
+  // Create the request URL with streamGenerateContent endpoint and SSE parameter
+  const requestUrl = `${GEMINI_BASE_URL}/models/${actualModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
   
   // Create a cancellable session
   const session = createCancellableSession();
   
   // Keep track of accumulated response
-  let accumulatedResponse = "";
+  let fullTextResponse = "";
   
   try {
     const requestHandler = await session.sendRequest(
@@ -150,27 +150,46 @@ export const sendMessageToAPI = async ({ messageText, modelName, context = [], o
           temperature: temperature
         }
       }),
-      // Create a chunk processor function
+      // Create a chunk processor function for SSE format
       (chunk) => {
         try {
           log(`Received chunk: ${chunk.substring(0, 30)}...`);
           
-          // Simply append to accumulated response
-          accumulatedResponse += chunk;
-          
-          // Call onData if provided
-          if (onData && typeof onData === 'function') {
-            // Parse the chunk to extract text content
-            try {
-              const parsed = JSON.parse(chunk);
-              if (parsed.candidates && parsed.candidates[0] && 
-                  parsed.candidates[0].content && parsed.candidates[0].content.parts && 
-                  parsed.candidates[0].content.parts[0]) {
-                onData(parsed.candidates[0].content.parts[0].text);
+          // Process SSE formatted data - each line starts with "data: "
+          if (chunk.includes("data: ")) {
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                // Skip "[DONE]" messages
+                if (line === "data: [DONE]") continue;
+                
+                try {
+                  // Extract the JSON data
+                  const data = line.substring(6); // Remove "data: " prefix
+                  const parsed = JSON.parse(data);
+                  
+                  // Check if we have content to extract
+                  if (parsed.candidates && 
+                      parsed.candidates[0] && 
+                      parsed.candidates[0].content && 
+                      parsed.candidates[0].content.parts && 
+                      parsed.candidates[0].content.parts[0] && 
+                      parsed.candidates[0].content.parts[0].text) {
+                    
+                    const textChunk = parsed.candidates[0].content.parts[0].text;
+                    // Accumulate the clean text response
+                    fullTextResponse += textChunk;
+                    
+                    // Send the text part to the callback
+                    if (onData && typeof onData === 'function') {
+                      // Trim any trailing newlines to avoid extra spacing
+                      onData(textChunk.replace(/\n+$/, ""));
+                    }
+                  }
+                } catch (parseError) {
+                  log(`Error parsing SSE data: ${parseError.message}`);
+                }
               }
-            } catch (parseError) {
-              // If parse fails, just send the raw chunk
-              onData(chunk);
             }
           }
         } catch (error) {
@@ -182,17 +201,22 @@ export const sendMessageToAPI = async ({ messageText, modelName, context = [], o
     );
     
     return {
-      result: requestHandler.result.then((result) => {
+      result: requestHandler.result.then(() => {
         try {
-          // Parse the response if needed
-          if (typeof result === 'string') {
-            try {
-              return JSON.parse(result);
-            } catch (e) {
-              return result;
-            }
-          }
-          return result;
+          log("Request completed, processing final result");
+          // Trim trailing newlines from the full response before returning
+          const cleanResponse = fullTextResponse.replace(/\n+$/, "");
+          // For OpenAI compatibility, structure response similar to OpenAI format
+          // This matches what the history processor expects
+          return {
+            choices: [
+              {
+                message: {
+                  content: cleanResponse
+                }
+              }
+            ]
+          };
         } finally {
           // Always clean up
           log("Request completed");
@@ -201,7 +225,18 @@ export const sendMessageToAPI = async ({ messageText, modelName, context = [], o
       cancel: () => {
         log("Cancelling request");
         session.cancel();
-        return accumulatedResponse;
+        // Trim trailing newlines from the full response before returning
+        const cleanResponse = fullTextResponse.replace(/\n+$/, "");
+        // Return properly formatted response for history with what we've collected so far
+        return {
+          choices: [
+            {
+              message: {
+                content: cleanResponse
+              }
+            }
+          ]
+        };
       }
     };
   } catch (error) {
