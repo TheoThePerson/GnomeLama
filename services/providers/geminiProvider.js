@@ -3,6 +3,7 @@
  */
 import { createChatProvider } from "../utils/providers/providerFactory.js";
 import { removeDuplicateModels, sortModels } from "../utils/modelProcessing/modelUtils.js";
+import { processGeminiModels } from "../utils/modelProcessing/geminiModelFilter.js";
 import { createCancellableSession } from "../apiUtils.js";
 import { getSettings } from "../../lib/settings.js";
 
@@ -46,12 +47,18 @@ function getApiKey(settings) {
   return apiKey;
 }
 
-/**
- * Custom implementation for fetching model names since Gemini uses a different format
- * than what providerFactory assumes
- */
-async function fetchModelNamesImpl() {
-  log("Fetching Gemini models directly...");
+// Create the provider using the factory - but we'll override fetchModelNames with our custom implementation
+const provider = createChatProvider({
+  modelsEndpoint: GEMINI_MODELS_URL,
+  apiEndpoint: GEMINI_API_URL,
+  getApiKey,
+  processModels: processGeminiModels,
+  recordError
+});
+
+// We need to override the fetchModelNames function because Gemini API requires the API key as a query parameter
+export const fetchModelNames = async () => {
+  log("Fetching Gemini models...");
   const settings = getSettings();
   const apiKey = getApiKey(settings);
   
@@ -70,17 +77,9 @@ async function fetchModelNamesImpl() {
     
     log(`Received response: ${JSON.stringify(data).substring(0, 200)}...`);
     
-    // Process the models
+    // Use the processGeminiModels function to filter the models
     if (data && data.models) {
-      // Add a prefix to distinguish Gemini models
-      const modelNames = data.models.map(model => {
-        // The name comes in form 'models/gemini-1.0-pro' - we need to extract the model name
-        const modelName = model.name.replace(/^models\//, '');
-        return `gemini:${modelName}`;
-      });
-      
-      log(`Found ${modelNames.length} Gemini models`);
-      return sortModels(removeDuplicateModels(modelNames));
+      return processGeminiModels(data.models);
     } else {
       recordError("Invalid or unexpected Gemini models data format");
       log(`Data received: ${JSON.stringify(data)}`);
@@ -91,14 +90,10 @@ async function fetchModelNamesImpl() {
     log(`Stack: ${error.stack}`);
     return [];
   }
-}
+};
 
-/**
- * Custom implementation for sending messages to Gemini API
- * @param {Object} options - Options for sending messages
- * @returns {Object} Object with result promise and cancel function
- */
-async function sendMessageToAPIImpl({ messageText, modelName, context = [], onData }) {
+// We need a custom implementation for sendMessage as well due to Gemini's specific API format
+export const sendMessageToAPI = async ({ messageText, modelName, context = [], onData }) => {
   log(`Sending message to Gemini model: ${modelName}`);
   
   const settings = getSettings();
@@ -213,126 +208,11 @@ async function sendMessageToAPIImpl({ messageText, modelName, context = [], onDa
     recordError(`Error in sendMessageToAPI: ${error.message}`);
     throw error;
   }
-}
+};
 
-/**
- * Process Gemini model data
- * @param {Object} data - API response data
- * @returns {Array} Processed model names
- */
-function processGeminiModels(data) {
-  log(`Processing Gemini models response`);
-  
-  try {
-    // Extract model names if data has the expected structure
-    if (data && Array.isArray(data.models)) {
-      // Add a prefix to distinguish Gemini models
-      const modelNames = data.models.map(model => {
-        // The name comes in form 'models/gemini-1.0-pro' - we need to extract the model name
-        const modelName = model.name.replace(/^models\//, '');
-        return `gemini:${modelName}`;
-      });
-      
-      log(`Found ${modelNames.length} Gemini models`);
-      return sortModels(removeDuplicateModels(modelNames));
-    } else {
-      recordError("Invalid or unexpected Gemini models data format");
-      console.log("Gemini models data:", JSON.stringify(data));
-      return [];
-    }
-  } catch (error) {
-    recordError(`Error processing Gemini models: ${error.message}`);
-    return [];
-  }
-}
-
-/**
- * Custom request formatter for Gemini API
- * @param {Object} options - Request options
- * @returns {Object} Formatted request
- */
-function formatRequest(options) {
-  log(`Formatting request for model: ${options.model}`);
-  
-  const { messages, model, settings } = options;
-  
-  // Remove the gemini: prefix if present
-  const actualModel = model.replace(/^gemini:/, '');
-  
-  // Convert messages array to Gemini format
-  const contents = messages.map(msg => ({
-    parts: [{ text: msg.content || msg.text }],
-    role: msg.role === 'assistant' ? 'model' : 'user'
-  }));
-  
-  log(`Prepared ${contents.length} messages for Gemini`);
-  
-  // Build the request URL with API key
-  const apiKey = getApiKey(settings);
-  const requestUrl = `${GEMINI_BASE_URL}/models/${actualModel}:generateContent?key=${apiKey}`;
-  
-  return {
-    url: requestUrl,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents })
-  };
-}
-
-/**
- * Parse Gemini response to standard format
- * @param {Object} response - API response
- * @returns {Object} Standardized response
- */
-function parseResponse(response) {
-  log(`Parsing Gemini response`);
-  
-  try {
-    if (!response || !response.candidates || !response.candidates[0]) {
-      recordError("Invalid Gemini response structure");
-      return { text: "Error processing response from Gemini", finish_reason: "error" };
-    }
-    
-    const candidate = response.candidates[0];
-    const content = candidate.content;
-    
-    if (!content || !content.parts || !content.parts[0]) {
-      recordError("Missing content in Gemini response");
-      return { text: "Empty response from Gemini", finish_reason: "error" };
-    }
-    
-    return {
-      text: content.parts[0].text,
-      finish_reason: candidate.finishReason || "stop"
-    };
-  } catch (error) {
-    recordError(`Error parsing Gemini response: ${error.message}`);
-    return { text: "Error processing response", finish_reason: "error" };
-  }
-}
-
-// Create the provider using the factory for other functions
-// but not for sendMessageToAPI
-const provider = createChatProvider({
-  modelsEndpoint: GEMINI_MODELS_URL,
-  apiEndpoint: GEMINI_API_URL,
-  formatRequest,
-  parseResponse,
-  getApiKey,
-  processModels: processGeminiModels,
-  recordError,
-  log
-});
-
-// Export the custom implementation for sendMessageToAPI
-export const sendMessageToAPI = sendMessageToAPIImpl;
-
-// Export other functions from the provider
+// Export Gemini provider functions
 export const stopMessage = provider.stopMessage;
-export const resetContext = provider.resetContext;
-
-// Use our custom implementation for fetchModelNames
-export const fetchModelNames = fetchModelNamesImpl;
+export const isModelSupported = provider.isModelSupported;
 
 // Export a function to check if a model is from Gemini
 export function isGeminiModel(modelName) {
