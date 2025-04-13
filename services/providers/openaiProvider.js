@@ -2,7 +2,7 @@
  * OpenAI provider using the updated provider factory
  */
 import { createChatProvider } from "../utils/providers/providerFactory.js";
-import { processOpenAIModels } from "../utils/models/openaiModelFilter.js";
+import { processOpenAIModels } from "../utils/modelProcessing/openaiModelFilter.js";
 
 // API endpoints
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";

@@ -2,7 +2,7 @@
  * Ollama provider using the updated provider factory
  */
 import { createCompletionProvider } from "../utils/providers/providerFactory.js";
-import { removeDuplicateModels, sortModels } from "../utils/models/modelUtils.js";
+import { removeDuplicateModels, sortModels } from "../utils/modelProcessing/modelUtils.js";
 
 // Module state
 const errorMessages = [];

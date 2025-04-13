@@ -11,7 +11,7 @@
  * @param {Object} [options.extraParams={}] - Additional provider-specific params
  * @returns {string} JSON payload string
  */
-export function createGenericPayload(options) {
+function createGenericPayload(options) {
   const {
     modelName,
     temperature,

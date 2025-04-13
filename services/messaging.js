@@ -5,7 +5,7 @@ import GLib from "gi://GLib";
 import { getSettings } from "../lib/settings.js";
 import * as ollamaProvider from "./providers/ollamaProvider.js";
 import * as openaiProvider from "./providers/openaiProvider.js";
-import { processOpenAIModels } from "./utils/models/openaiModelFilter.js";
+import { processOpenAIModels } from "./utils/modelProcessing/openaiModelFilter.js";
 
 let conversationHistory = [];
 let currentModel = null;
