@@ -36,6 +36,7 @@ export function createMessageContainer(text, isUser, alignment) {
     };`,
     x_align: alignment,
     vertical: true,
+    x_expand: true
   });
 
   // Check if the text contains the files attached marker
@@ -46,7 +47,7 @@ export function createMessageContainer(text, isUser, alignment) {
     // Create a container for text and tag
     const contentBox = new St.BoxLayout({
       vertical: false,
-      x_expand: true,
+      x_expand: true
     });
 
     // Create label with text content
@@ -54,7 +55,7 @@ export function createMessageContainer(text, isUser, alignment) {
       text: displayText,
       style_class: "text-label",
       style: "padding: 0; margin: 0;",
-      x_expand: true,
+      x_expand: true
     });
 
     label.clutter_text.set_line_wrap(true);
@@ -65,7 +66,7 @@ export function createMessageContainer(text, isUser, alignment) {
     const filesTag = new St.Label({
       text: "Files Attached",
       style_class: "files-attached-tag",
-      y_align: Clutter.ActorAlign.CENTER,
+      y_align: Clutter.ActorAlign.CENTER
     });
 
     contentBox.add_child(label);
@@ -77,7 +78,7 @@ export function createMessageContainer(text, isUser, alignment) {
       text,
       style_class: "text-label",
       style: "padding: 0; margin: 0;",
-      x_expand: true,
+      x_expand: true
     });
 
     label.clutter_text.set_line_wrap(true);

@@ -315,7 +315,7 @@ export function createResponseContainer(bgColor) {
     style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 6px;`,
     x_align: Clutter.ActorAlign.START,
     vertical: true,
-    x_expand: true,
+    x_expand: true
   });
 }
 

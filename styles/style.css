@@ -79,13 +79,23 @@
 }
 
 .user-message {
-  background-color: #2c5d85  ;
-  border-radius: 24px 24px 12px 24px  ; /* More rounded corners */
+  background-color: #2c5d85;
+  border-radius: 24px 24px 12px 24px; /* More rounded corners */
 }
 
 .ai-message {
-  background-color: #4a4a4a  ;
-  border-radius: 24px 24px 24px 12px  ; /* More rounded corners */
+  background-color: #4a4a4a;
+  border-radius: 24px 24px 24px 12px; /* More rounded corners */
+  min-height: min-content;
+}
+
+/* Ensure text labels maintain their natural height */
+.text-label {
+  padding: 0;
+  margin: 0;
+  white-space: normal;
+  line-height: 1.4;
+  min-height: min-content;
 }
 
 /* Input field styles */
@@ -185,13 +195,6 @@
 }
 
 /* Text styles */
-.text-label {
-  padding: 0;
-  margin: 0;
-  white-space: normal;
-  line-height: 1.4;
-}
-
 .temporary-message {
   padding: 8px 12px;
   margin: 5px 0;

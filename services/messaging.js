@@ -225,9 +225,9 @@ async function sendApiRequest({
     cancelCurrentRequest();
   }
 
-  // For OpenAI, use the conversation history directly
+  // For OpenAI and Gemini, use the conversation history directly
   // For Ollama, use contextToUse parameter or let the provider handle context
-  const context = provider === openaiProvider ? 
+  const context = (provider === openaiProvider || provider === geminiProvider) ? 
     conversationHistory : 
     contextToUse;
 
@@ -285,13 +285,6 @@ export async function sendMessage({
   debugLog(`Starting message to model: ${currentModel}`);
 
   try {
-    const provider = getProviderForModel(currentModel);
-    let providerName = 'Ollama';
-    if (provider === openaiProvider) providerName = 'OpenAI';
-    if (provider === geminiProvider) providerName = 'Gemini';
-    
-    debugLog(`Using provider: ${providerName}`);
-    
     const asyncOnData = (data) => {
       responseText += data;
       debugLog(`Received chunk: ${data.substring(0, 20)}...`);
@@ -304,7 +297,15 @@ export async function sendMessage({
       }
     };
 
-    const contextToUse = context || (provider === openaiProvider ? conversationHistory : null);
+    // Create proper context based on provider
+    const provider = getProviderForModel(currentModel);
+    let providerName = 'Ollama';
+    if (provider === openaiProvider) providerName = 'OpenAI';
+    if (provider === geminiProvider) providerName = 'Gemini';
+    
+    debugLog(`Using provider: ${providerName}`);
+    
+    const contextToUse = context || ((provider === openaiProvider || provider === geminiProvider) ? conversationHistory : null);
     debugLog(`Context length: ${contextToUse ? contextToUse.length : 0}`);
     
     const result = await sendApiRequest({

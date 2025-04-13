@@ -139,6 +139,7 @@ export function updateResponseContainer(container, responseText) {
   const contentContainer = new St.BoxLayout({
     vertical: true,
     x_expand: true,
+    style: "min-height: auto;"
   });
 
   const paragraphs = [];
