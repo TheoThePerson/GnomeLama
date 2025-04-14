@@ -13,10 +13,6 @@ import {
   createSSEProcessor,
   processGenericResult
 } from "../api/responseProcessors.js";
-import { 
-  extractOpenAIContent, 
-  extractOllamaContent 
-} from "../api/contentExtractors.js";
 import { validateMessages } from "../modelProcessing/formatters.js";
 import { prepareBasicMessages } from "../modelProcessing/formatters.js";
 
@@ -29,9 +25,13 @@ export function createChatProvider(options) {
   const {
     modelsEndpoint,
     apiEndpoint,
-    getApiKey,
     processModels,
-    recordError
+    recordError,
+    extractContent,
+    createPayload = createChatPayload,
+    createHeaders = () => ({ "Content-Type": "application/json" }),
+    getEndpoint = () => apiEndpoint,
+    fetchModels
   } = options;
   
   let availableModels = [];
@@ -39,21 +39,18 @@ export function createChatProvider(options) {
   
   return {
     fetchModelNames: async () => {
-      const settings = getSettings();
-      const apiKey = getApiKey(settings);
-      
-      if (!apiKey) {
-        if (recordError) recordError("API key not configured");
-        return [];
-      }
-      
       try {
+        if (fetchModels) {
+          // Use provider's custom fetch method if provided
+          availableModels = await fetchModels();
+          return availableModels;
+        }
+
+        // Default implementation
         const tempSession = createCancellableSession();
-        const data = await tempSession.get(modelsEndpoint, {
-          Authorization: `Bearer ${apiKey}`
-        });
+        const data = await tempSession.get(modelsEndpoint);
         
-        availableModels = processModels(data.data);
+        availableModels = processModels(data);
         return availableModels;
       } catch (error) {
         if (recordError) {
@@ -69,13 +66,7 @@ export function createChatProvider(options) {
     
     sendMessageToAPI: async ({ messageText, modelName, context = [], onData }) => {
       const settings = getSettings();
-      const apiKey = getApiKey(settings);
       const temperature = settings.get_double("temperature");
-      
-      if (!apiKey) {
-        if (recordError) recordError("API key not configured");
-        throw new Error("API key not configured");
-      }
       
       // For debugging purposes
       console.log(`Chat provider sending message with model ${modelName}, context length: ${context.length}`);
@@ -91,7 +82,7 @@ export function createChatProvider(options) {
       const messages = prepareBasicMessages(messageText, context);
       
       // Create the payload
-      const payload = createChatPayload({
+      const payload = createPayload({
         modelName,
         messages,
         temperature,
@@ -99,20 +90,21 @@ export function createChatProvider(options) {
         recordError
       });
       
+      // Get endpoint and headers
+      const endpoint = getEndpoint({ modelName, settings });
+      const headers = createHeaders(settings);
+      
       // Create the chunk processor
       const processChunk = createSSEProcessor({
         onData,
-        extractContent: extractOpenAIContent
+        extractContent
       });
       
       try {
         const requestHandler = await session.sendRequest(
           "POST",
-          apiEndpoint,
-          {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`
-          },
+          endpoint,
+          headers,
           payload,
           processChunk
         );
@@ -159,7 +151,9 @@ export function createCompletionProvider(options) {
     modelsEndpoint,
     apiEndpoint,
     processModels,
-    recordError
+    recordError,
+    extractContent,
+    fetchModels
   } = options;
   
   const contextManager = new ContextManager();
@@ -170,6 +164,12 @@ export function createCompletionProvider(options) {
     
     fetchModelNames: async () => {
       try {
+        if (fetchModels) {
+          // Use provider's custom fetch method if provided
+          return await fetchModels();
+        }
+
+        // Default implementation
         const settings = getSettings();
         const endpoint = modelsEndpoint || settings.get_string("models-api-endpoint");
         
@@ -208,14 +208,11 @@ export function createCompletionProvider(options) {
         context: currentContext
       });
       
-      // Create the content extractor with context update callback
-      const extractContent = (json) => 
-        extractOllamaContent(json, (newContext) => contextManager.setContext(newContext));
-      
-      // Create chunk processor
+      // Create chunk processor with context update callback
+      const contextUpdateCallback = (newContext) => contextManager.setContext(newContext);
       const processChunk = createBasicChunkProcessor({
         onData,
-        extractContent
+        extractContent: (json) => extractContent(json, contextUpdateCallback)
       });
       
       try {
@@ -229,8 +226,7 @@ export function createCompletionProvider(options) {
         
         return {
           result: requestHandler.result.then((result) => {
-            const processed = processGenericResult(result, 
-              (newContext) => contextManager.setContext(newContext));
+            const processed = processGenericResult(result, contextUpdateCallback);
             
             // Reset the session when done
             sessionManager.terminateSession();

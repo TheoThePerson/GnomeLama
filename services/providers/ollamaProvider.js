@@ -3,6 +3,8 @@
  */
 import { createCompletionProvider } from "../utils/providers/providerFactory.js";
 import { removeDuplicateModels, sortModels } from "../utils/modelProcessing/modelUtils.js";
+import { getSettings } from "../../lib/settings.js";
+import { createCancellableSession } from "../apiUtils.js";
 
 // Module state
 const errorMessages = [];
@@ -26,10 +28,54 @@ function processOllamaModels(data) {
   return sortModels(removeDuplicateModels(modelNames));
 }
 
+/**
+ * Extracts content from Ollama API response chunks
+ * @param {Object} json - Ollama response JSON
+ * @param {Function} [contextCallback] - Callback for context updates
+ * @returns {string|null} Content text or null
+ */
+function extractOllamaContent(json, contextCallback = null) {
+  if (json.context && contextCallback) {
+    contextCallback(json.context);
+  }
+  
+  if (json.response) {
+    return json.response;
+  }
+  
+  return null;
+}
+
+/**
+ * Fetches Ollama model names
+ * @returns {Array} List of available model names
+ */
+async function fetchOllamaModels() {
+  try {
+    const settings = getSettings();
+    const endpoint = settings.get_string("models-api-endpoint");
+    
+    const tempSession = createCancellableSession();
+    const data = await tempSession.get(endpoint);
+    
+    if (data && data.models) {
+      return processOllamaModels(data);
+    }
+    
+    recordError("Invalid data format");
+    return [];
+  } catch (error) {
+    recordError(`Error fetching models: ${error.message || "Unknown error"}`);
+    return [];
+  }
+}
+
 // Create the provider using the factory
 const provider = createCompletionProvider({
   processModels: processOllamaModels,
-  recordError
+  recordError,
+  extractContent: extractOllamaContent,
+  fetchModels: fetchOllamaModels
 });
 
 // Export the provider interface

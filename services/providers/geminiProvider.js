@@ -3,19 +3,17 @@
  */
 import { createChatProvider } from "../utils/providers/providerFactory.js";
 import { processGeminiModels } from "../utils/modelProcessing/geminiModelFilter.js";
-import { createCancellableSession } from "../apiUtils.js";
 import { getSettings } from "../../lib/settings.js";
-import { createSSEProcessor } from "../utils/api/responseProcessors.js";
-import { SessionManager } from "../utils/api/sessionUtils.js";
+import { createCancellableSession } from "../apiUtils.js";
 
 // API endpoints
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_MODELS_URL = `${GEMINI_BASE_URL}/models`;
-const GEMINI_API_URL = `${GEMINI_BASE_URL}/models/`;
+const GEMINI_CHAT_ENDPOINT = (model, apiKey) => 
+  `${GEMINI_BASE_URL}/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
 // Module state
 const errorMessages = [];
-const sessionManager = new SessionManager();
 
 /**
  * Records errors for later reporting
@@ -62,35 +60,6 @@ function extractGeminiContent(json) {
 }
 
 /**
- * Prepares a conversation context in Gemini API format
- * @param {string} messageText - Current message text
- * @param {Array} context - Previous conversation context
- * @returns {Array} Formatted messages for Gemini API
- */
-function prepareGeminiMessages(messageText, context = []) {
-  let contents = [];
-  
-  // Add context if available
-  if (context && Array.isArray(context)) {
-    for (const msg of context) {
-      const role = msg.type === 'assistant' ? 'model' : 'user';
-      contents.push({
-        role: role,
-        parts: [{ text: msg.text }]
-      });
-    }
-  }
-  
-  // Add the current message
-  contents.push({
-    role: 'user',
-    parts: [{ text: messageText }]
-  });
-  
-  return contents;
-}
-
-/**
  * Fetches Gemini model names using API key as query parameter
  * @returns {Array} List of available model names
  */
@@ -120,97 +89,72 @@ async function fetchGeminiModels() {
 }
 
 /**
- * Sends a message to the Gemini API
- * @param {Object} options - Message options
- * @returns {Object} Request handler with result and cancel functions
+ * Create a custom payload for Gemini's API format
+ * @param {Object} params - Parameters including messages and temperature
+ * @returns {string} JSON payload as string
  */
-async function sendGeminiMessage({ messageText, modelName, context = [], onData }) {
-  const settings = getSettings();
+function createGeminiPayload(params) {
+  const { messages, temperature } = params;
+  
+  // Convert messages to Gemini format
+  let contents = [];
+  for (const msg of messages) {
+    const role = msg.role === 'assistant' ? 'model' : 'user';
+    contents.push({
+      role: role,
+      parts: [{ text: msg.content }]
+    });
+  }
+  
+  return JSON.stringify({
+    contents,
+    generationConfig: { temperature }
+  });
+}
+
+/**
+ * Custom headers builder for Gemini API that doesn't need Authorization header
+ * @returns {Object} Headers for Gemini API
+ */
+function createGeminiHeaders() {
+  return { "Content-Type": "application/json" };
+}
+
+/**
+ * Custom endpoint builder for Gemini API
+ * @param {Object} params - Parameters including model and settings
+ * @returns {string} Endpoint URL for Gemini API
+ */
+function getGeminiEndpoint(params) {
+  const { modelName, settings } = params;
   const apiKey = getApiKey(settings);
-  const temperature = settings.get_double("temperature");
   
   if (!apiKey) {
     recordError("API key not configured");
     throw new Error("API key not configured");
   }
   
-  // Clean up any existing session
-  sessionManager.terminateSession();
-  
   // Remove the gemini: prefix if present
   const actualModel = modelName.replace(/^gemini:/, '');
-  
-  // Convert context to Gemini format
-  const contents = prepareGeminiMessages(messageText, context);
-  
-  // Create the request URL with streamGenerateContent endpoint and SSE parameter
-  const requestUrl = `${GEMINI_BASE_URL}/models/${actualModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
-  
-  // Create a session and configure SSE processing
-  const session = createCancellableSession();
-  sessionManager.setSession(session);
-  
-  const processChunk = createSSEProcessor({
-    onData,
-    extractContent: extractGeminiContent
-  });
-  
-  try {
-    const requestHandler = await session.sendRequest(
-      "POST",
-      requestUrl,
-      { "Content-Type": "application/json" },
-      JSON.stringify({ 
-        contents,
-        generationConfig: { temperature }
-      }),
-      processChunk
-    );
-    
-    return {
-      result: requestHandler.result.then(result => {
-        sessionManager.terminateSession();
-        return result;
-      }),
-      cancel: () => sessionManager.terminateSession()
-    };
-  } catch (error) {
-    const accumulatedResponse = sessionManager.getAccumulatedResponse();
-    sessionManager.terminateSession();
-    
-    if (accumulatedResponse) {
-      return {
-        result: Promise.resolve(accumulatedResponse),
-        cancel: () => {}
-      };
-    }
-    
-    recordError(`Error: ${error.message}`);
-    throw error;
-  }
+  return GEMINI_CHAT_ENDPOINT(actualModel, apiKey);
 }
 
-/**
- * Stops the current message generation
- * @returns {string|null} Any accumulated response before stopping
- */
-function stopGeminiMessage() {
-  return sessionManager.terminateSession();
-}
-
-// Create the base provider
+// Create the provider using the factory
 const provider = createChatProvider({
   modelsEndpoint: GEMINI_MODELS_URL,
-  apiEndpoint: GEMINI_API_URL,
-  getApiKey,
   processModels: processGeminiModels,
-  recordError
+  recordError,
+  extractContent: extractGeminiContent,
+  createPayload: createGeminiPayload,
+  createHeaders: createGeminiHeaders,
+  getEndpoint: getGeminiEndpoint,
+  fetchModels: fetchGeminiModels
 });
 
 // Export the provider interface
-export const fetchModelNames = fetchGeminiModels;
-export const sendMessageToAPI = sendGeminiMessage;
-export const stopMessage = stopGeminiMessage;
+export const fetchModelNames = provider.fetchModelNames;
+export const sendMessageToAPI = provider.sendMessageToAPI;
+export const stopMessage = provider.stopMessage;
 export const isModelSupported = provider.isModelSupported;
 
 // Export a function to check if a model is from Gemini
