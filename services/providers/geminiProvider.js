@@ -16,11 +16,24 @@ const GEMINI_CHAT_ENDPOINT = (model, apiKey) =>
 const errorMessages = [];
 
 /**
- * Records errors for later reporting
+ * Records detailed errors for later reporting
  * @param {string} message - Error message to record
+ * @param {Object} [details] - Additional error details
+ * @param {string} [source] - Source of the error
  */
-function recordError(message) {
-  errorMessages.push(message);
+function recordError(message, details = null, source = 'Gemini Provider') {
+  const timestamp = new Date().toISOString();
+  const formattedMessage = `[${timestamp}] [${source}] ${message}`;
+  
+  if (details) {
+    if (details instanceof Error) {
+      errorMessages.push(`${formattedMessage}: ${details.message}\n${details.stack || ''}`);
+    } else {
+      errorMessages.push(`${formattedMessage}: ${JSON.stringify(details)}`);
+    }
+  } else {
+    errorMessages.push(formattedMessage);
+  }
 }
 
 /**
@@ -29,7 +42,11 @@ function recordError(message) {
  * @returns {string} API key
  */
 function getApiKey(settings) {
-  return settings.get_string("gemini-api-key");
+  const apiKey = settings.get_string("gemini-api-key");
+  if (!apiKey) {
+    recordError("Gemini API key not configured", null, "Configuration");
+  }
+  return apiKey;
 }
 
 /**
@@ -52,7 +69,13 @@ function extractGeminiContent(json) {
   
   // Check for errors
   if (json.error) {
-    recordError(`Gemini API error: ${json.error.message || "Unknown error"}`);
+    const errorType = json.error.status || "Unknown";
+    const errorCode = json.error.code || "N/A";
+    recordError(
+      `Gemini API error: ${json.error.message || "Unknown error"}`,
+      { type: errorType, code: errorCode, details: json.error },
+      "API Response"
+    );
     return json.error.message || "Error from Gemini API";
   }
   
@@ -68,7 +91,7 @@ async function fetchGeminiModels() {
   const apiKey = getApiKey(settings);
   
   if (!apiKey) {
-    recordError("API key not configured");
+    recordError("Cannot fetch models - API key not configured", null, "Model Fetch");
     return [];
   }
   
@@ -80,10 +103,19 @@ async function fetchGeminiModels() {
     if (data && data.models) {
       return processGeminiModels(data.models);
     }
-    recordError("Invalid data format");
+    
+    recordError(
+      "Invalid data format when fetching models",
+      { received: data },
+      "Model Fetch"
+    );
     return [];
   } catch (error) {
-    recordError(`Error fetching models: ${error.message || "Unknown error"}`);
+    recordError(
+      `Error fetching Gemini models: ${error.message || "Unknown error"}`,
+      error,
+      "Model Fetch"
+    );
     return [];
   }
 }
@@ -98,18 +130,27 @@ function createGeminiPayload(params) {
   
   // Convert messages to Gemini format
   let contents = [];
-  for (const msg of messages) {
-    const role = msg.role === 'assistant' ? 'model' : 'user';
-    contents.push({
-      role: role,
-      parts: [{ text: msg.content }]
+  try {
+    for (const msg of messages) {
+      const role = msg.role === 'assistant' ? 'model' : 'user';
+      contents.push({
+        role: role,
+        parts: [{ text: msg.content }]
+      });
+    }
+    
+    return JSON.stringify({
+      contents,
+      generationConfig: { temperature }
     });
+  } catch (error) {
+    recordError(
+      `Error creating Gemini payload: ${error.message}`,
+      { messages, temperature, error },
+      "Payload Creation"
+    );
+    throw error;
   }
-  
-  return JSON.stringify({
-    contents,
-    generationConfig: { temperature }
-  });
 }
 
 /**
@@ -130,13 +171,22 @@ function getGeminiEndpoint(params) {
   const apiKey = getApiKey(settings);
   
   if (!apiKey) {
-    recordError("API key not configured");
+    recordError("Cannot create endpoint - API key not configured", null, "Request Setup");
     throw new Error("API key not configured");
   }
   
   // Remove the gemini: prefix if present
-  const actualModel = modelName.replace(/^gemini:/, '');
-  return GEMINI_CHAT_ENDPOINT(actualModel, apiKey);
+  try {
+    const actualModel = modelName.replace(/^gemini:/, '');
+    return GEMINI_CHAT_ENDPOINT(actualModel, apiKey);
+  } catch (error) {
+    recordError(
+      `Error creating Gemini endpoint: ${error.message}`,
+      { modelName, error },
+      "Request Setup"
+    );
+    throw error;
+  }
 }
 
 // Create the provider using the factory

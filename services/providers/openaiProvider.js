@@ -14,11 +14,24 @@ const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
 const errorMessages = [];
 
 /**
- * Records errors without console.log for later reporting
+ * Records detailed errors for later reporting
  * @param {string} message - Error message to record
+ * @param {Object} [details] - Additional error details
+ * @param {string} [source] - Source of the error
  */
-function recordError(message) {
-  errorMessages.push(message);
+function recordError(message, details = null, source = 'OpenAI Provider') {
+  const timestamp = new Date().toISOString();
+  const formattedMessage = `[${timestamp}] [${source}] ${message}`;
+  
+  if (details) {
+    if (details instanceof Error) {
+      errorMessages.push(`${formattedMessage}: ${details.message}\n${details.stack || ''}`);
+    } else {
+      errorMessages.push(`${formattedMessage}: ${JSON.stringify(details)}`);
+    }
+  } else {
+    errorMessages.push(formattedMessage);
+  }
 }
 
 /**
@@ -27,7 +40,11 @@ function recordError(message) {
  * @returns {string} API key
  */
 function getApiKey(settings) {
-  return settings.get_string("openai-api-key");
+  const apiKey = settings.get_string("openai-api-key");
+  if (!apiKey) {
+    recordError("OpenAI API key not configured", null, "Configuration");
+  }
+  return apiKey;
 }
 
 /**
@@ -46,7 +63,13 @@ function extractOpenAIContent(json) {
   
   // Check for errors in the response
   if (json.error) {
-    recordError(`OpenAI API error: ${json.error.message || "Unknown error"}`);
+    const errorType = json.error.type || "Unknown";
+    const errorCode = json.error.code || "N/A";
+    recordError(
+      `OpenAI API error: ${json.error.message || "Unknown error"}`,
+      { type: errorType, code: errorCode, details: json.error },
+      "API Response"
+    );
     return json.error.message || "Error from OpenAI API";
   }
   
@@ -62,7 +85,7 @@ async function fetchOpenAIModels() {
   const apiKey = getApiKey(settings);
   
   if (!apiKey) {
-    recordError("API key not configured");
+    recordError("Cannot fetch models - API key not configured", null, "Model Fetch");
     return [];
   }
   
@@ -75,10 +98,19 @@ async function fetchOpenAIModels() {
     if (data && data.data) {
       return processOpenAIModels(data.data);
     }
-    recordError("Invalid data format");
+    
+    recordError(
+      "Invalid data format when fetching models",
+      { received: data },
+      "Model Fetch"
+    );
     return [];
   } catch (error) {
-    recordError(`Error fetching models: ${error.message || "Unknown error"}`);
+    recordError(
+      `Error fetching OpenAI models: ${error.message || "Unknown error"}`,
+      error,
+      "Model Fetch"
+    );
     return [];
   }
 }
@@ -92,7 +124,7 @@ function createOpenAIHeaders(settings) {
   const apiKey = getApiKey(settings);
   
   if (!apiKey) {
-    recordError("API key not configured");
+    recordError("Cannot create headers - API key not configured", null, "Request Setup");
     throw new Error("API key not configured");
   }
   

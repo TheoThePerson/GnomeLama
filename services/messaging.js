@@ -196,16 +196,21 @@ function handleApiError(error, asyncOnData) {
   const provider = getProviderForModel(currentModel);
   let errorMessage;
   
+  // Include model information and more context in error messages
   if (provider === openaiProvider) {
-    errorMessage = "Error communicating with OpenAI. Please check your API key in settings.";
+    errorMessage = `Error communicating with OpenAI (model: ${currentModel || "unknown"}). ${error.message || "Please check your API key in settings."}`;
   } else if (provider === geminiProvider) {
-    errorMessage = "Error communicating with Gemini. Please check your API key in settings.";
+    errorMessage = `Error communicating with Gemini (model: ${currentModel || "unknown"}). ${error.message || "Please check your API key in settings."}`;
   } else {
-    errorMessage = "Error communicating with Ollama. Please check if Ollama is installed and running.";
+    errorMessage = `Error communicating with Ollama (model: ${currentModel || "unknown"}). ${error.message || "Please check if Ollama is installed and running."}`;
   }
 
+  debugLog("API Error:", { error: error.message, model: currentModel, stack: error.stack });
+  
+  // Set lastError for temporary message display but don't use asyncOnData 
+  // which would put the error in a message bubble
   lastError = errorMessage;
-  if (asyncOnData) asyncOnData(errorMessage);
+  
   return errorMessage;
 }
 
@@ -248,7 +253,7 @@ async function sendApiRequest({
  * @param {string} options.message - The message to send
  * @param {string} [options.context] - Optional conversation context
  * @param {Function} [options.onData] - Callback function for streaming response
- * @param {string} [options.displayMessage] - Optional simplified message for history
+ * @param {Function} [options.displayMessage] - Optional simplified message for history
  * @returns {Promise<string>} The complete response
  */
 export async function sendMessage({
@@ -286,6 +291,11 @@ export async function sendMessage({
 
   try {
     const asyncOnData = (data) => {
+      // Ensure data is valid and not an error message that should be a temporary message
+      if (!data || typeof data !== 'string' || data.includes("Error communicating with")) {
+        return;
+      }
+      
       responseText += data;
       debugLog(`Received chunk: ${data.substring(0, 20)}...`);
       
@@ -339,17 +349,19 @@ export async function sendMessage({
   } catch (error) {
     console.error("Error sending message:", error);
     debugLog(`Error in sendMessage: ${error.message}`);
-    const errorMessage = handleApiError(error, asyncOnData);
-    addMessageToHistory(errorMessage, "assistant");
     
-    // Only call displayMessage if it's provided and is a function
-    if (displayMessage && typeof displayMessage === 'function') {
-      try {
-        displayMessage(errorMessage, "assistant");
-      } catch (error) {
-        console.error("Error calling displayMessage for error:", error);
-      }
+    // Handle the error without sending to asyncOnData callback
+    // This prevents the error from showing up in a message bubble
+    const errorMessage = handleApiError(error);
+    
+    // Only add the error to history if lastError is set to null
+    // This allows UI components to decide how to display errors
+    if (lastError === null) {
+      addMessageToHistory(errorMessage, "assistant");
     }
+    
+    // If displayMessage is provided, let the UI component handle the error display
+    // This will typically use the temporary message approach
   } finally {
     isMessageInProgress = false;
     cancelCurrentRequest = null;

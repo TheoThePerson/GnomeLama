@@ -62,16 +62,10 @@ export async function processUserMessage({
       onData: (chunk) => {
         if (!chunk) return;
 
+        // Handle error messages as temporary messages, not in message bubbles
         if (chunk.includes("Error communicating with")) {
           errorOccurred = true;
-
-          if (!responseContainer) {
-            if (onResponseStart) onResponseStart();
-            responseContainer = PanelElements.createResponseContainer(bgColor);
-            outputContainer.add_child(responseContainer);
-          }
-
-          updateResponseContainer(responseContainer, chunk);
+          addTemporaryMessage(outputContainer, chunk);
           PanelElements.scrollToBottom(scrollView);
           return;
         }
@@ -95,16 +89,12 @@ export async function processUserMessage({
     // Error handling without console.error
     errorOccurred = true;
 
-    if (!responseContainer) {
-      if (onResponseStart) onResponseStart();
-      responseContainer = PanelElements.createResponseContainer(bgColor);
-      outputContainer.add_child(responseContainer);
-    }
-
-    const errorMessage =
-      error.message || "An error occurred while processing your request.";
-    updateResponseContainer(responseContainer, errorMessage);
+    // Display errors as temporary messages instead of in a response container
+    const errorMessage = error.message || "An error occurred while processing your request.";
+    addTemporaryMessage(outputContainer, errorMessage);
     PanelElements.scrollToBottom(scrollView);
+
+    if (onResponseEnd) onResponseEnd();
   } finally {
     if (errorOccurred && onResponseEnd) onResponseEnd();
   }

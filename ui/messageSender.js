@@ -147,13 +147,19 @@ export class MessageSender {
     // Update input field hint
     this._updateInputFieldHint();
 
-    // If there was an error, show it - prioritize service errors
+    // If there was an error, show it as a temporary message - prioritize service errors
     const serviceError = getLastError();
     if (serviceError || error) {
-      MessageProcessor.addTemporaryMessage(
-        this._outputContainer,
-        serviceError || "Error processing your message. Please try again."
-      );
+      let errorMessage = serviceError || "Error processing your message. Please try again.";
+      
+      // Add error details if available
+      if (error && error.message && !errorMessage.includes(error.message)) {
+        errorMessage += ` (${error.message})`;
+      }
+      
+      // Always display errors as temporary messages
+      MessageProcessor.removeTemporaryMessages(this._outputContainer);
+      MessageProcessor.addTemporaryMessage(this._outputContainer, errorMessage);
     }
 
     // Give focus back to input field with a small delay
