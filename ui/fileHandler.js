@@ -476,7 +476,8 @@ export class FileHandler {
       this._loadedFiles.set(fileName, content);
     }
 
-    this._adjustInputContainerHeight();
+    // Apply direct layout updates
+    this._updateLayout();
   }
 
   /**
@@ -689,7 +690,66 @@ export class FileHandler {
 
     this._fileBoxesContainer.remove_child(fileBox);
     fileBox.destroy();
+    
+    // Apply direct layout updates
+    this._updateLayout();
+  }
+
+  /**
+   * Updates the layout immediately
+   * 
+   * @private
+   */
+  _updateLayout() {
+    // Update height based on current content
     this._adjustInputContainerHeight();
+    
+    // Tell layout manager to recalculate
+    LayoutManager.invalidateCache();
+    
+    // Apply critical positioning to prevent layout issues
+    if (this._fileBoxesContainer) {
+      // Position container at top of input area
+      this._fileBoxesContainer.set_position(0, 0);
+      
+      // Get current dimensions for correct button positioning
+      const {
+        panelWidth,
+        panelHeight,
+        horizontalPadding,
+        inputFieldHeight,
+        buttonsHeight,
+        paddingY,
+      } = LayoutManager.calculatePanelDimensions();
+      
+      // Calculate correct container height including file box height
+      const fileBoxHeight = this._fileBoxesContainer.get_height();
+      const baseContainerHeight = inputFieldHeight + buttonsHeight + paddingY;
+      const containerHeight = baseContainerHeight + fileBoxHeight;
+      
+      // Explicitly set the height of the input buttons container to include file boxes
+      if (this._inputButtonsContainer) {
+        this._inputButtonsContainer.set_height(containerHeight);
+        
+        // Ensure input buttons container is at correct position
+        this._inputButtonsContainer.set_position(
+          (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
+          panelHeight - containerHeight
+        );
+        
+        // Force relayout of both containers
+        this._fileBoxesContainer.queue_relayout();
+        this._inputButtonsContainer.queue_relayout();
+      }
+    }
+    
+    // Tell panel to update layout
+    if (this._updateLayoutCallback) {
+      this._updateLayoutCallback(true);
+    }
+    
+    // Refresh file box formatting without using set_style
+    this.refreshFileBoxFormatting();
   }
 
   /**
@@ -852,18 +912,32 @@ export class FileHandler {
 
     // Get the current size directly from settings to ensure consistency
     const fileBoxSize = getSettings().get_double("file-box-size");
-
+    
+    // Update container styles directly
     this._updateContainerStyles(fileBoxSize);
+    
+    // Update all file boxes
     this._updateFileBoxesStyles(fileBoxSize);
-
-    // Force the container to update its layout
+    
+    // Force immediate layout adjustments
     this._fileBoxesContainer.queue_relayout();
-
-    // Invalidate layout cache to ensure dimensions are recalculated immediately
+    this._adjustInputContainerHeight();
+    
+    // Invalidate layout cache
     LayoutManager.invalidateCache();
-
-    // Schedule updates at different priorities to ensure they happen
-    this._scheduleLayoutUpdates(fileBoxSize);
+    
+    // Apply all sizing immediately - no timeouts
+    const fileBoxChildren = this._fileBoxesContainer.get_children();
+    for (const fileBox of fileBoxChildren) {
+      fileBox.style_class = "file-content-box";
+      fileBox.set_width(fileBoxSize);
+      fileBox.set_height(fileBoxSize);
+    }
+    
+    // Force relayout on input buttons container
+    if (this._inputButtonsContainer) {
+      this._inputButtonsContainer.queue_relayout();
+    }
   }
 
   /**
@@ -913,7 +987,7 @@ export class FileHandler {
    */
   _updateSingleFileBox(fileBox, fileBoxSize) {
     // Ensure style class is set
-    fileBox.set_style_class_name("file-content-box");
+    fileBox.style_class = "file-content-box";
 
     // Ensure size is set
     fileBox.width = fileBoxSize;
@@ -927,8 +1001,9 @@ export class FileHandler {
     const headerBox = fileBox.get_children()[0];
     const contentView = fileBox.get_children()[1];
 
-    this._updateHeaderBox(headerBox);
-    this._updateContentView(contentView, fileBox, fileBoxSize);
+    // Use static methods with FileHandler class reference
+    FileHandler._updateHeaderBox(headerBox);
+    FileHandler._updateContentView(contentView, fileBox, fileBoxSize);
   }
 
   /**
@@ -940,7 +1015,7 @@ export class FileHandler {
   static _updateHeaderBox(headerBox) {
     if (!headerBox) return;
 
-    headerBox.set_style_class_name("file-content-header");
+    headerBox.style_class = "file-content-header";
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
     if (headerBox.get_n_children() < 2) return;
@@ -949,11 +1024,11 @@ export class FileHandler {
     const closeButton = headerBox.get_children()[1];
 
     if (titleLabel) {
-      titleLabel.set_style_class_name("file-content-title");
+      titleLabel.style_class = "file-content-title";
     }
 
     if (closeButton) {
-      closeButton.set_style_class_name("file-content-close-button");
+      closeButton.style_class = "file-content-close-button";
     }
   }
 
@@ -977,75 +1052,13 @@ export class FileHandler {
       if (contentBox) {
         const contentLabel = contentBox.get_children()[0];
         if (contentLabel) {
-          contentLabel.set_style_class_name("file-content-text");
+          if (contentLabel.add_style_class_name) {
+            contentLabel.add_style_class_name("file-content-text");
+          } else if (contentLabel.style_class) {
+            contentLabel.style_class = "file-content-text";
+          }
         }
       }
-    }
-  }
-
-  /**
-   * Schedules layout updates at different priorities to ensure UI updates
-   *
-   * @private
-   * @param {number} fileBoxSize - The size of file boxes
-   */
-  _scheduleLayoutUpdates(fileBoxSize) {
-    // Apply immediate size updates
-    this._applyDelayedSizeUpdates(fileBoxSize);
-
-    // Schedule update for after size transition (shorter timeframe for immediate feedback)
-    imports.gi.GLib.timeout_add(
-      imports.gi.GLib.PRIORITY_DEFAULT,
-      50, // Reduced from 200 to 50 for quicker updates
-      () => {
-        this._applyFinalSizeUpdates(fileBoxSize);
-        return false; // Don't repeat
-      }
-    );
-
-    // Schedule container height adjustment
-    imports.gi.GLib.timeout_add(
-      imports.gi.GLib.PRIORITY_DEFAULT,
-      100, // Reduced from 300 to 100 for quicker updates
-      () => {
-        this._adjustInputContainerHeight();
-        return false; // Don't repeat
-      }
-    );
-  }
-
-  /**
-   * Applies size updates with a small delay
-   *
-   * @private
-   * @param {number} fileBoxSize - The size of file boxes
-   */
-  _applyDelayedSizeUpdates(fileBoxSize) {
-    // Apply sizes again to ensure consistency
-    const fileBoxChildren = this._fileBoxesContainer.get_children();
-    for (const fileBox of fileBoxChildren) {
-      fileBox.set_width(fileBoxSize);
-      fileBox.set_height(fileBoxSize);
-    }
-
-    // Force update again
-    this._fileBoxesContainer.queue_relayout();
-    this._adjustInputContainerHeight();
-  }
-
-  /**
-   * Applies final size updates after animations
-   *
-   * @private
-   * @param {number} fileBoxSize - The size of file boxes
-   */
-  _applyFinalSizeUpdates(fileBoxSize) {
-    const refreshChildren = this._fileBoxesContainer.get_children();
-    for (const fileBox of refreshChildren) {
-      // Ensure classes and sizes are still correct
-      fileBox.set_style_class_name("file-content-box");
-      fileBox.set_width(fileBoxSize);
-      fileBox.set_height(fileBoxSize);
     }
   }
 
