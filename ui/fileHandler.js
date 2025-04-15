@@ -393,26 +393,24 @@ export class FileHandler {
 
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
-      homogeneous: true,
+      homogeneous: false, // Changed to false to prevent auto-sizing
       column_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
       row_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
-      max_column_width: fileBoxSize + UI.FILE_BOX.MARGIN * 2,
+      // Ensure column width matches file box size exactly
+      max_column_width: fileBoxSize,
+      min_column_width: fileBoxSize
     });
 
     this._fileBoxesContainer = new St.Widget({
       style_class: "file-boxes-container",
       layout_manager: flowLayout,
       x_expand: true,
-      y_expand: false,
-      clip_to_allocation: true,
+      y_expand: true, // Allow vertical expansion
+      clip_to_allocation: false, // Don't clip content
     });
 
-    const initialHeight =
-      fileBoxSize +
-      UI.FILE_BOX.MARGIN * 2 +
-      (UI.CONTAINER.FILE_BOXES.PADDING || 0);
-
-    this._fileBoxesContainer.set_height(initialHeight);
+    // No height restriction on initial container
+    // Let it grow based on content
   }
 
   /**
@@ -467,14 +465,16 @@ export class FileHandler {
     const availableWidth =
       panelWidth - horizontalPadding * 2 - containerPadding * 2;
     const boxTotalSize =
-      fileBoxSize + UI.FILE_BOX.MARGIN * 2 + UI.CONTAINER.FILE_BOXES.SPACING;
+      fileBoxSize + UI.CONTAINER.FILE_BOXES.SPACING;
     const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalSize));
     const rowsNeeded = Math.max(1, Math.ceil(fileCount / boxesPerRow));
-    const boxHeight = fileBoxSize + UI.FILE_BOX.MARGIN * 2;
+    
+    // Use full box size for height calculation (no margin reduction)
     const rowSpacing = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
     const containerHeight =
-      boxHeight * rowsNeeded + rowSpacing + containerPadding * 2;
+      fileBoxSize * rowsNeeded + rowSpacing + containerPadding * 2;
 
+    // Set container height to accommodate full square boxes
     this._fileBoxesContainer.set_height(containerHeight);
     this._fileBoxesContainer.show();
     
@@ -523,7 +523,16 @@ export class FileHandler {
     const children = this._fileBoxesContainer.get_children();
 
     for (const child of children) {
-      const headerBox = child.get_children()[0];
+      // Check if this is a container with userData
+      if (child.userData && child.userData.fileName === fileName) {
+        return child;
+      }
+      
+      // Fallback to old method if userData not present
+      const innerFileBox = child.get_child ? child.get_child() : child;
+      if (!innerFileBox) continue;
+      
+      const headerBox = innerFileBox.get_children()[0];
       if (headerBox) {
         const titleLabel = headerBox.get_children()[0];
         if (titleLabel && titleLabel.userData === fileName) {
@@ -539,14 +548,21 @@ export class FileHandler {
    * Updates content in an existing file box
    *
    * @private
-   * @param {St.BoxLayout} fileBox - The file box to update
+   * @param {St.BoxLayout} fileBoxContainer - The file box container to update
    * @param {string} content - New content
    */
-  static _updateFileBoxContent(fileBox, content) {
+  static _updateFileBoxContent(fileBoxContainer, content) {
+    // Get the inner file box (either from userData or directly)
+    const fileBox = fileBoxContainer.userData && fileBoxContainer.userData.innerFileBox 
+      ? fileBoxContainer.userData.innerFileBox 
+      : (fileBoxContainer.get_child ? fileBoxContainer.get_child() : fileBoxContainer);
+    
+    if (!fileBox) return;
+    
     const children = fileBox.get_children();
     if (children.length >= 2) {
       const contentView = children[1];
-      const contentBox = contentView.get_child();
+      const contentBox = contentView.get_child ? contentView.get_child() : contentView;
 
       if (contentBox) {
         const contentLabel = contentBox.get_children()[0];
@@ -569,32 +585,59 @@ export class FileHandler {
     // Get current size directly from settings
     const fileBoxSize = getSettings().get_double("file-box-size");
 
-    const fileBox = new St.BoxLayout({
-      style_class: "file-content-box",
-      vertical: true,
+    // Create an outer fixed-size container to enforce square dimensions
+    const outerContainer = new St.Bin({
+      width: fileBoxSize,
+      height: fileBoxSize,
       x_expand: false,
       y_expand: false,
     });
+    
+    // Force the container to be exactly square with CSS
+    // Remove any padding, margin, or border that might create space
+    outerContainer.set_style(
+      `width: ${fileBoxSize}px; height: ${fileBoxSize}px; 
+       min-width: ${fileBoxSize}px; min-height: ${fileBoxSize}px; 
+       max-width: ${fileBoxSize}px; max-height: ${fileBoxSize}px;
+       padding: 0; margin: 0; border: none;`
+    );
 
-    // Apply size explicitly
-    fileBox.width = fileBoxSize;
-    fileBox.height = fileBoxSize;
-    fileBox.set_width(fileBoxSize);
-    fileBox.set_height(fileBoxSize);
-    fileBox.set_size(fileBoxSize, fileBoxSize);
+    // Create the inner box for content with the file-content-box style
+    const fileBox = new St.BoxLayout({
+      style_class: "file-content-box",
+      vertical: true,
+      width: fileBoxSize,
+      height: fileBoxSize,
+      x_expand: true,
+      y_expand: true,
+    });
+    
+    // Ensure inner box has no extra spacing
+    fileBox.set_style("padding: 0; margin: 0;");
 
+    // Store a reference to the outer container for the close button
+    fileBox.outerContainer = outerContainer;
+
+    // Create header with fixed height
     const headerBox = this._createHeaderBox(fileName, fileBox);
-    const contentView = FileHandler._createContentView(content);
-
     headerBox.set_height(UI.FILE_BOX.HEADER.HEIGHT);
 
-    const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 4;
+    // Calculate content height to fill remaining space
+    const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT;
+    const contentView = FileHandler._createContentView(content);
     contentView.set_height(contentHeight);
 
+    // Add components to file box
     fileBox.add_child(headerBox);
     fileBox.add_child(contentView);
+    
+    // Add the file box to the outer container
+    outerContainer.set_child(fileBox);
+    
+    // Store a reference to the inner file box in userData for later access
+    outerContainer.userData = { innerFileBox: fileBox, fileName: fileName };
 
-    return fileBox;
+    return outerContainer;
   }
 
   /**
@@ -662,7 +705,9 @@ export class FileHandler {
     });
 
     closeButton.connect("clicked", () => {
-      this._removeFileBox(fileBox);
+      // Pass the outer container to remove the entire box
+      const containerToRemove = fileBox.outerContainer || fileBox;
+      this._removeFileBox(containerToRemove);
     });
 
     return closeButton;
@@ -702,25 +747,43 @@ export class FileHandler {
    * Removes a file box
    *
    * @private
-   * @param {St.BoxLayout} fileBox - The file box to remove
+   * @param {St.BoxLayout} fileBoxContainer - The file box container to remove
    */
-  _removeFileBox(fileBox) {
+  _removeFileBox(fileBoxContainer) {
     if (!this._fileBoxesContainer) return;
 
-    const headerBox = fileBox.get_children()[0];
-    if (headerBox) {
-      const titleLabel = headerBox.get_children()[0];
-      if (titleLabel) {
-        const fileName = titleLabel.userData;
-        if (fileName) {
-          this._loadedFiles.delete(fileName);
+    // Extract file name from userData or from inner structure
+    let fileName = null;
+    
+    if (fileBoxContainer.userData && fileBoxContainer.userData.fileName) {
+      // Get filename from userData if available (new structure)
+      fileName = fileBoxContainer.userData.fileName;
+    } else {
+      // Try to get filename from inner structure (fallback for old structure)
+      const innerBox = fileBoxContainer.get_child ? fileBoxContainer.get_child() : fileBoxContainer;
+      if (innerBox) {
+        const headerBox = innerBox.get_children()[0];
+        if (headerBox) {
+          const titleLabel = headerBox.get_children()[0];
+          if (titleLabel && titleLabel.userData) {
+            fileName = titleLabel.userData;
+          }
         }
       }
     }
 
-    // Remove the file box
-    this._fileBoxesContainer.remove_child(fileBox);
-    fileBox.destroy();
+    // Delete from loaded files map if filename was found
+    if (fileName) {
+      this._loadedFiles.delete(fileName);
+    }
+
+    // Make sure the container is actually removed from the DOM
+    if (fileBoxContainer.get_parent() === this._fileBoxesContainer) {
+      this._fileBoxesContainer.remove_child(fileBoxContainer);
+    }
+    
+    // Ensure the widget is destroyed to free resources
+    fileBoxContainer.destroy();
     
     // Check if this was the last file box
     const fileCount = this._fileBoxesContainer.get_n_children();
@@ -952,9 +1015,21 @@ export class FileHandler {
    */
   _cleanupFileBoxes() {
     if (this._fileBoxesContainer) {
-      if (this._inputButtonsContainer.contains(this._fileBoxesContainer)) {
+      // Ensure all children are properly removed and destroyed
+      const children = this._fileBoxesContainer.get_children();
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i];
+        this._fileBoxesContainer.remove_child(child);
+        child.destroy();
+      }
+      
+      // Now remove the container itself
+      if (this._inputButtonsContainer && 
+          this._inputButtonsContainer.contains(this._fileBoxesContainer)) {
         this._inputButtonsContainer.remove_child(this._fileBoxesContainer);
       }
+      
+      // Destroy the container
       this._fileBoxesContainer.destroy();
       this._fileBoxesContainer = null;
     }
@@ -1080,10 +1155,12 @@ export class FileHandler {
     // Update the layout manager to ensure proper positioning
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
-      homogeneous: true,
+      homogeneous: false, // Changed to false to prevent auto-sizing
       column_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
       row_spacing: UI.CONTAINER.FILE_BOXES.SPACING,
-      max_column_width: fileBoxSize + UI.FILE_BOX.MARGIN * 2,
+      // Ensure column width matches file box size exactly
+      max_column_width: fileBoxSize,
+      min_column_width: fileBoxSize
     });
 
     this._fileBoxesContainer.set_layout_manager(flowLayout);
