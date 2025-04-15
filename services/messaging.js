@@ -199,6 +199,9 @@ function handleApiError(error, asyncOnData) {
   // Include model information and more context in error messages
   if (provider === openaiProvider) {
     errorMessage = `Error communicating with OpenAI (model: ${currentModel || "unknown"}). ${error.message || "Please check your API key in settings."}`;
+    if (error.message && error.message.includes("429 is not a valid value for enumeration Status")) {
+      errorMessage += "\n\nThis might be due to rate limiting. Try again later.";
+    }
   } else if (provider === geminiProvider) {
     errorMessage = `Error communicating with Gemini (model: ${currentModel || "unknown"}). ${error.message || "Please check your API key in settings."}`;
   } else {
