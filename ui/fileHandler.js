@@ -427,7 +427,34 @@ export class FileHandler {
 
     if (fileCount === 0) {
       this._fileBoxesContainer.hide();
-      this._updateLayoutCallback();
+      
+      // Reset the input buttons container height and position when no files
+      if (this._inputButtonsContainer) {
+        const {
+          panelWidth,
+          panelHeight,
+          horizontalPadding,
+          inputFieldHeight,
+          buttonsHeight,
+          paddingY,
+        } = LayoutManager.calculatePanelDimensions();
+        
+        // Calculate height without file boxes
+        const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+        
+        // Reset height and position
+        this._inputButtonsContainer.set_height(containerHeight);
+        this._inputButtonsContainer.set_position(
+          (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
+          panelHeight - containerHeight
+        );
+        
+        this._inputButtonsContainer.queue_relayout();
+      }
+      
+      if (this._updateLayoutCallback) {
+        this._updateLayoutCallback(true);
+      }
       return;
     }
 
@@ -450,7 +477,10 @@ export class FileHandler {
 
     this._fileBoxesContainer.set_height(containerHeight);
     this._fileBoxesContainer.show();
-    this._updateLayoutCallback();
+    
+    if (this._updateLayoutCallback) {
+      this._updateLayoutCallback();
+    }
   }
 
   /**
@@ -688,11 +718,67 @@ export class FileHandler {
       }
     }
 
+    // Remove the file box
     this._fileBoxesContainer.remove_child(fileBox);
     fileBox.destroy();
     
-    // Apply direct layout updates
-    this._updateLayout();
+    // Check if this was the last file box
+    const fileCount = this._fileBoxesContainer.get_n_children();
+    if (fileCount === 0) {
+      // Get dimensions for container positioning
+      const {
+        panelWidth,
+        panelHeight,
+        horizontalPadding,
+        inputFieldHeight,
+        buttonsHeight,
+        paddingY,
+      } = LayoutManager.calculatePanelDimensions();
+      
+      // Calculate height without file boxes
+      const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+      
+      // Hide the file container
+      this._fileBoxesContainer.hide();
+      
+      // Reset input buttons container position and size
+      if (this._inputButtonsContainer) {
+        // Set correct height without file boxes
+        this._inputButtonsContainer.set_height(containerHeight);
+        
+        // Force position update
+        this._inputButtonsContainer.set_position(
+          (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
+          panelHeight - containerHeight
+        );
+        
+        // Force immediate layout update
+        this._inputButtonsContainer.queue_relayout();
+      }
+      
+      // Force layout manager to recalculate dimensions
+      LayoutManager.invalidateCache();
+      
+      // Force full layout update
+      if (this._updateLayoutCallback) {
+        this._updateLayoutCallback(true);
+      }
+      
+      // Schedule one more update to ensure layout is correct
+      imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_DEFAULT, () => {
+        if (this._inputButtonsContainer) {
+          // Reapply position to ensure it took effect
+          this._inputButtonsContainer.set_position(
+            (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
+            panelHeight - containerHeight
+          );
+        }
+        return imports.gi.GLib.SOURCE_REMOVE;
+      });
+    } else {
+      // If we still have file boxes, just update the layout
+      this._updateLayout();
+    }
   }
 
   /**
