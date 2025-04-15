@@ -895,12 +895,53 @@ export class FileHandler {
    * Cleans up the file content box including UI and data
    */
   cleanupFileContentBox() {
-    this._cleanupFileBoxes();
+    // Clear data first
     this._loadedFiles.clear();
     this._filePaths.clear(); // Clear the paths as well
-
+    
+    // Check if we had files before cleanup
+    const hadFiles = this._fileBoxesContainer && this._fileBoxesContainer.get_n_children() > 0;
+    
+    // Clean up UI elements
+    this._cleanupFileBoxes();
+    
+    // If we had files, properly reset layout
+    if (hadFiles) {
+      // Get dimensions for container positioning
+      const {
+        panelWidth,
+        panelHeight,
+        horizontalPadding,
+        inputFieldHeight,
+        buttonsHeight,
+        paddingY,
+      } = LayoutManager.calculatePanelDimensions();
+      
+      // Calculate height without file boxes
+      const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
+      
+      // Reset input buttons container position and size
+      if (this._inputButtonsContainer) {
+        // Set correct height without file boxes
+        this._inputButtonsContainer.set_height(containerHeight);
+        
+        // Force position update
+        this._inputButtonsContainer.set_position(
+          (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
+          panelHeight - containerHeight
+        );
+        
+        // Force immediate layout update
+        this._inputButtonsContainer.queue_relayout();
+      }
+      
+      // Force layout manager to recalculate dimensions
+      LayoutManager.invalidateCache();
+    }
+    
+    // Always update layout at the end
     if (this._updateLayoutCallback) {
-      this._updateLayoutCallback();
+      this._updateLayoutCallback(true); // Force full update
     }
   }
 
