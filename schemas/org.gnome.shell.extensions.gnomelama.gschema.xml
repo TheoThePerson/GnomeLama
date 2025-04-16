@@ -101,5 +101,15 @@
       <summary>Input Field Spacing Fraction</summary>
       <description>Spacing between input field and send button as a fraction of panel width.</description>
     </key>
+    <key name="input-container-background-color" type="s">
+      <default>"#505050"</default>
+      <summary>Input Container Background Color</summary>
+      <description>Background color of the input container.</description>
+    </key>
+    <key name="input-container-opacity" type="d">
+      <default>0.2</default>
+      <summary>Input Container Opacity</summary>
+      <description>Background opacity of the input container (0.0-1.0, where 1.0 is fully opaque).</description>
+    </key>
   </schema>
 </schemalist>

@@ -200,6 +200,33 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       subtitle: _("Background color of the panel"),
     });
 
+    // Input container background color
+    this._addColorRow(uiColorsGroup, settings, {
+      key: "input-container-background-color",
+      title: _("Input Container Color"),
+      subtitle: _("Background color of the input container"),
+    });
+
+    // Background opacity
+    this._addSpinRow(uiColorsGroup, settings, {
+      key: "background-opacity",
+      title: _("Background Opacity"),
+      subtitle: _("Background opacity of the panel (0.0-1.0)"),
+      min: 0.1,
+      max: 1.0,
+      step: 0.1,
+    });
+
+    // Input container opacity
+    this._addSpinRow(uiColorsGroup, settings, {
+      key: "input-container-opacity",
+      title: _("Input Container Opacity"),
+      subtitle: _("Background opacity of the input container (0.0-1.0)"),
+      min: 0.1,
+      max: 1.0,
+      step: 0.1,
+    });
+
     // Text color
     this._addColorRow(uiColorsGroup, settings, {
       key: "text-color",

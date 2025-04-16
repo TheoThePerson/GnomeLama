@@ -95,8 +95,9 @@ export function updatePanelOverlay(panelOverlay) {
     Main.panel.height
   );
 
-  // Apply background color with fixed opacity (fully opaque)
+  // Apply background color with opacity
   const bgColor = settings.get_string("background-color");
+  const bgOpacity = settings.get_double("background-opacity");
 
   // Parse color components once
   const r = parseInt(bgColor.substring(1, 3), 16);
@@ -104,7 +105,7 @@ export function updatePanelOverlay(panelOverlay) {
   const b = parseInt(bgColor.substring(5, 7), 16);
 
   panelOverlay.set_style(
-    `background-color: rgba(${r}, ${g}, ${b}, 1.0); border-left: 1px solid rgba(255, 255, 255, 0.1);`
+    `background-color: rgba(${r}, ${g}, ${b}, ${bgOpacity}); border-left: 1px solid rgba(255, 255, 255, 0.1);`
   );
 }
 
@@ -272,8 +273,17 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
   );
 
   // Apply styling
+  const settings = getSettings();
+  const inputBgColor = settings.get_string("input-container-background-color");
+  const inputOpacity = settings.get_double("input-container-opacity");
+  
+  // Parse color components
+  const r = parseInt(inputBgColor.substring(1, 3), 16);
+  const g = parseInt(inputBgColor.substring(3, 5), 16);
+  const b = parseInt(inputBgColor.substring(5, 7), 16);
+
   inputButtonsContainer.set_style(`
-    background-color: rgba(80, 80, 80, 0.2);
+    background-color: rgba(${r}, ${g}, ${b}, ${inputOpacity});
     border-radius: 16px 16px 0 0;
     padding: 6px;
     z-index: 100;
