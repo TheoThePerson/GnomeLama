@@ -531,6 +531,9 @@ export const Indicator = GObject.registerClass(
     _updateMessageBoxColors() {
       if (!this._outputContainer) return;
 
+      // Synchronize message opacity first
+      UIComponents.synchronizeMessageOpacity();
+
       // Update all user message containers
       const userMessages = this._outputContainer
         .get_children()

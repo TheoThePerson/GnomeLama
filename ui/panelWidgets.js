@@ -7,6 +7,7 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import { getSettings } from "../lib/settings.js";
 
 /**
  * Creates a panel overlay widget
@@ -310,9 +311,30 @@ export function updateInputFieldHint(inputField, isNewChat) {
  * @returns {St.BoxLayout} - The created container
  */
 export function createResponseContainer(bgColor) {
+  const settings = getSettings();
+  let opacity;
+  
+  // Try to get message-opacity first
+  try {
+    opacity = settings.get_double("message-opacity");
+  } catch (e) {
+    try {
+      // Fall back to ai-message-opacity
+      opacity = settings.get_double("ai-message-opacity");
+    } catch (e) {
+      // Default to 1.0 if nothing works
+      opacity = 1.0;
+    }
+  }
+  
+  // Parse color components for rgba
+  const r = parseInt(bgColor.substring(1, 3), 16);
+  const g = parseInt(bgColor.substring(3, 5), 16);
+  const b = parseInt(bgColor.substring(5, 7), 16);
+  
   return new St.BoxLayout({
     style_class: "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 6px;`,
+    style: `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: 24px 24px 24px 6px;`,
     x_align: Clutter.ActorAlign.START,
     vertical: true,
     x_expand: true

@@ -27,11 +27,42 @@ export function createMessageContainer(text, isUser, alignment) {
   const bgColor = isUser
     ? settings.get_string("user-message-color")
     : settings.get_string("ai-message-color");
+  
+  // For AI messages, ensure we synchronize opacity first
+  if (!isUser) {
+    synchronizeMessageOpacity();
+  }
+    
+  // Try to get message-opacity first, then fall back to specific opacities
+  let opacity;
+  try {
+    opacity = settings.get_double("message-opacity");
+    log(`Using message opacity: ${opacity}`);
+  } catch (e) {
+    // If that fails, try the individual opacity settings
+    try {
+      opacity = isUser
+        ? settings.get_double("user-message-opacity")
+        : settings.get_double("ai-message-opacity");
+      log(`Using ${isUser ? "user" : "ai"} opacity: ${opacity}`);
+    } catch (e) {
+      // If all else fails, default to 1.0 (fully opaque)
+      opacity = 1.0;
+      log("Defaulting to opacity 1.0");
+    }
+  }
+    
+  // Parse color components for rgba
+  const r = parseInt(bgColor.substring(1, 3), 16);
+  const g = parseInt(bgColor.substring(3, 5), 16);
+  const b = parseInt(bgColor.substring(5, 7), 16);
+  
+  log(`${isUser ? "User" : "AI"} message style: rgba(${r}, ${g}, ${b}, ${opacity})`);
 
   // Create the outer container with specific styling class and explicit style
   const messageBox = new St.BoxLayout({
     style_class: isUser ? "message-box user-message" : "message-box ai-message",
-    style: `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${
+    style: `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: ${
       isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px"
     };`,
     x_align: alignment,
@@ -415,6 +446,40 @@ export function createHorizontalRuleElement() {
 }
 
 /**
+ * Explicitly applies opacity to both user and AI messages with same value
+ * To be called when initializing or when opacity settings change
+ */
+export function synchronizeMessageOpacity() {
+  const settings = getSettings();
+  let opacity;
+  
+  try {
+    // Get the unified message opacity
+    opacity = settings.get_double("message-opacity");
+  } catch (e) {
+    // If that fails, get user message opacity as fallback
+    try {
+      opacity = settings.get_double("user-message-opacity");
+    } catch (e) {
+      // Default to 1.0 if nothing exists
+      opacity = 1.0;
+    }
+  }
+  
+  log(`Synchronizing message opacity to: ${opacity}`);
+  
+  // Apply this opacity to both settings
+  try {
+    settings.set_double("user-message-opacity", opacity);
+    settings.set_double("ai-message-opacity", opacity);
+  } catch (e) {
+    log(`Error synchronizing opacity: ${e}`);
+  }
+  
+  return opacity;
+}
+
+/**
  * Updates an existing message container with current settings colors
  * @param {St.BoxLayout} container - Message container to update
  * @param {boolean} isUser - Whether this is a user message
@@ -424,10 +489,41 @@ export function updateMessageContainerStyle(container, isUser) {
   const bgColor = isUser
     ? settings.get_string("user-message-color")
     : settings.get_string("ai-message-color");
+  
+  // For AI messages, ensure we synchronize opacity first
+  if (!isUser) {
+    synchronizeMessageOpacity();
+  }
+  
+  // Try to get message-opacity first, then fall back to specific opacities
+  let opacity;
+  try {
+    opacity = settings.get_double("message-opacity");
+    log(`Updating with message opacity: ${opacity}`);
+  } catch (e) {
+    // If that fails, try the individual opacity settings
+    try {
+      opacity = isUser
+        ? settings.get_double("user-message-opacity")
+        : settings.get_double("ai-message-opacity");
+      log(`Updating with ${isUser ? "user" : "ai"} opacity: ${opacity}`);
+    } catch (e) {
+      // If all else fails, default to 1.0 (fully opaque)
+      opacity = 1.0;
+      log("Updating default to opacity 1.0");
+    }
+  }
+    
+  // Parse color components for rgba
+  const r = parseInt(bgColor.substring(1, 3), 16);
+  const g = parseInt(bgColor.substring(3, 5), 16);
+  const b = parseInt(bgColor.substring(5, 7), 16);
+  
+  log(`Updating ${isUser ? "User" : "AI"} message style: rgba(${r}, ${g}, ${b}, ${opacity})`);
 
   const borderRadius = isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px";
 
   container.set_style(
-    `background-color: ${bgColor}; padding: 14px 18px; margin: 8px 4px; border-radius: ${borderRadius};`
+    `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: ${borderRadius};`
   );
 }

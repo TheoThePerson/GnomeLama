@@ -111,5 +111,10 @@
       <summary>Input Container Opacity</summary>
       <description>Background opacity of the input container (0.0-1.0, where 1.0 is fully opaque).</description>
     </key>
+    <key name="message-opacity" type="d">
+      <default>1.0</default>
+      <summary>Message Opacity</summary>
+      <description>Background opacity of all messages (0.0-1.0, where 1.0 is fully opaque).</description>
+    </key>
   </schema>
 </schemalist>

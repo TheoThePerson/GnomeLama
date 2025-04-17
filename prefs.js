@@ -174,12 +174,60 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       subtitle: _("Color of user messages"),
     });
 
+    // Check if user-message-opacity exists
+    try {
+      settings.get_double("user-message-opacity");
+      // If it exists, add it
+      this._addSpinRow(colorsGroup, settings, {
+        key: "user-message-opacity",
+        title: _("User Message Opacity"),
+        subtitle: _("Background opacity of user messages (0.0-1.0)"),
+        min: 0.1,
+        max: 1.0,
+        step: 0.1,
+      });
+    } catch (e) {
+      // Ignore if setting doesn't exist
+    }
+
     // AI message color
     this._addColorRow(colorsGroup, settings, {
       key: "ai-message-color",
       title: _("AI Message Color"),
       subtitle: _("Color of AI assistant messages"),
     });
+
+    // Check if ai-message-opacity exists
+    try {
+      settings.get_double("ai-message-opacity");
+      // If it exists, add it
+      this._addSpinRow(colorsGroup, settings, {
+        key: "ai-message-opacity",
+        title: _("AI Message Opacity"),
+        subtitle: _("Background opacity of AI messages (0.0-1.0)"),
+        min: 0.1,
+        max: 1.0,
+        step: 0.1,
+      });
+    } catch (e) {
+      // Ignore if setting doesn't exist
+    }
+
+    // Check if message-opacity exists
+    try {
+      settings.get_double("message-opacity");
+      // If it exists, add it
+      this._addSpinRow(colorsGroup, settings, {
+        key: "message-opacity",
+        title: _("Message Opacity"),
+        subtitle: _("Background opacity of all messages (0.0-1.0)"),
+        min: 0.1,
+        max: 1.0,
+        step: 0.1,
+      });
+    } catch (e) {
+      // Ignore if setting doesn't exist
+    }
   }
 
   /**
