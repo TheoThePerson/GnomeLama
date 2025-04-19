@@ -177,6 +177,19 @@ export const Indicator = GObject.registerClass(
         fileHandler: this._fileHandler,
       });
 
+      // Initialize paste handler to intercept paste operations
+      this._pasteHandler = new PasteHandler({
+        inputField: this._inputField,
+        fileHandler: this._fileHandler,
+        outputContainer: this._outputContainer,
+        updateLayoutCallback: safeUpdateLayout,
+      });
+
+      // Connect the paste handler to input field key press events
+      this._inputField.clutter_text.connect("key-press-event", (actor, event) => {
+        return this._pasteHandler.handleKeyPress(actor, event);
+      });
+
       // Initialize model manager with clear callback
       this._modelManager = new ModelManager(
         this._settings,
@@ -583,6 +596,12 @@ export const Indicator = GObject.registerClass(
 
       if (this._messageSender) {
         this._messageSender.destroy();
+      }
+
+      // Clean up paste handler
+      if (this._pasteHandler) {
+        this._pasteHandler.cleanup && this._pasteHandler.cleanup();
+        this._pasteHandler = null;
       }
 
       // Remove chrome

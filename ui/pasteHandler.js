@@ -34,6 +34,87 @@ export class PasteHandler {
     this.lastProcessedText = "";
     this.lastPasteTime = 0;
     this.pastedTextCount = 0;
+    
+    // Connect clipboard context menu functionality
+    this._setupMiddleware();
+  }
+  
+  /**
+   * Sets up middleware to intercept text input changes
+   * for detecting context menu paste operations
+   * @private
+   */
+  _setupMiddleware() {
+    // Get the clutter text inside the St.Entry
+    const clutterText = this.inputField.clutter_text;
+    
+    // Store original set_text to intercept paste operations
+    const originalSetText = clutterText.set_text;
+    
+    // Save reference to original method for cleanup
+    this._originalSetText = originalSetText;
+    
+    // Keep reference to this for use in callback
+    const self = this;
+    
+    // Replace the set_text method with our middleware
+    clutterText.set_text = function(text) {
+      // Get current text to compare
+      const currentText = clutterText.get_text();
+      
+      // Check if this might be a paste operation that wasn't triggered by Ctrl+V
+      if (!self.isProcessingPaste && text !== currentText && text && text.length > currentText.length) {
+        // Try to detect pasted content
+        const possiblePaste = PasteHandler.findLikelyPastedContent(currentText, text);
+        
+        if (possiblePaste && possiblePaste.length > 0) {
+          // Handle as a paste operation
+          self.handleClipboardPaste(possiblePaste);
+          return;
+        }
+      }
+      
+      // Call the original implementation if not handled as paste
+      return originalSetText.call(this, text);
+    };
+  }
+
+  /**
+   * Handle pasted text from clipboard
+   * @param {string} text - The pasted text
+   */
+  handleClipboardPaste(text) {
+    if (!text || text === this.lastProcessedText) {
+      return;
+    }
+
+    // Set flag and save text to prevent duplicate processing
+    this.isProcessingPaste = true;
+    this.lastProcessedText = text;
+
+    // Create a file box with the pasted text
+    if (this.fileHandler) {
+      // Increment the pasted text counter
+      this.pastedTextCount++;
+
+      // Create a file box with the pasted text
+      this.fileHandler.createFileBoxFromText(
+        text,
+        "Pasted Text"
+      );
+
+      // Ensure layout is updated
+      this.updateLayout();
+
+      // Return focus to input field
+      global.stage.set_key_focus(this.inputField.clutter_text);
+    }
+
+    // Reset processing flag after a short delay
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+      this.isProcessingPaste = false;
+      return false; // Don't repeat
+    });
   }
 
   /**
@@ -56,18 +137,6 @@ export class PasteHandler {
       }
       this.lastPasteTime = currentTime;
 
-      // Capture the current text and cursor position before paste
-      const currentText = this.inputField.get_text() || "";
-      const cursorPos = actor.get_cursor_position();
-      let selectionStart = -1;
-      let selectionEnd = -1;
-
-      // Check if there's a text selection
-      if (actor.get_selection_bound() >= 0) {
-        selectionStart = Math.min(actor.get_selection_bound(), cursorPos);
-        selectionEnd = Math.max(actor.get_selection_bound(), cursorPos);
-      }
-
       // Get clipboard content
       const clipboard = St.Clipboard.get_default();
 
@@ -80,63 +149,24 @@ export class PasteHandler {
           return;
         }
 
-        // Count words in pasted text
-        const wordCount = text
-          .split(/\s+/u)
-          .filter((word) => word.length > 0).length;
+        this.lastProcessedText = text;
 
-        // If text is longer than a threshold, create a file box
-        if (wordCount > 100) {
-          this.lastProcessedText = text;
-
+        // Always create a file box with the pasted text
+        if (this.fileHandler) {
           // Increment the pasted text counter
           this.pastedTextCount++;
 
-          // Create a file box with the pasted text and sequential title
-          if (this.fileHandler) {
-            this.fileHandler.createFileBoxFromText(
-              text,
-              `Pasted ${this.pastedTextCount}`
-            );
+          // Create a file box with the pasted text and title "Pasted Text"
+          this.fileHandler.createFileBoxFromText(
+            text,
+            "Pasted Text"
+          );
 
-            // Ensure layout is updated
-            this.updateLayout();
+          // Ensure layout is updated
+          this.updateLayout();
 
-            // Return focus to input field
-            global.stage.set_key_focus(this.inputField.clutter_text);
-
-            // Show a temporary confirmation message
-            MessageProcessor.addTemporaryMessage(
-              this.outputContainer,
-              `Long text added as file box "Pasted ${this.pastedTextCount}"`
-            );
-          }
-        } else {
-          // For shorter text, manually insert at cursor position
-          let newText;
-          if (selectionStart >= 0) {
-            // Replace selected text with paste
-            newText =
-              currentText.substring(0, selectionStart) +
-              text +
-              currentText.substring(selectionEnd);
-
-            // Set cursor position after pasted text
-            const newCursorPos = selectionStart + text.length;
-            this.inputField.set_text(newText);
-            actor.set_cursor_position(newCursorPos);
-          } else {
-            // Insert at current cursor position
-            newText =
-              currentText.substring(0, cursorPos) +
-              text +
-              currentText.substring(cursorPos);
-
-            // Set cursor position after pasted text
-            const newCursorPos = cursorPos + text.length;
-            this.inputField.set_text(newText);
-            actor.set_cursor_position(newCursorPos);
-          }
+          // Return focus to input field
+          global.stage.set_key_focus(this.inputField.clutter_text);
         }
 
         // Reset the processing flag after a delay
@@ -147,7 +177,6 @@ export class PasteHandler {
       });
 
       // Return Clutter.EVENT_STOP to prevent the default paste operation
-      // We've manually handled both short and long text above
       return Clutter.EVENT_STOP;
     }
 
@@ -201,5 +230,15 @@ export class PasteHandler {
     );
 
     return pastedContent;
+  }
+
+  /**
+   * Clean up the paste handler and restore original methods
+   */
+  cleanup() {
+    if (this._originalSetText && this.inputField && this.inputField.clutter_text) {
+      this.inputField.clutter_text.set_text = this._originalSetText;
+      this._originalSetText = null;
+    }
   }
 }
