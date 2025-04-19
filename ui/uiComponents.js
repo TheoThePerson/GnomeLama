@@ -261,20 +261,24 @@ export function createCodeContainer(code, language = "code") {
 
   codeBox.add_child(headerBox);
 
-  // Create a container for the code content with specific styling
-  const codeContent = new St.Label({
-    text: code,
-    style_class: "code-content",
-    style:
-      "background-color: #222; color: #eee; padding: 12px; font-family: monospace;",
+  // Display code content in a single text field
+  const contentBox = new St.Entry({
+    style_class: "code-content file-content-full",
     x_expand: true,
+    can_focus: true
   });
 
-  codeContent.clutter_text.set_line_wrap(true);
-  codeContent.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
-  codeContent.clutter_text.set_selectable(true);
-
-  codeBox.add_child(codeContent);
+  // Set up the content to display all text without limitations
+  contentBox.clutter_text.set_text(code || "");
+  contentBox.clutter_text.set_line_wrap(true);
+  contentBox.clutter_text.set_single_line_mode(false);
+  contentBox.clutter_text.set_activatable(false);
+  contentBox.clutter_text.set_editable(false);
+  contentBox.clutter_text.set_max_length(0); // Remove any character limit
+  contentBox.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+  contentBox.clutter_text.set_selectable(true);
+  
+  codeBox.add_child(contentBox);
 
   return codeBox;
 }

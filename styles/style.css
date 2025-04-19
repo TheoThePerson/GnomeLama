@@ -156,7 +156,7 @@
 .code-header {
   padding: 6px 8px;
   border-bottom: 1px solid #444;
-  background-color: #333  ;
+  background-color: #333;
   border-radius: 8px 8px 0 0;
   display: flex;
 }
@@ -169,8 +169,8 @@
 }
 
 .code-button {
-  background-color: #555  ;
-  color: white  ;
+  background-color: #555;
+  color: white;
   border-radius: 3px;
   padding: 2px 8px;
   font-size: 10px;
@@ -179,12 +179,12 @@
 }
 
 .code-button:hover {
-  background-color: #666  ;
+  background-color: #666;
 }
 
 .execute-button {
-  background-color: #2e7d32  ;
-  color: white  ;
+  background-color: #2e7d32;
+  color: white;
   border-radius: 3px;
   padding: 2px 8px;
   font-size: 10px;
@@ -192,7 +192,21 @@
 }
 
 .execute-button:hover {
-  background-color: #388e3c  ;
+  background-color: #388e3c;
+}
+
+/* Save As button style */
+.save-as-button {
+  background-color: #347EC1 !important;
+  color: white !important;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.save-as-button:hover {
+  background-color: #4295db !important;
 }
 
 /* Text styles */
@@ -243,18 +257,69 @@
   margin: 0;
 }
 
+/* Code content styles */
 .code-content {
   font-family: monospace;
   padding: 12px;
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
-  overflow-x: auto;
   color: #eee;
-  background-color: #222  ;
+  background-color: #222;
   border-radius: 0 0 8px 8px;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  max-height: none !important;
+  height: auto !important;
+  /* Remove typical entry styling */
+  border: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+  caret-color: transparent;
+}
+
+/* Specific style for the full content displays */
+.file-content-full {
+  border: none !important;
+  background-color: #222 !important;
+  box-shadow: none !important;
+  max-length: none !important;
+  margin: 0 !important;
+  padding: 12px !important;
+}
+
+.file-content-full StEntry {
+  border: none !important;
+  background-color: transparent !important;
+}
+
+.file-content-full:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.file-content-full ClutterText {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  max-length: none !important;
+}
+
+/* Remove focus highlight from code content */
+.code-content:focus {
+  border: none;
+  box-shadow: none;
+}
+
+/* Entry text node styling */
+.code-content StEntry {
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.code-content StEntry:focus {
+  border: none;
+  box-shadow: none;
 }
 
 /* List item styles */

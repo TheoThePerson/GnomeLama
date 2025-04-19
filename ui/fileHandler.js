@@ -46,7 +46,7 @@ const UI = {
       },
       TEXT: {
         STYLE_CLASS: "file-content-text",
-        MAX_LENGTH: 2000,
+        MAX_LENGTH: 50000,
       },
     },
   },
@@ -359,7 +359,7 @@ export class FileHandler {
   static _truncateContent(content) {
     const maxLength = UI.FILE_BOX.CONTENT.TEXT.MAX_LENGTH;
     if (content.length > maxLength) {
-      return content.substring(0, maxLength) + "...\n(Content truncated)";
+      return content.substring(0, maxLength) + "\n\n...\n(Content truncated due to size limits.)\n";
     }
     return content;
   }

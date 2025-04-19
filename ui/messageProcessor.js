@@ -452,57 +452,6 @@ function cleanJsonString(jsonString) {
     .trim();
 }
 
-// Refactoring handleSaveDialogResult to use fewer parameters
-function handleSaveDialogResult(proc, result, context) {
-  const { saveAsButton, saveAsTimeoutId, file, container } = context;
-
-  try {
-    const [, stdout, stderr] = proc.communicate_utf8_finish(result);
-
-    if (proc.get_exit_status() === 0 && stdout && stdout.trim()) {
-      const savePath = stdout.trim();
-
-      if (savePath) {
-        const ByteArray = imports.byteArray;
-        const contentBytes = ByteArray.fromString(file.content);
-
-        if (GLib.file_set_contents(savePath, contentBytes)) {
-          addTemporaryMessage(
-            container.get_parent(),
-            `Successfully saved to ${savePath}`
-          );
-        } else {
-          addTemporaryMessage(
-            container.get_parent(),
-            `Error: Failed to write to ${savePath}. Check file permissions.`
-          );
-        }
-      }
-    } else if (stderr && stderr.trim()) {
-      // Save dialog error - silently fail in production
-    }
-
-    resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
-  } catch {
-    // Error processing save dialog - silently fail in production
-    resetButtonState(saveAsButton, saveAsTimeoutId, "Save As...");
-  }
-}
-
-// Helper function to reset button state
-function resetButtonState(button, timeoutId, label) {
-  if (timeoutId) {
-    GLib.Source.remove(timeoutId);
-  }
-
-  return GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-    if (!button.destroyed) {
-      button.set_label(label);
-    }
-    return GLib.SOURCE_REMOVE;
-  });
-}
-
 // Refactoring tryParseJsonResponse by extracting helper methods
 function parseJsonFromResponse(responseText) {
   try {
@@ -604,37 +553,33 @@ function renderFileItem(container, file) {
     // File has no content, using empty string - silently continue in production
   }
 
+  // Create a code-like container using the same style classes as code blocks
   const fileBox = new St.BoxLayout({
     vertical: true,
-    style_class: "file-response-box",
-    style:
-      "background-color: #333; border-radius: 8px; margin: 8px 0 12px 0; border: 1px solid #444;",
+    style_class: "code-container",
     x_expand: true,
   });
 
+  // Create header with same style as code blocks
   const headerBox = new St.BoxLayout({
-    style_class: "file-response-header",
-    style:
-      "background-color: #444; padding: 8px 10px; border-radius: 8px 8px 0 0;",
+    style_class: "code-header",
     x_expand: true,
   });
 
+  // Create file name label similar to language label in code blocks
   const filenameLabel = new St.Label({
     text: file.filename,
-    style_class: "filename-label",
-    style: "color: #fff; font-weight: bold; font-size: 14px;",
+    style_class: "code-language",
     x_expand: true,
   });
 
   filenameLabel.clutter_text.set_selectable(true);
   headerBox.add_child(filenameLabel);
 
+  // Copy button with same style as code blocks
   const copyButton = new St.Button({
-    style_class: "copy-button",
-    style:
-      "background-color: #555; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
+    style_class: "code-button",
     label: "Copy",
-    x_expand: false,
   });
 
   let copyTimeoutId = null;
@@ -677,11 +622,8 @@ function renderFileItem(container, file) {
 
   // Add Save As button for all file types
   const saveAsButton = new St.Button({
-    style_class: "save-as-button",
-    style:
-      "background-color: #347EC1; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
-    label: `Save As...`,
-    x_expand: false,
+    style_class: "code-button save-as-button",
+    label: `Save As txt`,
   });
 
   let saveAsTimeoutId = null;
@@ -698,11 +640,17 @@ function renderFileItem(container, file) {
           `Error: No content to save for ${file.filename}`
         );
 
-        saveAsTimeoutId = resetButtonState(
-          saveAsButton,
-          saveAsTimeoutId,
-          "Save As..."
-        );
+        if (saveAsTimeoutId) {
+          GLib.Source.remove(saveAsTimeoutId);
+        }
+        
+        saveAsTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+          if (!saveAsButton.destroyed) {
+            saveAsButton.set_label(`Save As TXT`);
+          }
+          saveAsTimeoutId = null;
+          return GLib.SOURCE_REMOVE;
+        });
         return;
       }
 
@@ -729,12 +677,57 @@ function renderFileItem(container, file) {
 
         subprocess.init(null);
         subprocess.communicate_utf8_async(null, null, (proc, result) => {
-          handleSaveDialogResult(proc, result, {
-            saveAsButton,
-            saveAsTimeoutId,
-            file,
-            container,
-          });
+          try {
+            const [, stdout, stderr] = proc.communicate_utf8_finish(result);
+
+            if (proc.get_exit_status() === 0 && stdout && stdout.trim()) {
+              const savePath = stdout.trim();
+
+              if (savePath) {
+                const ByteArray = imports.byteArray;
+                const contentBytes = ByteArray.fromString(file.content);
+
+                if (GLib.file_set_contents(savePath, contentBytes)) {
+                  addTemporaryMessage(
+                    container.get_parent(),
+                    `Successfully saved to ${savePath}`
+                  );
+                } else {
+                  addTemporaryMessage(
+                    container.get_parent(),
+                    `Error: Failed to write to ${savePath}. Check file permissions.`
+                  );
+                }
+              }
+            } else if (stderr && stderr.trim()) {
+              // Save dialog error - silently fail in production
+            }
+
+            if (saveAsTimeoutId) {
+              GLib.Source.remove(saveAsTimeoutId);
+            }
+            
+            saveAsTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+              if (!saveAsButton.destroyed) {
+                saveAsButton.set_label(`Save As TXT`);
+              }
+              saveAsTimeoutId = null;
+              return GLib.SOURCE_REMOVE;
+            });
+          } catch {
+            // Error handling save dialog result
+            if (saveAsTimeoutId) {
+              GLib.Source.remove(saveAsTimeoutId);
+            }
+            
+            saveAsTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+              if (!saveAsButton.destroyed) {
+                saveAsButton.set_label(`Save As TXT`);
+              }
+              saveAsTimeoutId = null;
+              return GLib.SOURCE_REMOVE;
+            });
+          }
         });
       } catch (error) {
         // Error launching save dialog - silently fail in production
@@ -743,11 +736,17 @@ function renderFileItem(container, file) {
           `Error launching save dialog: ${error}`
         );
 
-        saveAsTimeoutId = resetButtonState(
-          saveAsButton,
-          saveAsTimeoutId,
-          "Save As..."
-        );
+        if (saveAsTimeoutId) {
+          GLib.Source.remove(saveAsTimeoutId);
+        }
+        
+        saveAsTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+          if (!saveAsButton.destroyed) {
+            saveAsButton.set_label(`Save As TXT`);
+          }
+          saveAsTimeoutId = null;
+          return GLib.SOURCE_REMOVE;
+        });
       }
     } catch (error) {
       // Error in Save As operation - silently fail in production
@@ -756,11 +755,17 @@ function renderFileItem(container, file) {
         `Error: ${error.message || "Unknown error during Save As operation"}`
       );
 
-      saveAsTimeoutId = resetButtonState(
-        saveAsButton,
-        saveAsTimeoutId,
-        "Save As..."
-      );
+      if (saveAsTimeoutId) {
+        GLib.Source.remove(saveAsTimeoutId);
+      }
+      
+      saveAsTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+        if (!saveAsButton.destroyed) {
+          saveAsButton.set_label(`Save As TXT`);
+        }
+        saveAsTimeoutId = null;
+        return GLib.SOURCE_REMOVE;
+      });
     }
   });
 
@@ -775,131 +780,116 @@ function renderFileItem(container, file) {
 
   // Only show Apply button for files that can be converted back
   if (!isNonConvertibleDocument) {
-    const applyButton = new St.Button({
-      style_class: "apply-button",
-      style:
-        "background-color: #2e8b57; color: white; border-radius: 4px; padding: 4px 8px; margin-left: 10px; font-size: 12px;",
-      label: `Apply to ${file.filename}`,
-      x_expand: false,
-    });
+    const pathToApply = findFilePathForApply(file.filename);
+    if (pathToApply) {
+      const applyButton = new St.Button({
+        style_class: "execute-button",
+        label: `Apply to ${file.filename}`,
+      });
 
-    let applyTimeoutId = null;
+      let applyTimeoutId = null;
+      applyButton.connect("clicked", () => {
+        applyButton.set_label(`Applying to ${file.filename}...`);
 
-    applyButton.connect("clicked", () => {
-      applyButton.set_label(`Applying to ${file.filename}...`);
-
-      const { Gio } = imports.gi;
-
-      try {
-        if (!file.content) {
-          addTemporaryMessage(
-            container.get_parent(),
-            `Error: No content to save for ${file.filename}`
-          );
-
-          applyTimeoutId = resetButtonState(
-            applyButton,
-            applyTimeoutId,
-            `Apply to ${file.filename}`
-          );
-          return;
-        }
-
-        let fullPath;
-        if (file.path && file.path.trim() !== "") {
-          fullPath = file.path;
-        } else {
-          const registeredPath = FilePathRegistry.get(file.filename);
-
-          if (registeredPath) {
-            fullPath = registeredPath;
-            // Found registered path - silently continue in production
-          } else {
-            const homeDir = GLib.get_home_dir();
-            fullPath = GLib.build_filenamev([homeDir, file.filename]);
-            addTemporaryMessage(
-              container.get_parent(),
-              `Warning: No original path found for ${file.filename}. Using ${fullPath} instead.`
-            );
-          }
-        }
-
-        const fileObj = Gio.File.new_for_path(fullPath);
-
-        if (!fileObj.query_exists(null)) {
-          addTemporaryMessage(
-            container.get_parent(),
-            `Warning: File ${fullPath} doesn't exist. Creating a new file.`
-          );
+        if (applyTimeoutId) {
+          GLib.Source.remove(applyTimeoutId);
         }
 
         try {
-          const ByteArray = imports.byteArray;
-          const contentBytes = ByteArray.fromString(file.content);
+          let fullPath = pathToApply;
 
-          if (GLib.file_set_contents(fullPath, contentBytes)) {
-            addTemporaryMessage(
-              container.get_parent(),
-              `Successfully applied changes to ${fullPath}`
-            );
-          } else {
-            addTemporaryMessage(
-              container.get_parent(),
-              `Error: Failed to write to ${fullPath}. Check file permissions.`
-            );
+          try {
+            const ByteArray = imports.byteArray;
+            const contentBytes = ByteArray.fromString(file.content);
+
+            if (GLib.file_set_contents(fullPath, contentBytes)) {
+              addTemporaryMessage(
+                container.get_parent(),
+                `Successfully applied changes to ${fullPath}`
+              );
+            } else {
+              addTemporaryMessage(
+                container.get_parent(),
+                `Error: Failed to write to ${fullPath}. Check file permissions.`
+              );
+            }
+          } catch {
+            // Error writing to file - silently fail in production
+            addTemporaryMessage(container.get_parent(), `Error writing to file`);
           }
+
+          applyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+            if (!applyButton.destroyed) {
+              applyButton.set_label(`Apply to ${file.filename}`);
+            }
+            applyTimeoutId = null;
+            return GLib.SOURCE_REMOVE;
+          });
         } catch {
-          // Error writing to file - silently fail in production
-          addTemporaryMessage(container.get_parent(), `Error writing to file`);
+          // Error applying file content - silently fail in production
+          addTemporaryMessage(
+            container.get_parent(),
+            `Error: Error applying file content`
+          );
+
+          applyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+            if (!applyButton.destroyed) {
+              applyButton.set_label(`Apply to ${file.filename}`);
+            }
+            applyTimeoutId = null;
+            return GLib.SOURCE_REMOVE;
+          });
         }
+      });
 
-        applyTimeoutId = resetButtonState(
-          applyButton,
-          applyTimeoutId,
-          `Apply to ${file.filename}`
-        );
-      } catch {
-        // Error applying file content - silently fail in production
-        addTemporaryMessage(
-          container.get_parent(),
-          `Error: Error applying file content`
-        );
+      applyButton.connect("destroy", () => {
+        if (applyTimeoutId) {
+          GLib.Source.remove(applyTimeoutId);
+          applyTimeoutId = null;
+        }
+      });
 
-        applyTimeoutId = resetButtonState(
-          applyButton,
-          applyTimeoutId,
-          `Apply to ${file.filename}`
-        );
-      }
-    });
-
-    applyButton.connect("destroy", () => {
-      if (applyTimeoutId) {
-        GLib.Source.remove(applyTimeoutId);
-        applyTimeoutId = null;
-      }
-    });
-
-    headerBox.add_child(applyButton);
+      headerBox.add_child(applyButton);
+    }
   }
   fileBox.add_child(headerBox);
 
-  const contentBox = new St.BoxLayout({
-    vertical: true,
-    style: "padding: 10px;",
+  // Display file content in a single text field
+  const contentBox = new St.Entry({
+    style_class: "code-content file-content-full",
     x_expand: true,
+    can_focus: true
   });
 
-  const contentLabel = new St.Label({
-    text: file.content,
-    style: "font-family: monospace; white-space: pre-wrap;",
-    x_expand: true,
-  });
-
-  contentLabel.clutter_text.set_line_wrap(true);
-  contentLabel.clutter_text.set_selectable(true);
-  contentBox.add_child(contentLabel);
+  // Set up the content to display all text without limitations
+  contentBox.clutter_text.set_text(file.content || "");
+  contentBox.clutter_text.set_line_wrap(true);
+  contentBox.clutter_text.set_single_line_mode(false);
+  contentBox.clutter_text.set_activatable(false);
+  contentBox.clutter_text.set_editable(false);
+  contentBox.clutter_text.set_max_length(0); // Remove any character limit
+  contentBox.clutter_text.set_ellipsize(imports.gi.Pango.EllipsizeMode.NONE);
+  contentBox.clutter_text.set_selectable(true);
+  
   fileBox.add_child(contentBox);
-
   container.add_child(fileBox);
+}
+
+/**
+ * Find the path to apply changes for a given filename
+ * @param {string} filename - The filename to look up
+ * @returns {string|null} - The path to apply changes to, or null if not found
+ */
+function findFilePathForApply(filename) {
+  if (!filename) return null;
+  
+  // First try to get the path from the registry
+  const registeredPath = FilePathRegistry.get(filename);
+  if (registeredPath) {
+    return registeredPath;
+  }
+  
+  // If no registered path, use home directory
+  const homeDir = GLib.get_home_dir();
+  return GLib.build_filenamev([homeDir, filename]);
 }
