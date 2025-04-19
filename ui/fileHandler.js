@@ -754,6 +754,7 @@ export class FileHandler {
 
     // Extract file name from userData or from inner structure
     let fileName = null;
+    let fileContent = null;
     
     if (fileBoxContainer.userData && fileBoxContainer.userData.fileName) {
       // Get filename from userData if available (new structure)
@@ -772,6 +773,11 @@ export class FileHandler {
       }
     }
 
+    // Get file content before removing from map
+    if (fileName && this._loadedFiles.has(fileName)) {
+      fileContent = this._loadedFiles.get(fileName);
+    }
+    
     // Delete from loaded files map if filename was found
     if (fileName) {
       this._loadedFiles.delete(fileName);
@@ -784,6 +790,10 @@ export class FileHandler {
     
     // Ensure the widget is destroyed to free resources
     fileBoxContainer.destroy();
+    
+    // Notify any paste handler that content has been removed
+    // This will allow the same content to be pasted again
+    this._notifyContentRemoved(fileContent);
     
     // Check if this was the last file box
     const fileCount = this._fileBoxesContainer.get_n_children();
@@ -841,6 +851,19 @@ export class FileHandler {
     } else {
       // If we still have file boxes, just update the layout
       this._updateLayout();
+    }
+  }
+  
+  /**
+   * Notifies registered handlers that content has been removed
+   * Used to allow the same content to be added again
+   * @private
+   * @param {string} [content] - The content that was removed
+   */
+  _notifyContentRemoved(content) {
+    // This will be connected by the mainPanel
+    if (this.onContentRemoved && typeof this.onContentRemoved === 'function') {
+      this.onContentRemoved(content);
     }
   }
 
@@ -967,6 +990,9 @@ export class FileHandler {
     
     // Clean up UI elements
     this._cleanupFileBoxes();
+    
+    // Notify that all content was removed
+    this._notifyContentRemoved();
     
     // If we had files, properly reset layout
     if (hadFiles) {

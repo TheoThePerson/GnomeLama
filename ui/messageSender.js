@@ -27,6 +27,7 @@ export class MessageSender {
       outputContainer,
       outputScrollView,
       fileHandler = null,
+      pasteHandler = null,
     } = options;
 
     this._extensionPath = extensionPath;
@@ -35,6 +36,7 @@ export class MessageSender {
     this._outputContainer = outputContainer;
     this._outputScrollView = outputScrollView;
     this._fileHandler = fileHandler;
+    this._pasteHandler = pasteHandler;
 
     this._sendIcon = null;
     this._sendButtonClickId = null;
@@ -194,6 +196,11 @@ export class MessageSender {
     // Update UI for sending
     this._handlePreSendUpdates();
 
+    // Reset paste handler state to allow pasting the same content again
+    if (this._pasteHandler) {
+      this._pasteHandler.onMessageSent();
+    }
+
     try {
       // Show the simplified message in UI
       MessageProcessor.appendUserMessage(this._outputContainer, displayMessage);
@@ -224,6 +231,11 @@ export class MessageSender {
     }
 
     stopAiMessage();
+    
+    // Reset paste handler state to allow pasting the same content again
+    if (this._pasteHandler) {
+      this._pasteHandler.onMessageSent();
+    }
     
     this._handlePostSendUpdates();
   }

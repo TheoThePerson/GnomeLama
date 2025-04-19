@@ -84,13 +84,23 @@ export class PasteHandler {
    * @param {string} text - The pasted text
    */
   handleClipboardPaste(text) {
-    if (!text || text === this.lastProcessedText) {
+    if (!text) {
+      return;
+    }
+
+    // Only check for duplicate if paste operations happen in short succession
+    const currentTime = Date.now();
+    const isDuplicate = (text === this.lastProcessedText) && 
+                       (currentTime - this.lastPasteTime < 2000);
+                       
+    if (isDuplicate) {
       return;
     }
 
     // Set flag and save text to prevent duplicate processing
     this.isProcessingPaste = true;
     this.lastProcessedText = text;
+    this.lastPasteTime = currentTime;
 
     // Create a file box with the pasted text
     if (this.fileHandler) {
@@ -144,7 +154,16 @@ export class PasteHandler {
       this.isProcessingPaste = true;
 
       clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboardObj, text) => {
-        if (!text || text === this.lastProcessedText) {
+        if (!text) {
+          this.isProcessingPaste = false;
+          return;
+        }
+        
+        // Only check for duplicate if paste operations happen in short succession
+        const isDuplicate = (text === this.lastProcessedText) && 
+                          (Date.now() - this.lastPasteTime < 2000);
+        
+        if (isDuplicate) {
           this.isProcessingPaste = false;
           return;
         }
@@ -240,5 +259,33 @@ export class PasteHandler {
       this.inputField.clutter_text.set_text = this._originalSetText;
       this._originalSetText = null;
     }
+  }
+
+  /**
+   * Resets the paste handler state
+   * Use when clearing chat history or starting a new chat
+   */
+  resetState() {
+    this.isProcessingPaste = false;
+    this.lastProcessedText = "";
+    this.lastPasteTime = 0;
+  }
+  
+  /**
+   * Resets tracking for a specific text string
+   * @param {string} text - The text to stop tracking (or all text if not specified)
+   */
+  resetTrackedText(text) {
+    if (!text || text === this.lastProcessedText) {
+      this.lastProcessedText = "";
+    }
+  }
+
+  /**
+   * Called after sending a message to allow the same text to be pasted again
+   */
+  onMessageSent() {
+    // Reset last processed text to allow pasting the same content
+    this.lastProcessedText = "";
   }
 }

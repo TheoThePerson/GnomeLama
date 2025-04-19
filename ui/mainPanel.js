@@ -167,16 +167,6 @@ export const Indicator = GObject.registerClass(
         updateLayoutCallback: safeUpdateLayout,
       });
 
-      // Initialize message sender
-      this._messageSender = new MessageSender({
-        extensionPath: this._extensionPath,
-        inputField: this._inputField,
-        sendButton: this._sendButton,
-        outputContainer: this._outputContainer,
-        outputScrollView: this._outputScrollView,
-        fileHandler: this._fileHandler,
-      });
-
       // Initialize paste handler to intercept paste operations
       this._pasteHandler = new PasteHandler({
         inputField: this._inputField,
@@ -188,6 +178,30 @@ export const Indicator = GObject.registerClass(
       // Connect the paste handler to input field key press events
       this._inputField.clutter_text.connect("key-press-event", (actor, event) => {
         return this._pasteHandler.handleKeyPress(actor, event);
+      });
+      
+      // Connect file handler content removal to paste handler
+      this._fileHandler.onContentRemoved = (content) => {
+        if (this._pasteHandler) {
+          if (content) {
+            // Reset tracking for this specific content
+            this._pasteHandler.resetTrackedText(content);
+          } else {
+            // Reset all tracking if no specific content
+            this._pasteHandler.resetState();
+          }
+        }
+      };
+
+      // Initialize message sender
+      this._messageSender = new MessageSender({
+        extensionPath: this._extensionPath,
+        inputField: this._inputField,
+        sendButton: this._sendButton,
+        outputContainer: this._outputContainer,
+        outputScrollView: this._outputScrollView,
+        fileHandler: this._fileHandler,
+        pasteHandler: this._pasteHandler,
       });
 
       // Initialize model manager with clear callback
@@ -352,6 +366,10 @@ export const Indicator = GObject.registerClass(
         this._panelOverlay.visible = isOpening;
 
         if (isOpening) {
+          // Reset paste handler state when opening panel to allow pasting the same text
+          if (this._pasteHandler) {
+            this._pasteHandler.resetState();
+          }
           this._initializePanelState();
         } else {
           this._cleanupPanelState();
@@ -456,6 +474,11 @@ export const Indicator = GObject.registerClass(
 
       // Clear output
       MessageProcessor.clearOutput(this._outputContainer);
+      
+      // Reset paste handler state to allow pasting the same text in new conversations
+      if (this._pasteHandler) {
+        this._pasteHandler.resetState();
+      }
     }
 
     _updateLayout(forceFullUpdate = false) {
