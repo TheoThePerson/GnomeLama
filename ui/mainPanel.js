@@ -314,9 +314,6 @@ export const Indicator = GObject.registerClass(
         });
       }
 
-      // Load history in background
-      this._loadHistoryAsync();
-
       // Give focus to input field
       global.stage.set_key_focus(this._inputField.clutter_text);
 
@@ -370,6 +367,45 @@ export const Indicator = GObject.registerClass(
           if (this._pasteHandler) {
             this._pasteHandler.resetState();
           }
+
+          // Remove temporary messages and clear output
+          MessageProcessor.removeTemporaryMessages(this._outputContainer);
+          MessageProcessor.clearOutput(this._outputContainer);
+
+          // Get and render conversation history
+          const history = getConversationHistory();
+          history.forEach((message, index) => {
+            if (message.type === "user") {
+              MessageProcessor.appendUserMessage(
+                this._outputContainer,
+                message.text
+              );
+            } else if (message.type === "assistant") {
+              const responseContainer = PanelElements.createResponseContainer(
+                this._settings.get_string("ai-message-color")
+              );
+              this._outputContainer.add_child(responseContainer);
+
+              if (
+                index > 0 &&
+                history[index - 1].type === "user" &&
+                (history[index - 1].text.includes("[files attached]") ||
+                  history[index - 1].text.includes("｢files attached｣"))
+              ) {
+                MessageProcessor.setLastMessageHadFiles(true);
+              } else {
+                MessageProcessor.setLastMessageHadFiles(false);
+              }
+
+              MessageProcessor.updateResponseContainer(
+                responseContainer,
+                message.text
+              );
+            }
+          });
+
+          PanelElements.scrollToBottom(this._outputScrollView);
+
           this._initializePanelState();
         } else {
           this._cleanupPanelState();
@@ -397,71 +433,6 @@ export const Indicator = GObject.registerClass(
           }
         );
       }
-    }
-
-    /**
-     * Load conversation history asynchronously
-     * @private
-     */
-    _loadHistoryAsync() {
-      // Use a low priority idle callback to update history without blocking other UI
-      imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_LOW, () => {
-        this._updateHistory();
-        return imports.gi.GLib.SOURCE_REMOVE; // Don't repeat
-      });
-    }
-
-    _updateHistory() {
-      // Remove temporary messages in case they are not gone
-      MessageProcessor.removeTemporaryMessages(this._outputContainer);
-
-      // Clear other messages
-      MessageProcessor.clearOutput(this._outputContainer);
-
-      // Get conversation history
-      const history = getConversationHistory();
-
-      // Add messages from history
-      history.forEach((message, index) => {
-        if (message.type === "user") {
-          MessageProcessor.appendUserMessage(
-            this._outputContainer,
-            message.text
-          );
-        } else if (message.type === "assistant") {
-          const responseContainer = PanelElements.createResponseContainer(
-            this._settings.get_string("ai-message-color")
-          );
-          this._outputContainer.add_child(responseContainer);
-
-          // If previous user message had files, set the flag before rendering
-          if (
-            index > 0 &&
-            history[index - 1].type === "user" &&
-            (history[index - 1].text.includes("[files attached]") ||
-              history[index - 1].text.includes("｢files attached｣"))
-          ) {
-            MessageProcessor.setLastMessageHadFiles(true);
-          } else {
-            MessageProcessor.setLastMessageHadFiles(false);
-          }
-
-          MessageProcessor.updateResponseContainer(
-            responseContainer,
-            message.text
-          );
-        }
-      });
-
-      PanelElements.scrollToBottom(this._outputScrollView);
-
-      // Wait for layout before refreshing file box formatting
-      imports.gi.GLib.timeout_add(imports.gi.GLib.PRIORITY_DEFAULT, 50, () => {
-        if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-          this._fileHandler.refreshFileBoxFormatting();
-        }
-        return imports.gi.GLib.SOURCE_REMOVE;
-      });
     }
 
     _clearHistory() {
