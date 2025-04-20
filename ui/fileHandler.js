@@ -10,6 +10,7 @@ import { getSettings } from "../lib/settings.js";
 import * as DocumentConverter from "../converters/documentConverter.js";
 import * as LayoutManager from "./layoutManager.js";
 import * as MessageProcessor from "./messageProcessor.js";
+import { DialogSystem } from "./dialogSystem.js";
 
 // UI Constants
 const UI = {
@@ -46,7 +47,7 @@ const UI = {
       },
       TEXT: {
         STYLE_CLASS: "file-content-text",
-        MAX_LENGTH: 50000,
+        MAX_LENGTH: 16000,
       },
     },
   },
@@ -87,6 +88,11 @@ export class FileHandler {
     // Track loaded file content
     this._loadedFiles = new Map(); // Map to store filename -> content
     this._filePaths = new Map(); // Map to store filename -> full path
+
+    // Initialize dialog system
+    this._dialogSystem = new DialogSystem({
+      panelOverlay: this._panelOverlay
+    });
 
     // Check for document conversion tools
     this._checkDocumentTools();
@@ -305,6 +311,101 @@ export class FileHandler {
   }
 
   /**
+   * Shows a dialog for handling oversized files
+   * 
+   * @private
+   * @param {string} fileName - Name of the file
+   * @param {string} content - File content
+   * @param {string} filePath - Path to the file
+   * @returns {Promise<string>} - Promise resolving to the chosen action
+   */
+  _showOversizedFileDialog(fileName, content, filePath) {
+    return new Promise((resolve) => {
+      const maxLength = UI.FILE_BOX.CONTENT.TEXT.MAX_LENGTH;
+      const dialog = new St.BoxLayout({
+        vertical: true,
+        style_class: "oversized-file-dialog",
+        x_expand: true,
+        y_expand: true,
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+      });
+
+      // Add overlay to prevent interaction with other elements
+      const overlay = new St.Bin({
+        style_class: "oversized-file-overlay",
+        x_expand: true,
+        y_expand: true,
+      });
+
+      // Add message
+      const message = new St.Label({
+        text: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. It may work with some models with a higher context window.`,
+        style_class: "oversized-file-message",
+        x_expand: true,
+      });
+
+      // Add buttons container
+      const buttonsContainer = new St.BoxLayout({
+        vertical: false,
+        x_expand: true,
+        x_align: Clutter.ActorAlign.CENTER,
+        style_class: "oversized-file-buttons",
+      });
+
+      // Create buttons
+      const cancelButton = new St.Button({
+        label: "Cancel",
+        style_class: "oversized-file-button",
+      });
+
+      const truncateButton = new St.Button({
+        label: "Truncate",
+        style_class: "oversized-file-button",
+      });
+
+      const uploadButton = new St.Button({
+        label: "Upload Anyway",
+        style_class: "oversized-file-button",
+      });
+
+      // Add click handlers
+      cancelButton.connect("clicked", () => {
+        dialog.destroy();
+        overlay.destroy();
+        resolve("cancel");
+      });
+
+      truncateButton.connect("clicked", () => {
+        dialog.destroy();
+        overlay.destroy();
+        resolve("truncate");
+      });
+
+      uploadButton.connect("clicked", () => {
+        dialog.destroy();
+        overlay.destroy();
+        resolve("upload");
+      });
+
+      // Add buttons to container
+      buttonsContainer.add_child(cancelButton);
+      buttonsContainer.add_child(truncateButton);
+      buttonsContainer.add_child(uploadButton);
+
+      // Add components to dialog
+      dialog.add_child(message);
+      dialog.add_child(buttonsContainer);
+
+      // Add dialog to overlay
+      overlay.set_child(dialog);
+
+      // Add overlay to panel
+      this._panelOverlay.add_child(overlay);
+    });
+  }
+
+  /**
    * Converts and loads a file
    *
    * @private
@@ -314,11 +415,33 @@ export class FileHandler {
    */
   _convertAndLoadFile(filePath, fileName, fileType) {
     DocumentConverter.convertToText(filePath, fileType)
-      .then((content) => {
-        const truncatedContent = FileHandler._truncateContent(content);
-        this._displayFileContentBox(truncatedContent, fileName);
+      .then(async (content) => {
+        const maxLength = UI.FILE_BOX.CONTENT.TEXT.MAX_LENGTH;
+        
+        if (content.length > maxLength) {
+          const action = await this._dialogSystem.showDialog({
+            title: "File Too Large",
+            message: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. It may work with some models with a higher context window..`,
+            buttons: [
+              { label: "Cancel", action: "cancel" },
+              { label: "Truncate", action: "truncate" },
+              { label: "Upload Anyway", action: "upload" }
+            ]
+          });
+          
+          switch (action) {
+            case "cancel":
+              return;
+            case "truncate":
+              content = content.substring(0, maxLength) + "\n\n...\n(Content truncated due to size limits.)\n";
+              break;
+            case "upload":
+              // Keep full content
+              break;
+          }
+        }
 
-        // Store the full path
+        this._displayFileContentBox(content, fileName);
         this._filePaths.set(fileName, filePath);
       })
       .catch((error) => {

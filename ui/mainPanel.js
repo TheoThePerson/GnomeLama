@@ -12,6 +12,7 @@ import { FileHandler } from "./fileHandler.js";
 import { MessageSender } from "./messageSender.js";
 import { ModelManager } from "./modelManager.js";
 import { PasteHandler } from "./pasteHandler.js";
+import { DialogSystem } from "./dialogSystem.js";
 
 import Gio from "gi://Gio";
 
@@ -158,6 +159,11 @@ export const Indicator = GObject.registerClass(
     }
 
     _initializeComponents(safeUpdateLayout) {
+      // Initialize dialog system
+      this._dialogSystem = new DialogSystem({
+        panelOverlay: this._panelOverlay
+      });
+
       // Initialize file handler
       this._fileHandler = new FileHandler({
         extensionPath: this._extensionPath,
@@ -165,6 +171,7 @@ export const Indicator = GObject.registerClass(
         panelOverlay: this._panelOverlay,
         inputButtonsContainer: this._inputButtonsContainer,
         updateLayoutCallback: safeUpdateLayout,
+        dialogSystem: this._dialogSystem
       });
 
       // Initialize paste handler to intercept paste operations
