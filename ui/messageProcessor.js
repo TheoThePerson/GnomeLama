@@ -241,7 +241,14 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     return false;
   }
 
-  if (hadFiles || confidenceLevel >= 4) {
+  // Check if any files actually have content
+  const hasContentfulFiles = jsonData.files.some(file => 
+    file.content && file.content.trim() !== ''
+  );
+
+  // Only render as JSON if we have files with content, or we have high confidence
+  // this is a file-related response
+  if ((hasContentfulFiles || jsonData.summary) && (hadFiles || confidenceLevel >= 4)) {
     renderJsonResponse(container, jsonData);
     return true;
   }
@@ -516,9 +523,16 @@ function normalizeJsonStructure(jsonData) {
     };
   }
 
-  // Ensure summary exists
+  // Only add a summary if files have been modified
   if (jsonData.files && !jsonData.summary) {
-    jsonData.summary = "File modifications";
+    // Check if any files have been modified
+    const filesModified = jsonData.files.some(file => 
+      file.content && file.content.trim() !== ''
+    );
+    
+    if (filesModified) {
+      jsonData.summary = "File modifications";
+    }
   }
 
   return jsonData;
@@ -526,16 +540,18 @@ function normalizeJsonStructure(jsonData) {
 
 // Helper function to render the JSON response
 function renderJsonResponse(container, jsonData) {
-  // Create summary label
-  const summaryLabel = new St.Label({
-    text: jsonData.summary,
-    style_class: "text-label",
-    x_expand: true,
-    style: "margin-bottom: 12px;",
-  });
-  summaryLabel.clutter_text.set_line_wrap(true);
-  summaryLabel.clutter_text.set_selectable(true);
-  container.add_child(summaryLabel);
+  // Create summary label only if summary exists
+  if (jsonData.summary) {
+    const summaryLabel = new St.Label({
+      text: jsonData.summary,
+      style_class: "text-label",
+      x_expand: true,
+      style: "margin-bottom: 12px;",
+    });
+    summaryLabel.clutter_text.set_line_wrap(true);
+    summaryLabel.clutter_text.set_selectable(true);
+    container.add_child(summaryLabel);
+  }
 
   // Render each file
   jsonData.files.forEach((file) => renderFileItem(container, file));
