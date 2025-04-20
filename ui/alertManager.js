@@ -39,11 +39,18 @@ export class DialogSystem {
       overlay.set_size(this._panelOverlay.width, this._panelOverlay.height);
       overlay.set_position(0, 0);
 
+      // Calculate dialog width (80% of panel width, with min/max constraints)
+      const panelWidth = this._panelOverlay.width;
+      const dialogWidth = Math.min(Math.max(Math.floor(panelWidth * 0.8), 320), 600);
+      
       // Create dialog container
       const dialog = new St.BoxLayout({
         vertical: true,
         style_class: "dialog-container"
       });
+      
+      // Set the width directly on the dialog
+      dialog.set_width(dialogWidth);
 
       // Add title if provided
       if (title) {
@@ -54,8 +61,12 @@ export class DialogSystem {
         dialog.add_child(titleLabel);
       }
 
+      // Calculate appropriate line length based on dialog width
+      const approxCharsPerWidth = dialogWidth / 8; // Approximate characters per width unit
+      const lineLength = Math.floor(approxCharsPerWidth * 0.9); // Leave some margin
+      
       // Add message with manual line breaks if needed to ensure wrapping
-      const processedMessage = this._ensureTextWrapping(message, 55);
+      const processedMessage = this._ensureTextWrapping(message, lineLength);
       
       const messageLabel = new St.Label({
         text: processedMessage,
@@ -71,28 +82,51 @@ export class DialogSystem {
       
       dialog.add_child(messageLabel);
 
-      // Use a simple BoxLayout for buttons with spacing
-      const buttonsContainer = new St.BoxLayout({
-        style_class: "dialog-buttons",
+      // Use a table layout for evenly distributed buttons
+      const buttonsTable = new St.BoxLayout({
+        style_class: "dialog-buttons-container",
+        x_expand: true,
         x_align: Clutter.ActorAlign.CENTER
       });
 
-      // Create and add buttons with even spacing
+      // Calculate appropriate button sizes based on dialog width
+      const totalButtons = buttons.length;
+      const buttonSpacing = 10; // Space between buttons
+      const buttonPadding = 20; // Button horizontal padding (10px on each side)
+      
+      // Determine if any button has long text
+      const hasLongButtonText = buttons.some(btn => btn.label.length > 10);
+      
+      // Set min width based on button text length
+      const minButtonWidth = hasLongButtonText ? 95 : 80;
+      
+      // Calculate available width for all buttons
+      const availableWidth = dialogWidth - 48; // 24px padding on each side
+      // Calculate width per button including spacing
+      const widthPerButton = Math.floor((availableWidth - (buttonSpacing * (totalButtons - 1))) / totalButtons);
+      // Ensure button width is not less than minimum
+      const buttonWidth = Math.max(widthPerButton, minButtonWidth);
+      
+      // Create and add buttons with calculated spacing
       buttons.forEach(buttonConfig => {
+        // Create a button with exact width
         const button = new St.Button({
           label: buttonConfig.label,
           style_class: "dialog-button"
         });
+        
+        // Set fixed width to ensure all buttons are the same size
+        button.set_width(buttonWidth);
 
         button.connect("clicked", () => {
           overlay.destroy();
           resolve(buttonConfig.action);
         });
 
-        buttonsContainer.add_child(button);
+        buttonsTable.add_child(button);
       });
 
-      dialog.add_child(buttonsContainer);
+      dialog.add_child(buttonsTable);
       overlay.add_child(dialog);
       this._panelOverlay.add_child(overlay);
       

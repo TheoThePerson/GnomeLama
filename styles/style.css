@@ -450,9 +450,6 @@
   background-color: rgb(30, 30, 30);
   border-radius: 16px;
   padding: 24px;
-  min-width: 380px;
-  max-width: 450px;
-  width: 420px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -478,23 +475,26 @@
   white-space: normal;
 }
 
-.dialog-buttons {
-  margin-top: 8px;
+.dialog-buttons-container {
+  margin-top: 12px;
   width: 100%;
-  spacing: 12px;
+  spacing: 10px;
+}
+
+.dialog-button-container {
+  margin: 0;
+  padding: 0 8px;
 }
 
 .dialog-button {
   background-color: #3d3d3d;
   color: #ffffff;
   border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 12px;
   transition-duration: 200ms;
-  min-width: 80px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   text-align: center;
-  margin: 0 6px;
 }
 
 .dialog-button:hover {

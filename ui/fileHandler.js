@@ -10,7 +10,7 @@ import { getSettings } from "../lib/settings.js";
 import * as DocumentConverter from "../converters/documentConverter.js";
 import * as LayoutManager from "./layoutManager.js";
 import * as MessageProcessor from "./messageProcessor.js";
-import { DialogSystem } from "./dialogSystem.js";
+import { DialogSystem } from "./alertManager.js";
 
 // UI Constants
 const UI = {
@@ -340,7 +340,7 @@ export class FileHandler {
 
       // Add message
       const message = new St.Label({
-        text: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. It may work with some models with a higher context window.`,
+        text: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. This may work with some models with a high context window.`,
         style_class: "oversized-file-message",
         x_expand: true,
       });
@@ -421,7 +421,7 @@ export class FileHandler {
         if (content.length > maxLength) {
           const action = await this._dialogSystem.showDialog({
             title: "File Too Large",
-            message: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. It may work with some models with a higher context window..`,
+            message: `The file "${fileName}" exceeds the maximum length of ${maxLength} characters. This may work with some models with a high context window.`,
             buttons: [
               { label: "Cancel", action: "cancel" },
               { label: "Truncate", action: "truncate" },

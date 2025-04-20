@@ -12,7 +12,7 @@ import { FileHandler } from "./fileHandler.js";
 import { MessageSender } from "./messageSender.js";
 import { ModelManager } from "./modelManager.js";
 import { PasteHandler } from "./pasteHandler.js";
-import { DialogSystem } from "./dialogSystem.js";
+import { DialogSystem } from "./alertManager.js";
 
 import Gio from "gi://Gio";
 
