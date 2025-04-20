@@ -12,6 +12,8 @@
   width: auto;
   min-width: 150px;
   border: none;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.4);
+  z-index: 3;
 }
 
 .model-menu-box {
