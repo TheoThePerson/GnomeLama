@@ -119,6 +119,40 @@ export function createClearButton(extensionPath, iconScale = 1.0) {
 }
 
 /**
+ * Creates a settings button with settings icon
+ * @param {string} extensionPath - Path to the extension
+ * @param {number} iconScale - Scale factor for the icon
+ * @returns {object} - Object containing button and icon elements
+ */
+export function createSettingsButton(extensionPath, iconScale = 1.0) {
+  const iconSize = 24 * iconScale;
+
+  // Load icon asynchronously
+  const settingsIcon = new St.Icon({
+    style_class: "system-status-icon",
+    style: "margin: 0 auto;",
+    x_align: Clutter.ActorAlign.CENTER,
+    y_align: Clutter.ActorAlign.CENTER,
+    width: iconSize,
+    height: iconSize,
+  });
+
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    settingsIcon.gicon = Gio.icon_new_for_string(
+      `${extensionPath}/icons/settings-icon.svg`
+    );
+    return GLib.SOURCE_REMOVE;
+  });
+
+  const settingsButton = new St.Button({
+    child: settingsIcon,
+    style_class: "settings-button",
+  });
+
+  return { settingsButton, settingsIcon };
+}
+
+/**
  * Creates a file selection button with file icon
  * @param {string} extensionPath - Path to the extension
  * @param {number} iconScale - Scale factor for the icon

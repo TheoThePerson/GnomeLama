@@ -13,6 +13,7 @@ import { MessageSender } from "./messageSender.js";
 import { ModelManager } from "./modelManager.js";
 import { PasteHandler } from "./pasteHandler.js";
 import { DialogSystem } from "./alertManager.js";
+import { SettingsManager } from "./settingsManager.js";
 
 import Gio from "gi://Gio";
 
@@ -160,9 +161,7 @@ export const Indicator = GObject.registerClass(
 
     _initializeComponents(safeUpdateLayout) {
       // Initialize dialog system
-      this._dialogSystem = new DialogSystem({
-        panelOverlay: this._panelOverlay
-      });
+      this._dialogSystem = new DialogSystem({ panelOverlay: this._panelOverlay });
 
       // Initialize file handler
       this._fileHandler = new FileHandler({
@@ -181,6 +180,12 @@ export const Indicator = GObject.registerClass(
         outputContainer: this._outputContainer,
         updateLayoutCallback: safeUpdateLayout,
       });
+
+      // Initialize settings manager
+      this._settingsManager = new SettingsManager(
+        this._settings,
+        this._inputButtonsContainer
+      );
 
       // Connect the paste handler to input field key press events
       this._inputField.clutter_text.connect("key-press-event", (actor, event) => {
@@ -240,6 +245,7 @@ export const Indicator = GObject.registerClass(
       this._fileIcon = fileIcon;
 
       this._setupClearButton();
+      this._setupSettingsButton();
 
       // Connect file button to handler
       this._fileButton.connect("clicked", () => {
@@ -253,6 +259,7 @@ export const Indicator = GObject.registerClass(
       this._buttonsContainer.add_child(new St.Widget({ x_expand: true }));
       this._buttonsContainer.add_child(this._fileButton);
       this._buttonsContainer.add_child(this._clearButton);
+      this._buttonsContainer.add_child(this._settingsButton);
       this._buttonsContainer.add_child(this._sendButton);
 
       // Build input container
@@ -282,6 +289,21 @@ export const Indicator = GObject.registerClass(
       this._clearIcon = clearIcon;
 
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
+    }
+
+    _setupSettingsButton() {
+      const { settingsButton, settingsIcon } = PanelElements.createSettingsButton(
+        this._extensionPath,
+        this._settings.get_double("button-icon-scale")
+      );
+
+      this._settingsButton = settingsButton;
+      this._settingsIcon = settingsIcon;
+
+      // Connect the settings button to the settings manager
+      if (this._settingsManager) {
+        this._settingsManager.setupSettingsButton(this._settingsButton, this._settingsIcon);
+      }
     }
 
     /**
@@ -345,6 +367,11 @@ export const Indicator = GObject.registerClass(
       // Close model menu
       if (this._modelManager) {
         this._modelManager.closeMenu();
+      }
+
+      // Close settings menu
+      if (this._settingsManager) {
+        this._settingsManager.closeMenu();
       }
 
       // Clean up file UI only (preserve file data)
@@ -481,7 +508,8 @@ export const Indicator = GObject.registerClass(
             this._buttonsContainer,
             this._modelButton,
             this._clearButton,
-            this._fileButton
+            this._fileButton,
+            this._settingsButton
           );
           LayoutManager.updateInputArea(
             this._inputFieldBox,
@@ -526,7 +554,8 @@ export const Indicator = GObject.registerClass(
           this._buttonsContainer,
           this._modelButton,
           this._clearButton,
-          this._fileButton
+          this._fileButton,
+          this._settingsButton
         );
 
         // Ensure the model button is properly positioned
@@ -593,6 +622,10 @@ export const Indicator = GObject.registerClass(
 
       if (this._modelManager) {
         this._modelManager.destroy();
+      }
+
+      if (this._settingsManager) {
+        this._settingsManager.destroy();
       }
 
       if (this._messageSender) {

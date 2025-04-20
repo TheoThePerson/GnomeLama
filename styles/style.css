@@ -37,6 +37,45 @@
   background-color: #444;
 }
 
+/* Settings menu popup styles */
+.settings-menu-popup {
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  width: auto;
+  min-width: 180px;
+  border: none;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.4);
+  z-index: 3;
+}
+
+.settings-menu-box {
+  border-radius: 8px;
+  padding: 8px 8px;
+  margin: 0;
+  spacing: 2px;
+  background-color: #2a2a2a;
+  border: none;
+}
+
+.settings-menu-item {
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+  color: white;
+  background-color: #2a2a2a;
+}
+
+.settings-menu-item:hover {
+  background-color: #444;
+}
+
+.settings-header {
+  font-weight: bold;
+  color: #ddd;
+  background-color: transparent;
+}
+
 .popup-menu-ornament {
   width: 16px;
   text-align: center;

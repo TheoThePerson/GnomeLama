@@ -114,12 +114,14 @@ export function updatePanelOverlay(panelOverlay) {
  * @param {St.Button} modelButton - The model selection button
  * @param {St.Button} clearButton - The clear history button
  * @param {St.Button} fileButton - The file button
+ * @param {St.Button} settingsButton - The settings button
  */
 export function updateButtonsContainer(
   buttonsBox,
   modelButton,
   clearButton,
-  fileButton
+  fileButton,
+  settingsButton
 ) {
   const { panelWidth, buttonsHeight, panelHeight, horizontalPadding } =
     calculatePanelDimensions();
@@ -184,6 +186,23 @@ export function updateButtonsContainer(
     fileButton.set_style(buttonProps.style);
     fileButton.set_x_align(buttonProps.x_align);
     fileButton.set_y_align(buttonProps.y_align);
+  }
+
+  // Update settings button and its icon
+  if (settingsButton && settingsButton.get_child()) {
+    const settingsIcon = settingsButton.get_child();
+    settingsIcon.set_size(iconProps.size, iconProps.size);
+    settingsIcon.set_style(iconProps.style);
+    settingsIcon.set_x_align(iconProps.x_align);
+    settingsIcon.set_y_align(iconProps.y_align);
+  }
+
+  if (settingsButton) {
+    settingsButton.set_width(buttonProps.width);
+    settingsButton.set_height(buttonProps.height);
+    settingsButton.set_style(buttonProps.style);
+    settingsButton.set_x_align(buttonProps.x_align);
+    settingsButton.set_y_align(buttonProps.y_align);
   }
 }
 
