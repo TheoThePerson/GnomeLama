@@ -50,7 +50,7 @@ The extension now supports viewing various document formats beyond simple text f
 
 ### File Upload
 
-To enable using these documents with the extention you need to install:
+To enable using these documents with the extension you need to install:
 
 - For .docx files: `docx2txt`
 - For .odt files: `odt2txt`
@@ -93,6 +93,8 @@ For PDF files, the extension uses `pdftotext` to extract text content. Please no
 3. Commit your changes (`git commit -am 'Add new feature'`).
 4. Push to the branch (`git push origin feature-branch`).
 5. Create a new Pull Request.
+
+If you want a model or platform integrated that is not available yet, please feel free to request it in the issues tab.
 
 ## Star History
 
