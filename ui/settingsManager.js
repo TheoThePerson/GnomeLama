@@ -104,7 +104,8 @@ export class SettingsManager {
     this._settingsMenu.removeAll();
 
     const headerItem = new PopupMenu.PopupMenuItem("Settings", {
-      reactive: false
+      reactive: false,
+      style_class: 'settings-header'
     });
     this._settingsMenu.addMenuItem(headerItem);
 
@@ -112,13 +113,19 @@ export class SettingsManager {
 
     // Temperature input
     const tempValue = this._settings.get_double("temperature") || 0.7;
-    const temperatureItem = new PopupMenu.PopupBaseMenuItem();
-    const temperatureLabel = new St.Label({ text: "Temperature" });
+    const temperatureItem = new PopupMenu.PopupBaseMenuItem({
+      style_class: 'settings-menu-item',
+    });
+    const temperatureLabel = new St.Label({ 
+      text: "Temperature",
+      y_expand: true,
+      y_align: Clutter.ActorAlign.CENTER
+    });
     const temperatureEntry = new St.Entry({
       text: tempValue.toString(),
       can_focus: true,
       x_expand: true,
-      style: "font-size: inherit;"
+      style: "font-size: inherit; background-color: #3a3a3a;"
     });
 
     temperatureEntry.connect("key-focus-out", () => {
@@ -135,13 +142,19 @@ export class SettingsManager {
     this._settingsMenu.addMenuItem(temperatureItem);
     
     // Model Prompt input
-    const promptItem = new PopupMenu.PopupBaseMenuItem();
-    const promptLabel = new St.Label({ text: "Model Prompt" });
+    const promptItem = new PopupMenu.PopupBaseMenuItem({
+      style_class: 'settings-menu-item',
+    });
+    const promptLabel = new St.Label({ 
+      text: "Model Prompt",
+      y_expand: true,
+      y_align: Clutter.ActorAlign.CENTER
+    });
     const promptEntry = new St.Entry({
       text: "",
       can_focus: true,
       x_expand: true,
-      style: "font-size: inherit;"
+      style: "font-size: inherit; background-color: #3a3a3a;"
     });
     
     promptItem.actor.add_child(promptLabel);
@@ -150,10 +163,28 @@ export class SettingsManager {
     
     this._settingsMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-    const exportMenuItem = new PopupMenu.PopupMenuItem("Export Chat");
+    // Export Chat button
+    const exportMenuItem = new PopupMenu.PopupBaseMenuItem({
+      style_class: 'settings-menu-item',
+    });
+    const exportLabel = new St.Label({
+      text: "Export Chat",
+      y_expand: true,
+      y_align: Clutter.ActorAlign.CENTER
+    });
+    exportMenuItem.actor.add_child(exportLabel);
     this._settingsMenu.addMenuItem(exportMenuItem);
     
-    const aboutMenuItem = new PopupMenu.PopupMenuItem("About");
+    // About button
+    const aboutMenuItem = new PopupMenu.PopupBaseMenuItem({
+      style_class: 'settings-menu-item',
+    });
+    const aboutLabel = new St.Label({
+      text: "About",
+      y_expand: true,
+      y_align: Clutter.ActorAlign.CENTER
+    });
+    aboutMenuItem.actor.add_child(aboutLabel);
     this._settingsMenu.addMenuItem(aboutMenuItem);
     
     exportMenuItem.connect("activate", () => {

@@ -153,8 +153,7 @@ export class ModelManager {
     // Position it above the input field container if it exists
     const [, inputY] = this._inputButtonsContainer.get_transformed_position();
 
-    // Position above the input container with small padding
-    menuActor.set_position(buttonX, inputY - menuHeight - 8);
+    menuActor.set_position(buttonX - 7, inputY - menuHeight - 8); // adjust for padding
   }
 
   async _populateModelMenu() {
