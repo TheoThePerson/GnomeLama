@@ -142,6 +142,7 @@ export class SettingsManager {
     this._settingsMenu.addMenuItem(temperatureItem);
     
     // Model Prompt input
+    const promptValue = this._settings.get_string("model-prompt") || "";
     const promptItem = new PopupMenu.PopupBaseMenuItem({
       style_class: 'settings-menu-item',
     });
@@ -151,10 +152,14 @@ export class SettingsManager {
       y_align: Clutter.ActorAlign.CENTER
     });
     const promptEntry = new St.Entry({
-      text: "",
+      text: promptValue,
       can_focus: true,
       x_expand: true,
       style: "font-size: inherit; background-color: #3a3a3a;"
+    });
+    
+    promptEntry.connect("key-focus-out", () => {
+      this._settings.set_string("model-prompt", promptEntry.get_text());
     });
     
     promptItem.actor.add_child(promptLabel);

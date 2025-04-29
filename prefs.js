@@ -295,76 +295,109 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     });
     window.add(apiPage);
 
-    this._addApiConfigGroup(apiPage, settings);
-    this._addApiKeysGroup(apiPage, settings);
+    this._addGeneralConfigGroup(apiPage, settings);
+    this._addOllamaConfigGroup(apiPage, settings);
+    this._addOpenAIConfigGroup(apiPage, settings);
+    this._addGeminiConfigGroup(apiPage, settings);
   }
 
   /**
-   * Add API keys group to the API settings page
+   * Add general AI configuration group
    * @param {Adw.PreferencesPage} page - The parent page
    * @param {Gio.Settings} settings - The settings object
    */
-  _addApiKeysGroup(page, settings) {
-    const apiKeysGroup = new Adw.PreferencesGroup({
-      title: _("API Keys"),
+  _addGeneralConfigGroup(page, settings) {
+    const generalGroup = new Adw.PreferencesGroup({
+      title: _("General Settings"),
     });
-    page.add(apiKeysGroup);
-
-    // OpenAI API Key
-    this._addEntryRow(apiKeysGroup, settings, {
-      key: "openai-api-key",
-      title: _("OpenAI API Key"),
-      subtitle: _("Your OpenAI API key for using GPT models"),
-    });
-
-    // Gemini API Key
-    this._addEntryRow(apiKeysGroup, settings, {
-      key: "gemini-api-key",
-      title: _("Gemini API Key"),
-      subtitle: _("Your Gemini API key for using Google's Gemini models"),
-    });
-  }
-
-  /**
-   * Add API configuration group to the API settings page
-   * @param {Adw.PreferencesPage} page - The parent page
-   * @param {Gio.Settings} settings - The settings object
-   */
-  _addApiConfigGroup(page, settings) {
-    const apiSettingsGroup = new Adw.PreferencesGroup({
-      title: _("API Configuration"),
-    });
-    page.add(apiSettingsGroup);
-
-    // API Endpoint
-    this._addEntryRow(apiSettingsGroup, settings, {
-      key: "api-endpoint",
-      title: _("API Endpoint"),
-      subtitle: _("The URL for the Ollama API service"),
-    });
-
-    // Models API Endpoint
-    this._addEntryRow(apiSettingsGroup, settings, {
-      key: "models-api-endpoint",
-      title: _("Models API Endpoint"),
-      subtitle: _("The URL for fetching available models"),
-    });
+    page.add(generalGroup);
 
     // Default model
-    this._addEntryRow(apiSettingsGroup, settings, {
+    this._addEntryRow(generalGroup, settings, {
       key: "default-model",
       title: _("Default Model"),
       subtitle: _("The default AI model to use"),
     });
 
     // Temperature
-    this._addSpinRow(apiSettingsGroup, settings, {
+    this._addSpinRow(generalGroup, settings, {
       key: "temperature",
       title: _("Temperature"),
       subtitle: _("Controls randomness of responses (0.0-1.0)"),
       min: 0.0,
       max: 1.0,
       step: 0.1,
+    });
+
+    // Model Prompt
+    this._addEntryRow(generalGroup, settings, {
+      key: "model-prompt",
+      title: _("Model Prompt"),
+      subtitle: _("Custom system prompt for the AI model"),
+    });
+  }
+
+  /**
+   * Add Ollama configuration group
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addOllamaConfigGroup(page, settings) {
+    const ollamaGroup = new Adw.PreferencesGroup({
+      title: _("Ollama"),
+    });
+    page.add(ollamaGroup);
+
+    // API Endpoint
+    this._addEntryRow(ollamaGroup, settings, {
+      key: "api-endpoint",
+      title: _("API Endpoint"),
+      subtitle: _("The URL for the Ollama API service"),
+    });
+
+    // Models API Endpoint
+    this._addEntryRow(ollamaGroup, settings, {
+      key: "models-api-endpoint",
+      title: _("Models API Endpoint"),
+      subtitle: _("The URL for fetching available models"),
+    });
+  }
+
+  /**
+   * Add OpenAI configuration group
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addOpenAIConfigGroup(page, settings) {
+    const openaiGroup = new Adw.PreferencesGroup({
+      title: _("OpenAI"),
+    });
+    page.add(openaiGroup);
+
+    // OpenAI API Key
+    this._addEntryRow(openaiGroup, settings, {
+      key: "openai-api-key",
+      title: _("API Key"),
+      subtitle: _("Your OpenAI API key for using GPT models"),
+    });
+  }
+
+  /**
+   * Add Gemini configuration group
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addGeminiConfigGroup(page, settings) {
+    const geminiGroup = new Adw.PreferencesGroup({
+      title: _("Google Gemini"),
+    });
+    page.add(geminiGroup);
+
+    // Gemini API Key
+    this._addEntryRow(geminiGroup, settings, {
+      key: "gemini-api-key",
+      title: _("API Key"),
+      subtitle: _("Your Gemini API key for using Google's Gemini models"),
     });
   }
 

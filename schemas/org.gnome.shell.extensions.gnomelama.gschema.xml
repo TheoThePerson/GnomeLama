@@ -76,6 +76,11 @@
       <summary>Temperature</summary>
       <description>Temperature parameter for model response randomness (0.0-1.0).</description>
     </key>
+    <key name="model-prompt" type="s">
+      <default>""</default>
+      <summary>Model Prompt</summary>
+      <description>Custom system prompt for the AI model.</description>
+    </key>
     <key name="openai-api-key" type="s">
       <default>""</default>
       <summary>OpenAI API Key</summary>

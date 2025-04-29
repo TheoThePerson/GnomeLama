@@ -2,6 +2,8 @@
  * Message formatting utilities for AI models
  */
 
+import { getSettings } from "../../../lib/settings.js";
+
 /**
  * Prepares message context for API call
  * @param {string} messageText - User's message text
@@ -10,8 +12,11 @@
  * @returns {Array} Formatted messages
  */
 export function prepareBasicMessages(messageText, context = [], options = {}) {
+  const settings = getSettings();
+  const customModelPrompt = settings.get_string("model-prompt");
+  
   const { 
-    defaultSystemMessage = "You are a helpful assistant.",
+    defaultSystemMessage = customModelPrompt || "You are a helpful assistant.",
     roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant"
   } = options;
   
