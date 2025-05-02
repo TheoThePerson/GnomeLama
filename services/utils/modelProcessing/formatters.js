@@ -4,6 +4,18 @@
 
 import { getSettings } from "../../../lib/settings.js";
 
+// Keep a reference to the current model prompt
+let currentModelPrompt = "";
+
+// Get settings and listen for changes
+const settings = getSettings();
+currentModelPrompt = settings.get_string("model-prompt") || "";
+
+// Listen for changes to the model-prompt setting
+settings.connect("changed::model-prompt", () => {
+  currentModelPrompt = settings.get_string("model-prompt") || "";
+});
+
 /**
  * Prepares message context for API call
  * @param {string} messageText - User's message text
@@ -12,11 +24,8 @@ import { getSettings } from "../../../lib/settings.js";
  * @returns {Array} Formatted messages
  */
 export function prepareBasicMessages(messageText, context = [], options = {}) {
-  const settings = getSettings();
-  const customModelPrompt = settings.get_string("model-prompt");
-  
   const { 
-    defaultSystemMessage = customModelPrompt || "You are a helpful assistant.",
+    defaultSystemMessage = currentModelPrompt || "You are a helpful assistant.",
     roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant"
   } = options;
   

@@ -6,6 +6,8 @@ import St from "gi://St";
 import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
+import Gio from "gi://Gio";
+import { spawnCommandLine } from 'resource:///org/gnome/shell/misc/util.js';
 
 export class SettingsManager {
   constructor(settings, inputButtonsContainer) {
@@ -15,6 +17,124 @@ export class SettingsManager {
     this._settingsButton = null;
     this._settingsIcon = null;
     this._stageEventId = null;
+    this._promptEntry = null;
+    this._temperatureEntry = null;
+    this._currentPrompt = "";
+    this._currentTemperature = 0.7;
+    
+    // Listen for external changes to settings
+    this._settingsChangedId = this._settings.connect("changed", (settings, key) => {
+      if (key === "model-prompt") {
+        this._currentPrompt = settings.get_string("model-prompt") || "";
+        this._updatePromptEntry();
+      } else if (key === "temperature") {
+        this._currentTemperature = settings.get_double("temperature") || 0.7;
+        this._updateTemperatureEntry();
+      }
+    });
+    
+    // Initialize current values
+    this._currentPrompt = settings.get_string("model-prompt") || "";
+    this._currentTemperature = settings.get_double("temperature") || 0.7;
+  }
+
+  // Helper method to update dconf directly using shell command
+  _forceUpdateDconf(key, value) {
+    try {
+      // Build the full dconf path
+      const dconfPath = `/org/gnome/shell/extensions/gnomelama/${key}`;
+      
+      // Format the value based on type
+      let formattedValue;
+      if (typeof value === 'string') {
+        // Strings need to be quoted
+        formattedValue = `"${value.replace(/"/g, '\\"')}"`;
+      } else if (typeof value === 'number') {
+        formattedValue = value.toString();
+      } else {
+        return;
+      }
+      
+      // Execute the dconf set command
+      const cmd = `dconf write ${dconfPath} ${formattedValue}`;
+      spawnCommandLine(cmd);
+      
+      // Log for debugging
+      console.log(`Updated dconf: ${cmd}`);
+    } catch (e) {
+      console.error(`Error updating dconf: ${e}`);
+    }
+  }
+
+  _updatePromptEntry() {
+    if (this._promptEntry) {
+      this._promptEntry.set_text(this._currentPrompt);
+    }
+  }
+
+  _updateTemperatureEntry() {
+    if (this._temperatureEntry) {
+      this._temperatureEntry.set_text(this._currentTemperature.toString());
+    }
+  }
+
+  // Save the current prompt value from the entry
+  _savePromptValue() {
+    if (!this._promptEntry) return;
+    
+    const newPrompt = this._promptEntry.get_text();
+    if (newPrompt === this._currentPrompt) return; // No change
+    
+    // Update our cached value
+    this._currentPrompt = newPrompt;
+    
+    // Update the current setting
+    this._settings.set_string("model-prompt", newPrompt);
+    
+    // Force update dconf directly with the shell command
+    this._forceUpdateDconf("model-prompt", newPrompt);
+    
+    // Also set again after a delay
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      this._settings.set_string("model-prompt", newPrompt);
+      return GLib.SOURCE_REMOVE;
+    });
+    
+    console.log(`Saved prompt value: ${newPrompt}`);
+  }
+
+  // Save the current temperature value from the entry
+  _saveTemperatureValue() {
+    if (!this._temperatureEntry) return;
+    
+    const newTempText = this._temperatureEntry.get_text();
+    const newTemp = parseFloat(newTempText);
+    
+    // Validate temperature value
+    if (isNaN(newTemp) || newTemp < 0 || newTemp > 1) {
+      // Reset to current value if invalid
+      this._updateTemperatureEntry();
+      return;
+    }
+    
+    if (newTemp === this._currentTemperature) return; // No change
+    
+    // Update our cached value
+    this._currentTemperature = newTemp;
+    
+    // Update the current setting
+    this._settings.set_double("temperature", newTemp);
+    
+    // Force update dconf directly with the shell command
+    this._forceUpdateDconf("temperature", newTemp);
+    
+    // Also set again after a delay
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      this._settings.set_double("temperature", newTemp);
+      return GLib.SOURCE_REMOVE;
+    });
+    
+    console.log(`Saved temperature value: ${newTemp}`);
   }
 
   setupSettingsButton(button, icon) {
@@ -46,6 +166,14 @@ export class SettingsManager {
     this._settingsMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
         this._positionSettingsMenu();
+        
+        // Update the UI values when the menu opens
+        this._updatePromptEntry();
+        this._updateTemperatureEntry();
+      } else {
+        // Save values when menu closes
+        this._savePromptValue();
+        this._saveTemperatureValue();
       }
     });
 
@@ -75,6 +203,9 @@ export class SettingsManager {
               y <= buttonY + buttonHeight
             )
           ) {
+            // Save values before closing
+            this._savePromptValue();
+            this._saveTemperatureValue();
             this._settingsMenu.close();
           }
         }
@@ -112,7 +243,6 @@ export class SettingsManager {
     this._settingsMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
     // Temperature input
-    const tempValue = this._settings.get_double("temperature") || 0.7;
     const temperatureItem = new PopupMenu.PopupBaseMenuItem({
       style_class: 'settings-menu-item',
     });
@@ -122,19 +252,33 @@ export class SettingsManager {
       y_align: Clutter.ActorAlign.CENTER
     });
     const temperatureEntry = new St.Entry({
-      text: tempValue.toString(),
+      text: this._currentTemperature.toString(),
       can_focus: true,
       x_expand: true,
       style: "font-size: inherit; background-color: #3a3a3a;"
     });
+    this._temperatureEntry = temperatureEntry;
 
-    temperatureEntry.connect("key-focus-out", () => {
-      const newTemp = parseFloat(temperatureEntry.get_text());
-      if (!isNaN(newTemp) && newTemp >= 0 && newTemp <= 1) {
-        this._settings.set_double("temperature", newTemp);
-      } else {
-        temperatureEntry.set_text(tempValue.toString());
+    // Handle text changes
+    temperatureEntry.clutter_text.connect('text-changed', () => {
+      // Save the value immediately on text change
+      this._saveTemperatureValue();
+    });
+    
+    // Handle key press events (for Enter key)
+    temperatureEntry.clutter_text.connect('key-press-event', (actor, event) => {
+      // Check if Enter was pressed
+      if (event.get_key_symbol() === Clutter.KEY_Return || 
+          event.get_key_symbol() === Clutter.KEY_KP_Enter) {
+        this._saveTemperatureValue();
+        return Clutter.EVENT_STOP;
       }
+      return Clutter.EVENT_PROPAGATE;
+    });
+    
+    // Also handle focus out
+    temperatureEntry.connect("key-focus-out", () => {
+      this._saveTemperatureValue();
     });
 
     temperatureItem.actor.add_child(temperatureLabel);
@@ -142,7 +286,6 @@ export class SettingsManager {
     this._settingsMenu.addMenuItem(temperatureItem);
     
     // Model Prompt input
-    const promptValue = this._settings.get_string("model-prompt") || "";
     const promptItem = new PopupMenu.PopupBaseMenuItem({
       style_class: 'settings-menu-item',
     });
@@ -152,14 +295,33 @@ export class SettingsManager {
       y_align: Clutter.ActorAlign.CENTER
     });
     const promptEntry = new St.Entry({
-      text: promptValue,
+      text: this._currentPrompt,
       can_focus: true,
       x_expand: true,
       style: "font-size: inherit; background-color: #3a3a3a;"
     });
+    this._promptEntry = promptEntry;
     
+    // Handle text changes
+    promptEntry.clutter_text.connect('text-changed', () => {
+      // Save the value immediately on text change
+      this._savePromptValue();
+    });
+    
+    // Handle key press events (for Enter key)
+    promptEntry.clutter_text.connect('key-press-event', (actor, event) => {
+      // Check if Enter was pressed
+      if (event.get_key_symbol() === Clutter.KEY_Return || 
+          event.get_key_symbol() === Clutter.KEY_KP_Enter) {
+        this._savePromptValue();
+        return Clutter.EVENT_STOP;
+      }
+      return Clutter.EVENT_PROPAGATE;
+    });
+    
+    // Also handle focus out
     promptEntry.connect("key-focus-out", () => {
-      this._settings.set_string("model-prompt", promptEntry.get_text());
+      this._savePromptValue();
     });
     
     promptItem.actor.add_child(promptLabel);
@@ -209,11 +371,17 @@ export class SettingsManager {
   }
 
   _handleSettingAction(action) {
+    // Save settings before performing action
+    this._savePromptValue();
+    this._saveTemperatureValue();
     this._settingsMenu.close();
   }
 
   closeMenu() {
     if (this._settingsMenu && this._settingsMenu.isOpen) {
+      // Save settings before closing
+      this._savePromptValue();
+      this._saveTemperatureValue();
       this._settingsMenu.close();
     }
   }
@@ -226,6 +394,11 @@ export class SettingsManager {
     if (this._stageEventId) {
       global.stage.disconnect(this._stageEventId);
       this._stageEventId = null;
+    }
+
+    if (this._settingsChangedId) {
+      this._settings.disconnect(this._settingsChangedId);
+      this._settingsChangedId = null;
     }
 
     if (this._settingsMenu) {

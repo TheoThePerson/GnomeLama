@@ -510,6 +510,14 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     entry.connect("changed", () => {
       settings.set_string(key, entry.get_text());
     });
+    
+    // Listen for external changes to the setting value
+    // This allows the settingsManager to override the prefs dialog value
+    if (key === "model-prompt") {
+      settings.connect("changed::model-prompt", () => {
+        entry.set_text(settings.get_string("model-prompt"));
+      });
+    }
 
     // Create a preferences row for the entry
     const row = new Adw.ActionRow({
