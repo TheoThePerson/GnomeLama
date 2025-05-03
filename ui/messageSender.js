@@ -109,12 +109,12 @@ export class MessageSender {
           // Register file paths for lookup during apply operations
           MessageProcessor.registerFilePaths(fileContent);
         } catch {
-          messageToSend = "Prompt: " + userInput + "\n\n" + fileContent;
+          messageToSend = userInput + "\n\n" + fileContent;
         }
       }
     } else {
-      // No files, just use the standard format
-      messageToSend = "Prompt: " + userInput;
+      // No files, just use the message directly without the prefix
+      messageToSend = userInput;
     }
 
     return { messageToSend, displayMessage };
@@ -202,8 +202,8 @@ export class MessageSender {
     }
 
     try {
-      // Show the simplified message in UI
-      MessageProcessor.appendUserMessage(this._outputContainer, displayMessage);
+      // No longer show user message immediately - let processUserMessage handle display order
+      // to ensure system message appears before user message
       MessageProcessor.removeTemporaryMessages(this._outputContainer);
 
       // Process the user message with files included, but store the display message in history
@@ -215,7 +215,7 @@ export class MessageSender {
         scrollView: this._outputScrollView,
         onResponseStart: () => this._updateSendButtonState(false),
         onResponseEnd: () => this._handlePostSendUpdates(),
-        skipAppendUserMessage: true, // Skip appending again since we did it above
+        skipAppendUserMessage: false, // Let processUserMessage handle the display order
       });
     } catch (error) {
       this._handlePostSendUpdates(error);

@@ -68,12 +68,6 @@ export function createChatProvider(options) {
       const settings = getSettings();
       const temperature = settings.get_double("temperature");
       
-      // For debugging purposes
-      console.log(`Chat provider sending message with model ${modelName}, context length: ${context.length}`);
-      
-      // Clean up any existing session
-      sessionManager.terminateSession();
-      
       // Create session
       const session = createCancellableSession();
       sessionManager.setSession(session);
@@ -189,9 +183,6 @@ export function createCompletionProvider(options) {
       const settings = getSettings();
       const endpoint = apiEndpoint || settings.get_string("api-endpoint");
       const temperature = settings.get_double("temperature");
-      
-      // Clean up any existing session
-      sessionManager.terminateSession();
       
       // Create session
       const session = createCancellableSession();

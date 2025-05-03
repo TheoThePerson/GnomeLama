@@ -150,8 +150,3 @@ export const fetchModelNames = provider.fetchModelNames;
 export const sendMessageToAPI = provider.sendMessageToAPI;
 export const stopMessage = provider.stopMessage;
 export const isOpenAIModel = provider.isModelSupported;
-
-// For debugging purposes
-export function getErrorMessages() {
-  return [...errorMessages];
-}

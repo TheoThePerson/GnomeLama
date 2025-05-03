@@ -31,30 +31,31 @@ export function prepareBasicMessages(messageText, context = [], options = {}) {
   
   if (!Array.isArray(context)) {
     console.error("Context is not an array:", context);
+    
+    // If this is the first message and we have a model prompt, inject it
+    let firstMessage = messageText;
+    if (currentModelPrompt && currentModelPrompt.trim() !== "") {
+      firstMessage = `${currentModelPrompt}\n\n${messageText}`;
+    }
+    
     return [{
-      role: "system",
-      content: defaultSystemMessage
-    }, {
       role: "user",
-      content: messageText
+      content: firstMessage
     }];
   }
   
   const messages = [];
   
-  // Add system message at the beginning if not already present
-  const hasSystemMessage = context.some((msg) => msg && msg.type === "system");
-  if (!hasSystemMessage) {
-    messages.push({
-      role: "system",
-      content: defaultSystemMessage,
-    });
+  // ALWAYS FORCE ADDING THE MODEL PROMPT TO THE FIRST MESSAGE
+  // Regardless of the context state, we'll add it to the current user message
+  let userContent = messageText;
+  if (currentModelPrompt && currentModelPrompt.trim() !== "") {
+    userContent = `${currentModelPrompt}\n\n${messageText}`;
   }
-
+  
   // Add context messages
   context.forEach((msg) => {
     if (!msg || !msg.text || typeof msg.text !== "string") {
-      console.log("Skipping invalid message in context:", msg);
       return;
     }
     
@@ -64,10 +65,10 @@ export function prepareBasicMessages(messageText, context = [], options = {}) {
     });
   });
 
-  // Add current user message
+  // Add current user message with the prompt already added
   messages.push({ 
     role: "user", 
-    content: messageText 
+    content: userContent 
   });
   
   return messages;

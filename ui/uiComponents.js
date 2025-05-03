@@ -9,13 +9,6 @@ import St from "gi://St";
 import { getSettings } from "../lib/settings.js";
 
 /**
- * Utility function for logging errors - production version (silent)
- */
-function logError() {
-  // Console logs removed for production
-}
-
-/**
  * Creates a message container (user or AI)
  * @param {string} text - Message text
  * @param {boolean} isUser - Whether this is a user message
@@ -37,18 +30,15 @@ export function createMessageContainer(text, isUser, alignment) {
   let opacity;
   try {
     opacity = settings.get_double("message-opacity");
-    log(`Using message opacity: ${opacity}`);
   } catch (e) {
     // If that fails, try the individual opacity settings
     try {
       opacity = isUser
         ? settings.get_double("user-message-opacity")
         : settings.get_double("ai-message-opacity");
-      log(`Using ${isUser ? "user" : "ai"} opacity: ${opacity}`);
     } catch (e) {
       // If all else fails, default to 1.0 (fully opaque)
       opacity = 1.0;
-      log("Defaulting to opacity 1.0");
     }
   }
     
@@ -56,8 +46,6 @@ export function createMessageContainer(text, isUser, alignment) {
   const r = parseInt(bgColor.substring(1, 3), 16);
   const g = parseInt(bgColor.substring(3, 5), 16);
   const b = parseInt(bgColor.substring(5, 7), 16);
-  
-  log(`${isUser ? "User" : "AI"} message style: rgba(${r}, ${g}, ${b}, ${opacity})`);
 
   // Create the outer container with specific styling class and explicit style
   const messageBox = new St.BoxLayout({
@@ -147,7 +135,7 @@ function executeBashScript(script) {
     const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
     GLib.spawn_command_line_async(fullCommand);
   } catch (e) {
-    logError("Error launching terminal:", e);
+    // Error handling silently
   }
 }
 
@@ -470,14 +458,12 @@ export function synchronizeMessageOpacity() {
     }
   }
   
-  log(`Synchronizing message opacity to: ${opacity}`);
-  
   // Apply this opacity to both settings
   try {
     settings.set_double("user-message-opacity", opacity);
     settings.set_double("ai-message-opacity", opacity);
   } catch (e) {
-    log(`Error synchronizing opacity: ${e}`);
+    // Error handling silently
   }
   
   return opacity;
@@ -503,18 +489,15 @@ export function updateMessageContainerStyle(container, isUser) {
   let opacity;
   try {
     opacity = settings.get_double("message-opacity");
-    log(`Updating with message opacity: ${opacity}`);
   } catch (e) {
     // If that fails, try the individual opacity settings
     try {
       opacity = isUser
         ? settings.get_double("user-message-opacity")
         : settings.get_double("ai-message-opacity");
-      log(`Updating with ${isUser ? "user" : "ai"} opacity: ${opacity}`);
     } catch (e) {
       // If all else fails, default to 1.0 (fully opaque)
       opacity = 1.0;
-      log("Updating default to opacity 1.0");
     }
   }
     
@@ -522,8 +505,6 @@ export function updateMessageContainerStyle(container, isUser) {
   const r = parseInt(bgColor.substring(1, 3), 16);
   const g = parseInt(bgColor.substring(3, 5), 16);
   const b = parseInt(bgColor.substring(5, 7), 16);
-  
-  log(`Updating ${isUser ? "User" : "AI"} message style: rgba(${r}, ${g}, ${b}, ${opacity})`);
 
   const borderRadius = isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px";
 

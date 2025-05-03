@@ -66,10 +66,6 @@ export function createSSEProcessor(options) {
     
     // Skip lines that don't match the SSE format
     if (!lineText.startsWith(prefix)) {
-      // Log non-SSE lines for debugging
-      if (lineText.includes("error") || lineText.includes("Error")) {
-        console.error("SSE error line:", lineText);
-      }
       return null;
     }
     

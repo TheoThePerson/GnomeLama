@@ -121,9 +121,7 @@ export const Indicator = GObject.registerClass(
           try {
             this._updateLayout();
           } catch (error) {
-            if (typeof global.log !== "undefined") {
-              global.log(`Error in safeUpdateLayout: ${error.message}`);
-            }
+            console.error(`Error in safeUpdateLayout: ${error.message}`);
           } finally {
             isUpdatingLayout = false;
           }
@@ -134,9 +132,7 @@ export const Indicator = GObject.registerClass(
       try {
         this._initializeComponents(safeUpdateLayout);
       } catch (error) {
-        if (typeof global.log !== "undefined") {
-          global.log(`Error initializing components: ${error.message}`);
-        }
+        console.error(`Error initializing components: ${error.message}`);
       }
 
       // Set up panel overlay scroll behavior
@@ -153,9 +149,7 @@ export const Indicator = GObject.registerClass(
         this._finalizeUISetup();
         this._updateLayout();
       } catch (error) {
-        if (typeof global.log !== "undefined") {
-          global.log(`Error finalizing UI setup: ${error.message}`);
-        }
+        console.error(`Error finalizing UI setup: ${error.message}`);
       }
     }
 
@@ -453,9 +447,7 @@ export const Indicator = GObject.registerClass(
         this._inputField.opacity = 255;
         this._buttonsContainer.opacity = 255;
         
-        if (typeof global.log !== "undefined") {
-          global.log(`Error toggling panel: ${error.message}`);
-        }
+        console.error(`Error toggling panel: ${error.message}`);
       } finally {
         // Reset toggle flag after a small delay
         imports.gi.GLib.timeout_add(
@@ -533,9 +525,7 @@ export const Indicator = GObject.registerClass(
         });
       } catch (error) {
         // Log error in development, silent in production
-        if (typeof global.log !== "undefined") {
-          global.log(`Error updating layout: ${error.message}`);
-        }
+        console.error(`Error updating layout: ${error.message}`);
       }
     }
 
@@ -561,9 +551,7 @@ export const Indicator = GObject.registerClass(
         // Ensure the model button is properly positioned
         this._modelButton.queue_relayout();
       } catch (error) {
-        if (typeof global.log !== "undefined") {
-          global.log(`Error updating model button: ${error.message}`);
-        }
+        console.error(`Error updating model button: ${error.message}`);
       }
     }
 

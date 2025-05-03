@@ -58,9 +58,6 @@ export class SettingsManager {
       // Execute the dconf set command
       const cmd = `dconf write ${dconfPath} ${formattedValue}`;
       spawnCommandLine(cmd);
-      
-      // Log for debugging
-      console.log(`Updated dconf: ${cmd}`);
     } catch (e) {
       console.error(`Error updating dconf: ${e}`);
     }
@@ -99,8 +96,6 @@ export class SettingsManager {
       this._settings.set_string("model-prompt", newPrompt);
       return GLib.SOURCE_REMOVE;
     });
-    
-    console.log(`Saved prompt value: ${newPrompt}`);
   }
 
   // Save the current temperature value from the entry
@@ -133,8 +128,6 @@ export class SettingsManager {
       this._settings.set_double("temperature", newTemp);
       return GLib.SOURCE_REMOVE;
     });
-    
-    console.log(`Saved temperature value: ${newTemp}`);
   }
 
   setupSettingsButton(button, icon) {

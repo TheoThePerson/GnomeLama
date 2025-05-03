@@ -13,24 +13,6 @@ let isMessageInProgress = false;
 let cancelCurrentRequest = null;
 let lastError = null;
 
-// Constants for debugging
-const DEBUG = true;
-
-/**
- * Debug logger for provider issues
- * @param {string} message - Debug message
- * @param {Object} [data] - Optional data to log
- */
-function debugLog(message, data) {
-  if (!DEBUG) return;
-  
-  if (data) {
-    console.log(`[DEBUG] ${message}`, data);
-  } else {
-    console.log(`[DEBUG] ${message}`);
-  }
-}
-
 /**
  * Sets the current AI model
  * @param {string} modelName - Name of the model to use
@@ -69,9 +51,6 @@ export async function fetchModelNames() {
       openaiProvider.fetchModelNames(),
       geminiProvider.fetchModelNames(),
     ]);
-    
-    // Check for errors from providers
-    checkProviderErrors();
 
     const models = [
       ...(ollamaModels.status === "fulfilled" ? ollamaModels.value : []),
@@ -181,7 +160,6 @@ function processProviderResponse(response) {
     }
   }
 
-  // If we get here, log the response for debugging
   console.warn("Unexpected response format:", response);
   return "No valid response received";
 }
@@ -207,11 +185,8 @@ function handleApiError(error, asyncOnData) {
   } else {
     errorMessage = `Error communicating with Ollama (model: ${currentModel || "unknown"}). ${error.message || "Please check if Ollama is installed and running."}`;
   }
-
-  debugLog("API Error:", { error: error.message, model: currentModel, stack: error.stack });
   
-  // Set lastError for temporary message display but don't use asyncOnData 
-  // which would put the error in a message bubble
+  // Set lastError for temporary message display
   lastError = errorMessage;
   
   return errorMessage;
@@ -275,8 +250,30 @@ export async function sendMessage({
 
   isMessageInProgress = true;
   lastError = null;
+  
+  // Check if this is the first message in the conversation and show the model prompt
+  if (conversationHistory.length === 0) {
+    // Get the model prompt and add it as a system message if it exists
+    const settings = getSettings();
+    const modelPrompt = settings.get_string("model-prompt") || "";
+    
+    if (modelPrompt && modelPrompt.trim() !== "") {
+      // Add the model prompt as a system message in the history
+      addMessageToHistory(`System prompt: ${modelPrompt}`, "system");
+      
+      // If displayMessage function is provided, show the system message in the UI
+      if (displayMessage && typeof displayMessage === 'function') {
+        try {
+          displayMessage(`System prompt: ${modelPrompt}`, "system");
+        } catch (error) {
+          console.error("Error displaying system message:", error);
+        }
+      }
+    }
+  }
 
-  // Clean the message before adding to history
+  // For history, use a clean message (but we'll send the original message to the model)
+  // This ensures we don't strip out the model prompt that might be added by formatters.js
   const cleanMessage = message.replace(/^Prompt:\s*/i, '');
   addMessageToHistory(cleanMessage, "user");
 
@@ -290,7 +287,6 @@ export async function sendMessage({
   }
 
   let responseText = "";
-  debugLog(`Starting message to model: ${currentModel}`);
 
   try {
     const asyncOnData = (data) => {
@@ -300,7 +296,6 @@ export async function sendMessage({
       }
       
       responseText += data;
-      debugLog(`Received chunk: ${data.substring(0, 20)}...`);
       
       if (onData) {
         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
@@ -316,27 +311,21 @@ export async function sendMessage({
     if (provider === openaiProvider) providerName = 'OpenAI';
     if (provider === geminiProvider) providerName = 'Gemini';
     
-    debugLog(`Using provider: ${providerName}`);
-    
     const contextToUse = context || ((provider === openaiProvider || provider === geminiProvider) ? conversationHistory : null);
-    debugLog(`Context length: ${contextToUse ? contextToUse.length : 0}`);
     
+    // Use the original message (not the cleaned message) for the API request
+    // This preserves any model prompt that might be injected by formatters.js
     const result = await sendApiRequest({
       provider,
-      messageText: cleanMessage,
+      messageText: message,
       modelName: currentModel,
       contextToUse,
       asyncOnData,
     });
 
-    // Check for errors from providers after API request
-    checkProviderErrors();
-    
     // Wait for the result to resolve
-    debugLog(`Waiting for full response`);
     const response = await result;
     responseText = processProviderResponse(response);
-    debugLog(`Got full response: ${responseText.substring(0, 50)}...`);
     
     if (responseText && responseText !== "No valid response received") {
       addMessageToHistory(responseText, "assistant");
@@ -351,7 +340,6 @@ export async function sendMessage({
     }
   } catch (error) {
     console.error("Error sending message:", error);
-    debugLog(`Error in sendMessage: ${error.message}`);
     
     // Handle the error without sending to asyncOnData callback
     // This prevents the error from showing up in a message bubble
@@ -368,7 +356,6 @@ export async function sendMessage({
   } finally {
     isMessageInProgress = false;
     cancelCurrentRequest = null;
-    debugLog(`Message completed`);
   }
   
   return responseText;
@@ -388,21 +375,4 @@ export function stopAiMessage() {
 
 export function getLastError() {
   return lastError;
-}
-
-// Add this helper function to check providers for errors
-function checkProviderErrors() {
-  if (typeof openaiProvider.getErrorMessages === 'function') {
-    const errors = openaiProvider.getErrorMessages();
-    if (errors.length > 0) {
-      console.log("OpenAI provider errors:", errors);
-    }
-  }
-  
-  if (typeof geminiProvider.getErrorMessages === 'function') {
-    const errors = geminiProvider.getErrorMessages();
-    if (errors.length > 0) {
-      console.log("Gemini provider errors:", errors);
-    }
-  }
 }

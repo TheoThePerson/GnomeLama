@@ -205,14 +205,9 @@ const provider = createChatProvider({
 export const fetchModelNames = provider.fetchModelNames;
 export const sendMessageToAPI = provider.sendMessageToAPI;
 export const stopMessage = provider.stopMessage;
-export const isModelSupported = provider.isModelSupported;
+export const isGeminiModel = provider.isModelSupported;
 
 // Export a function to check if a model is from Gemini
 export function isGeminiModel(modelName) {
   return modelName && modelName.startsWith('gemini:');
-}
-
-// For debugging purposes
-export function getErrorMessages() {
-  return [...errorMessages];
 } 

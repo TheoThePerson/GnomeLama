@@ -188,11 +188,8 @@ function processSubprocessResults({
       const [, stdout, stderr] = proc.communicate_utf8_finish(result);
       const exitStatus = proc.get_exit_status();
 
-      // Log conversion results for debugging
-      const converterName = commandParts[0];
-
       // Handle PDF conversion errors
-      if (converterName === "pdftotext") {
+      if (commandParts[0] === "pdftotext") {
         const pdfError = handlePdfErrors(exitStatus, stderr);
         if (pdfError) {
           reject(pdfError);
@@ -201,9 +198,9 @@ function processSubprocessResults({
       }
 
       // Handle Word document conversion errors
-      if (converterName === "docx2txt" || converterName === "catdoc") {
+      if (commandParts[0] === "docx2txt" || commandParts[0] === "catdoc") {
         const wordError = handleWordErrors({
-          converterName,
+          converterName: commandParts[0],
           exitStatus,
           stdout,
           stderr,
@@ -222,7 +219,7 @@ function processSubprocessResults({
       if (stdout && stdout.trim()) {
         resolve(stdout);
       } else {
-        handleEmptyOutput({ converterName, commandParts, resolve, reject });
+        handleEmptyOutput({ converterName: commandParts[0], commandParts, resolve, reject });
       }
     } catch (error) {
       reject(error);

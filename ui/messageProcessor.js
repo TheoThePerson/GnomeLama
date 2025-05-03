@@ -45,15 +45,15 @@ export async function processUserMessage({
 
   removeTemporaryMessages(outputContainer);
 
-  if (!skipAppendUserMessage) {
-    appendUserMessage(outputContainer, displayMessage || userMessage);
-  }
+  // We no longer append user message here - it will be handled by the displayMessage callback
+  // to ensure proper ordering with system messages
 
   const bgColor = getSettings().get_string("ai-message-color");
 
   let responseContainer = null;
   let fullResponse = "";
   let errorOccurred = false;
+  let userMessageAppended = skipAppendUserMessage;
 
   try {
     await sendMessage({
@@ -81,7 +81,20 @@ export async function processUserMessage({
         updateResponseContainer(responseContainer, fullResponse);
         PanelElements.scrollToBottom(scrollView);
       },
-      displayMessage,
+      displayMessage: (text, type) => {
+        // Custom display message handler that supports system messages
+        if (type === "system") {
+          // Always display system message first
+          appendSystemMessage(outputContainer, text);
+          PanelElements.scrollToBottom(scrollView);
+        } else if (type === "user" && !userMessageAppended) {
+          // Then append user message if not already done
+          appendUserMessage(outputContainer, text);
+          userMessageAppended = true;
+          PanelElements.scrollToBottom(scrollView);
+        }
+        // For assistant messages, handled by onData
+      },
     });
 
     if (!errorOccurred && onResponseEnd) onResponseEnd();
@@ -111,6 +124,37 @@ export function appendUserMessage(outputContainer, message) {
     Clutter.ActorAlign.END
   );
   outputContainer.add_child(userContainer);
+}
+
+/**
+ * Append a system message to the conversation UI
+ * @param {St.BoxLayout} outputContainer - The output container 
+ * @param {string} message - The system message to display
+ */
+export function appendSystemMessage(outputContainer, message) {
+  // Create a special system message container with distinct styling
+  const systemContainer = new St.BoxLayout({
+    style_class: "system-message",
+    x_expand: true,
+    y_expand: false,
+    x_align: Clutter.ActorAlign.CENTER,
+    vertical: true,
+    style: "background-color: rgba(128, 128, 128, 0.1); border-radius: 8px; padding: 8px; margin: 4px 24px; max-width: 90%;"
+  });
+  
+  // Create the message label
+  const messageLabel = new St.Label({
+    text: message,
+    style_class: "system-message-text",
+    x_expand: true,
+    style: "font-style: italic; color: #888888; font-size: 13px;"
+  });
+  
+  messageLabel.clutter_text.set_line_wrap(true);
+  messageLabel.clutter_text.set_selectable(true);
+  systemContainer.add_child(messageLabel);
+  
+  outputContainer.add_child(systemContainer);
 }
 
 /**
@@ -335,7 +379,8 @@ export function clearOutput(outputContainer) {
       (child.style_class.includes("message-box") ||
         child.style_class.includes("user-message") ||
         child.style_class.includes("ai-message") ||
-        child.style_class.includes("assistant-message"))
+        child.style_class.includes("assistant-message") ||
+        child.style_class.includes("system-message"))
     ) {
       child.destroy();
     }
