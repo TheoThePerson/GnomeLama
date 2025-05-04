@@ -26,15 +26,17 @@ settings.connect("changed::model-prompt", () => {
 export function prepareBasicMessages(messageText, context = [], options = {}) {
   const { 
     defaultSystemMessage = currentModelPrompt || "You are a helpful assistant.",
-    roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant"
+    roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant",
+    isOllama = false
   } = options;
   
   if (!Array.isArray(context)) {
     console.error("Context is not an array:", context);
     
     // If this is the first message and we have a model prompt, inject it
+    // But only for non-Ollama models as Ollama handles system prompt separately
     let firstMessage = messageText;
-    if (currentModelPrompt && currentModelPrompt.trim() !== "") {
+    if (!isOllama && currentModelPrompt && currentModelPrompt.trim() !== "") {
       firstMessage = `${currentModelPrompt}\n\n${messageText}`;
     }
     
@@ -46,10 +48,10 @@ export function prepareBasicMessages(messageText, context = [], options = {}) {
   
   const messages = [];
   
-  // ALWAYS FORCE ADDING THE MODEL PROMPT TO THE FIRST MESSAGE
-  // Regardless of the context state, we'll add it to the current user message
+  // Add current user message
+  // ONLY prepend system prompt for non-Ollama models
   let userContent = messageText;
-  if (currentModelPrompt && currentModelPrompt.trim() !== "") {
+  if (!isOllama && currentModelPrompt && currentModelPrompt.trim() !== "") {
     userContent = `${currentModelPrompt}\n\n${messageText}`;
   }
   
@@ -65,7 +67,7 @@ export function prepareBasicMessages(messageText, context = [], options = {}) {
     });
   });
 
-  // Add current user message with the prompt already added
+  // Add current user message
   messages.push({ 
     role: "user", 
     content: userContent 

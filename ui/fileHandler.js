@@ -11,6 +11,7 @@ import * as DocumentConverter from "../converters/documentConverter.js";
 import * as LayoutManager from "./layoutManager.js";
 import * as MessageProcessor from "./messageProcessor.js";
 import { DialogSystem } from "./alertManager.js";
+import { getPopupManager } from "./popupManager.js";
 
 // UI Constants
 const UI = {
@@ -93,6 +94,9 @@ export class FileHandler {
     this._dialogSystem = new DialogSystem({
       panelOverlay: this._panelOverlay
     });
+    
+    // Get the popup manager
+    this._popupManager = getPopupManager();
 
     // Check for document conversion tools
     this._checkDocumentTools();
@@ -173,6 +177,9 @@ export class FileHandler {
    */
   openFileSelector() {
     try {
+      // Close any open popups before opening file selector
+      this._popupManager.closeAllExcept(null);
+      
       // Replace with a file dialog that allows all supported file types
       const fileTypes = Object.keys(DocumentConverter.SUPPORTED_FORMATS)
         .map((ext) => `*.${ext}`)
@@ -1229,7 +1236,8 @@ export class FileHandler {
       });
     }
 
-    // Return JSON formatted structure
+    // Prepare JSON structure but add the special marker at the end
+    // This marker will be used by the UI to show "Files Attached" label
     return JSON.stringify(
       {
         instructions:
@@ -1239,7 +1247,7 @@ export class FileHandler {
       },
       null,
       2
-    ); // Pretty print with 2 spaces
+    ) + " ｢files attached｣"; // Add marker for UI detection
   }
 
   /**

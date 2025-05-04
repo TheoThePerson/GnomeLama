@@ -9,6 +9,7 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 // Import from services
 import { fetchModelNames, setModel } from "../services/messaging.js";
+import { getPopupManager } from "./popupManager.js";
 
 export class ModelManager {
   constructor(
@@ -39,6 +40,9 @@ export class ModelManager {
     this._modelMenu = null;
     this._modelButton = null;
     this._modelButtonLabel = null;
+    
+    // Get the popup manager
+    this._popupManager = getPopupManager();
   }
 
   createModelButton() {
@@ -73,7 +77,10 @@ export class ModelManager {
 
     this._setupModelMenu();
     this._modelButton.connect("button-press-event", () => {
-      this._modelMenu.toggle();
+      // Notify popup manager before opening
+      if (this._popupManager.notifyOpen('model')) {
+        this._modelMenu.toggle();
+      }
       return Clutter.EVENT_STOP;
     });
 
@@ -99,6 +106,8 @@ export class ModelManager {
 
     this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
+        // Notify popup manager when opening
+        this._popupManager.notifyOpen('model');
         this._positionModelMenu();
       }
     });
@@ -136,6 +145,16 @@ export class ModelManager {
         return Clutter.EVENT_PROPAGATE;
       }
     );
+
+    // Register with popup manager
+    this._popupManager.registerPopup('model', {
+      isOpenFn: () => this._modelMenu && this._modelMenu.isOpen,
+      closeFn: () => {
+        if (this._modelMenu && this._modelMenu.isOpen) {
+          this._modelMenu.close();
+        }
+      }
+    });
 
     await this._populateModelMenu();
   }
@@ -330,13 +349,11 @@ export class ModelManager {
       this._stageEventId = null;
     }
 
+    // Unregister from popup manager
+    this._popupManager.unregisterPopup('model');
+
     if (this._modelMenu) {
-      this._modelMenu.close();
-      if (this._modelMenu.actor) {
-        this._modelMenu.actor.destroy();
-      } else {
-        this._modelMenu.destroy();
-      }
+      this._modelMenu.destroy();
       this._modelMenu = null;
     }
   }

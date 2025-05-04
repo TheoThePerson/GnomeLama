@@ -86,7 +86,7 @@ export class MessageSender {
   }
 
   /**
-   * Prepare message content for sending
+   * Prepare message content for sending, dealing with files
    * @param {string} userInput - Raw user input text
    * @returns {Object} Object containing messageToSend and displayMessage
    */
@@ -99,17 +99,26 @@ export class MessageSender {
       const fileContent = this._fileHandler.getFormattedFileContent();
 
       if (fileContent) {
+        // The fileContent now contains the marker " ｢files attached｣" from FileHandler
+        // and we'll extract it from the user's display message
+        
         // Parse the JSON to add the prompt
         try {
-          const jsonData = JSON.parse(fileContent);
+          // Remove the marker before parsing
+          const jsonContentOnly = fileContent.replace(" ｢files attached｣", "");
+          const jsonData = JSON.parse(jsonContentOnly);
           jsonData.prompt = userInput;
           messageToSend = JSON.stringify(jsonData, null, 2);
+          
+          // Just add the marker to the display message
           displayMessage += " ｢files attached｣";
 
           // Register file paths for lookup during apply operations
-          MessageProcessor.registerFilePaths(fileContent);
+          MessageProcessor.registerFilePaths(jsonContentOnly);
         } catch {
-          messageToSend = userInput + "\n\n" + fileContent;
+          // If parsing fails, just append the content (minus the marker) to the message
+          messageToSend = userInput + "\n\n" + fileContent.replace(" ｢files attached｣", "");
+          displayMessage += " ｢files attached｣";
         }
       }
     } else {

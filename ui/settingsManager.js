@@ -8,6 +8,8 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import Gio from "gi://Gio";
 import { spawnCommandLine } from 'resource:///org/gnome/shell/misc/util.js';
+import Pango from "gi://Pango";
+import { getPopupManager } from "./popupManager.js";
 
 export class SettingsManager {
   constructor(settings, inputButtonsContainer) {
@@ -22,6 +24,8 @@ export class SettingsManager {
     this._currentPrompt = "";
     this._currentTemperature = 0.7;
     this._getConversationHistory = null;
+    this._aboutMenu = null;
+    this._aboutEventId = null;
     
     // Listen for external changes to settings
     this._settingsChangedId = this._settings.connect("changed", (settings, key) => {
@@ -37,6 +41,9 @@ export class SettingsManager {
     // Initialize current values
     this._currentPrompt = settings.get_string("model-prompt") || "";
     this._currentTemperature = settings.get_double("temperature") || 0.7;
+    
+    // Get the popup manager
+    this._popupManager = getPopupManager();
   }
 
   // Helper method to update dconf directly using shell command
@@ -137,7 +144,10 @@ export class SettingsManager {
 
     this._setupSettingsMenu();
     this._settingsButton.connect("button-press-event", () => {
-      this._settingsMenu.toggle();
+      // Notify popup manager before opening
+      if (this._popupManager.notifyOpen('settings')) {
+        this._settingsMenu.toggle();
+      }
       return Clutter.EVENT_STOP;
     });
   }
@@ -164,6 +174,8 @@ export class SettingsManager {
 
     this._settingsMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
+        // Notify popup manager
+        this._popupManager.notifyOpen('settings');
         this._positionSettingsMenu();
         
         // Update the UI values when the menu opens
@@ -212,6 +224,22 @@ export class SettingsManager {
       }
     );
 
+    // Register with popup manager
+    this._popupManager.registerPopup('settings', {
+      isOpenFn: () => this._settingsMenu && this._settingsMenu.isOpen,
+      closeFn: () => {
+        if (this._settingsMenu && this._settingsMenu.isOpen) {
+          this._savePromptValue();
+          this._saveTemperatureValue();
+          this._settingsMenu.close();
+        }
+      },
+      afterCloseFn: () => {
+        this._savePromptValue();
+        this._saveTemperatureValue();
+      }
+    });
+    
     this._populateSettingsMenu();
   }
 
@@ -377,7 +405,129 @@ export class SettingsManager {
     
     if (action === "Export Chat") {
       this._exportChatHistory();
+    } else if (action === "About") {
+      this._showAboutPopup();
     }
+  }
+
+  _showAboutPopup() {
+    // Notify popup manager before opening
+    if (!this._popupManager.notifyOpen('about')) {
+      return;
+    }
+    
+    // Create the About popup menu if it doesn't exist
+    if (!this._aboutMenu) {
+      this._aboutMenu = new PopupMenu.PopupMenu(
+        new St.Button(),
+        0.0,
+        St.Side.BOTTOM
+      );
+      Main.uiGroup.add_child(this._aboutMenu.actor);
+      this._aboutMenu.actor.hide();
+
+      this._aboutMenu.actor.add_style_class_name("settings-menu-popup");
+
+      if (this._aboutMenu.box) {
+        this._aboutMenu.box.add_style_class_name("settings-menu-box");
+      }
+
+      // Setup close on click outside
+      this._aboutEventId = global.stage.connect(
+        "button-press-event",
+        (actor, event) => {
+          if (this._aboutMenu && this._aboutMenu.isOpen) {
+            const [x, y] = event.get_coords();
+            const menuActor = this._aboutMenu.actor || this._aboutMenu;
+            const [menuX, menuY] = menuActor.get_transformed_position();
+            const [menuWidth, menuHeight] = menuActor.get_size();
+
+            if (
+              !(
+                x >= menuX &&
+                x <= menuX + menuWidth &&
+                y >= menuY &&
+                y <= menuY + menuHeight
+              )
+            ) {
+              this._aboutMenu.close();
+            }
+          }
+          return Clutter.EVENT_PROPAGATE;
+        }
+      );
+      
+      // Register with popup manager
+      this._popupManager.registerPopup('about', {
+        isOpenFn: () => this._aboutMenu && this._aboutMenu.isOpen,
+        closeFn: () => {
+          if (this._aboutMenu && this._aboutMenu.isOpen) {
+            this._aboutMenu.close();
+          }
+        }
+      });
+    }
+
+    // Clear and populate the about menu
+    this._aboutMenu.removeAll();
+
+    // Add header
+    const headerItem = new PopupMenu.PopupMenuItem("About", {
+      reactive: false,
+      style_class: 'settings-header'
+    });
+    this._aboutMenu.addMenuItem(headerItem);
+    this._aboutMenu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+    // Add about content with text wrapping
+    const createWrappingMenuItem = (text) => {
+      const item = new PopupMenu.PopupBaseMenuItem({
+        reactive: false,
+        style_class: 'settings-menu-item',
+      });
+      
+      const label = new St.Label({ 
+        text: text,
+        y_expand: true,
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER
+      });
+      
+      // Enable text wrapping
+      label.clutter_text.line_wrap = true;
+      label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+      label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+      
+      item.actor.add_child(label);
+      return item;
+    };
+
+    this._aboutMenu.addMenuItem(createWrappingMenuItem("Name: Linux Copilot"));
+    this._aboutMenu.addMenuItem(createWrappingMenuItem("Version: 1.0"));
+    this._aboutMenu.addMenuItem(createWrappingMenuItem("Author: TheoThePerson"));
+    this._aboutMenu.addMenuItem(createWrappingMenuItem("If you have any questions, feel free to contact me at gnomelama@gmail.com"));
+    this._aboutMenu.addMenuItem(createWrappingMenuItem("You can contribute to GnomeLama here by either opening an issue or a pull request: https://github.com/TheoThePerson/GnomeLama"));
+
+    // Position the about menu in the same place as the settings menu
+    const menuActor = this._aboutMenu.actor || this._aboutMenu;
+    const [inputX, inputY] = this._inputButtonsContainer.get_transformed_position();
+    const inputWidth = this._inputButtonsContainer.get_width();
+    
+    // Set a fixed width for the menu to match input container
+    menuActor.set_width(inputWidth);
+    
+    // Open the menu and position it
+    this._aboutMenu.open();
+    
+    // Position after opening to ensure correct sizing
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      const [menuWidth, menuHeight] = menuActor.get_size();
+      menuActor.set_position(
+        inputX,
+        inputY - menuHeight - 8
+      );
+      return GLib.SOURCE_REMOVE;
+    });
   }
 
   _exportChatHistory() {
@@ -464,17 +614,24 @@ rm "${tempFilePath}"
     }
   }
 
+  /**
+   * Closes all popups except the specified one
+   * @deprecated Use the global popup manager instead
+   * @param {string} except - The popup to keep open ("settings", "about", or null to close all)
+   */
+  _closeAllPopupsExcept(except) {
+    // Use the popup manager instead
+    this._popupManager.closeAllExcept(except);
+  }
+
   closeMenu() {
-    if (this._settingsMenu && this._settingsMenu.isOpen) {
-      // Save settings before closing
-      this._savePromptValue();
-      this._saveTemperatureValue();
-      this._settingsMenu.close();
-    }
+    // Close all popups
+    this._popupManager.closeAllExcept(null);
   }
 
   isMenuOpen() {
-    return this._settingsMenu && this._settingsMenu.isOpen;
+    // Check if any of our popups are open
+    return this._popupManager.isAnyPopupOpen();
   }
 
   destroy() {
@@ -483,14 +640,28 @@ rm "${tempFilePath}"
       this._stageEventId = null;
     }
 
+    if (this._aboutEventId) {
+      global.stage.disconnect(this._aboutEventId);
+      this._aboutEventId = null;
+    }
+
     if (this._settingsChangedId) {
       this._settings.disconnect(this._settingsChangedId);
       this._settingsChangedId = null;
     }
 
+    // Unregister from popup manager
+    this._popupManager.unregisterPopup('settings');
+    this._popupManager.unregisterPopup('about');
+
     if (this._settingsMenu) {
       this._settingsMenu.destroy();
       this._settingsMenu = null;
+    }
+
+    if (this._aboutMenu) {
+      this._aboutMenu.destroy();
+      this._aboutMenu = null;
     }
   }
 }

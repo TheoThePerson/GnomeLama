@@ -14,6 +14,7 @@ import { ModelManager } from "./modelManager.js";
 import { PasteHandler } from "./pasteHandler.js";
 import { DialogSystem } from "./alertManager.js";
 import { SettingsManager } from "./settingsManager.js";
+import { getPopupManager } from "./popupManager.js";
 
 import Gio from "gi://Gio";
 
@@ -143,6 +144,24 @@ export const Indicator = GObject.registerClass(
         }
         return Clutter.EVENT_PROPAGATE;
       });
+
+      // Set up global click handler to close popups when clicking elsewhere
+      this._globalClickHandlerId = global.stage.connect(
+        "button-press-event",
+        (actor, event) => {
+          // Get the popup manager
+          const popupManager = getPopupManager();
+          
+          // If any popup is open and the click is not inside it, close all popups
+          if (popupManager.isAnyPopupOpen()) {
+            // We already have popup-specific click handlers to manage this
+            // Let those handlers take care of it
+            return Clutter.EVENT_PROPAGATE;
+          }
+          
+          return Clutter.EVENT_PROPAGATE;
+        }
+      );
 
       // Finalize UI setup with proper error handling
       try {
@@ -389,6 +408,12 @@ export const Indicator = GObject.registerClass(
       this._isTogglingPanel = true;
 
       try {
+        // If any popup is open, close all popups first
+        const popupManager = getPopupManager();
+        if (popupManager.isAnyPopupOpen()) {
+          popupManager.closeAllExcept(null);
+        }
+
         // Toggle visibility flag
         const isOpening = !this._panelOverlay.visible;
         this._panelOverlay.visible = isOpening;
@@ -632,6 +657,12 @@ export const Indicator = GObject.registerClass(
       // Remove chrome
       if (this._panelOverlay) {
         Main.layoutManager.removeChrome(this._panelOverlay);
+      }
+
+      // Disconnect the global click handler
+      if (this._globalClickHandlerId) {
+        global.stage.disconnect(this._globalClickHandlerId);
+        this._globalClickHandlerId = null;
       }
 
       super.destroy();

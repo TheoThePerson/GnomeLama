@@ -1,6 +1,7 @@
 /**
  * Generic utilities for creating API payloads
  */
+import { getSettings } from "../../../lib/settings.js";
 
 /**
  * Creates a generic API payload
@@ -78,11 +79,16 @@ export function createCompletionPayload(options) {
     context
   } = options;
   
+  // Get system prompt from settings
+  const settings = getSettings();
+  const systemPrompt = settings.get_string("model-prompt") || "";
+  
   return createGenericPayload({
     modelName,
     temperature,
     extraParams: {
       prompt,
+      system: systemPrompt || undefined,
       context: context || null
     }
   });

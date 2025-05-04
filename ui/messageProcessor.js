@@ -34,30 +34,40 @@ export async function processUserMessage({
   onResponseEnd,
   skipAppendUserMessage = false,
 }) {
-  lastMessageHadFiles =
+  // Check if this message has files attached
+  const hasFilesAttached = 
     displayMessage &&
     (displayMessage.includes("[files attached]") ||
       displayMessage.includes("｢files attached｣"));
+  
+  // Store this value for use in rendering responses
+  lastMessageHadFiles = hasFilesAttached;
 
+  // Don't process empty messages
   if (!userMessage || !userMessage.trim()) {
     return;
   }
 
+  // Clean up any temporary messages
   removeTemporaryMessages(outputContainer);
 
-  // We no longer append user message here - it will be handled by the displayMessage callback
-  // to ensure proper ordering with system messages
-
+  // Get UI color from settings
   const bgColor = getSettings().get_string("ai-message-color");
 
+  // Prepare for response handling
   let responseContainer = null;
   let fullResponse = "";
   let errorOccurred = false;
   let userMessageAppended = skipAppendUserMessage;
 
   try {
+    // If message contains raw JSON with files, we'll use the displayMessage for UI
+    // but send the full JSON content to the API
+    const messageToSend = userMessage;
+    const messageToDisplay = displayMessage || userMessage;
+
     await sendMessage({
-      message: userMessage,
+      message: messageToSend,
       context,
       onData: (chunk) => {
         if (!chunk) return;
@@ -87,8 +97,11 @@ export async function processUserMessage({
           // System messages are now kept in history but not displayed in UI
           return;
         } else if (type === "user" && !userMessageAppended) {
+          // Display the clean version (displayMessage) for user messages with files
+          const textToDisplay = (hasFilesAttached) ? messageToDisplay : text;
+          
           // Then append user message if not already done
-          appendUserMessage(outputContainer, text);
+          appendUserMessage(outputContainer, textToDisplay);
           userMessageAppended = true;
           PanelElements.scrollToBottom(scrollView);
         }
@@ -267,19 +280,32 @@ export function updateResponseContainer(container, responseText) {
  * @returns {boolean} Whether the response was handled as JSON
  */
 function tryParseJsonResponse(container, responseText, hadFiles) {
+  // Don't try to parse if it doesn't look like a potential JSON response
+  if (!responseText.includes('{') && !responseText.includes('[')) {
+    return false;
+  }
+
+  // Check if it contains patterns that strongly indicate it's a file-related response
+  const isLikelyFileResponse = 
+    (responseText.includes('"files"') && responseText.includes('"filename"')) ||
+    (responseText.includes('"content"') && hadFiles);
+
   let jsonData;
   let confidenceLevel = 0;
 
+  // Try to parse the JSON
   jsonData = parseJsonFromResponse(responseText);
   if (!jsonData) {
     return false;
   }
 
+  // Calculate how confident we are this is a proper file response
   confidenceLevel = calculateConfidenceLevel(jsonData, hadFiles);
 
-  // Normalize the JSON structure
+  // Normalize the JSON structure (for consistent handling)
   jsonData = normalizeJsonStructure(jsonData);
 
+  // Basic validation of JSON structure
   if (!jsonData.files || !Array.isArray(jsonData.files)) {
     return false;
   }
@@ -289,13 +315,15 @@ function tryParseJsonResponse(container, responseText, hadFiles) {
     file.content && file.content.trim() !== ''
   );
 
-  // Only render as JSON if we have files with content, or we have high confidence
-  // this is a file-related response
-  if ((hasContentfulFiles || jsonData.summary) && (hadFiles || confidenceLevel >= 4)) {
+  // Only render as JSON with high confidence or when we're sure (had files in prompt AND has content)
+  if ((hasContentfulFiles && hadFiles) || 
+      (isLikelyFileResponse && confidenceLevel >= 4) ||
+      (jsonData.summary && hadFiles)) {
     renderJsonResponse(container, jsonData);
     return true;
   }
 
+  // When in doubt, render as regular text
   return false;
 }
 
@@ -584,21 +612,37 @@ function normalizeJsonStructure(jsonData) {
 
 // Helper function to render the JSON response
 function renderJsonResponse(container, jsonData) {
-  // Create summary label only if summary exists
+  // Create main content container
+  const contentBox = new St.BoxLayout({
+    vertical: true,
+    x_expand: true,
+    style_class: "json-response-content"
+  });
+  
+  // Add a simple text summary if one exists
   if (jsonData.summary) {
     const summaryLabel = new St.Label({
       text: jsonData.summary,
       style_class: "text-label",
       x_expand: true,
-      style: "margin-bottom: 12px;",
+      style: "margin-bottom: 12px;"
     });
     summaryLabel.clutter_text.set_line_wrap(true);
     summaryLabel.clutter_text.set_selectable(true);
-    container.add_child(summaryLabel);
+    contentBox.add_child(summaryLabel);
   }
-
+  
   // Render each file
-  jsonData.files.forEach((file) => renderFileItem(container, file));
+  if (jsonData.files && jsonData.files.length > 0) {
+    jsonData.files.forEach((file) => {
+      if (file && file.filename) {
+        renderFileItem(contentBox, file);
+      }
+    });
+  }
+  
+  // Add the content box to the container
+  container.add_child(contentBox);
 }
 
 // Add the renderFileItem function that's missing

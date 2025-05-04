@@ -2,6 +2,7 @@ import Clutter from "gi://Clutter";
 import St from "gi://St";
 import GLib from "gi://GLib";
 import Pango from "gi://Pango";
+import { getPopupManager } from "./popupManager.js";
 
 /**
  * A generic dialog system for the extension
@@ -15,6 +16,33 @@ export class DialogSystem {
    */
   constructor(options) {
     this._panelOverlay = options.panelOverlay;
+    this._popupManager = getPopupManager();
+    this._currentDialog = null;
+    this._currentOverlay = null;
+    
+    // Register with popup manager
+    this._popupManager.registerPopup('dialog', {
+      isOpenFn: () => this._currentDialog !== null,
+      closeFn: () => this.closeCurrentDialog(),
+      beforeOpenFn: () => {
+        // Close any existing dialog first
+        if (this._currentDialog) {
+          this.closeCurrentDialog();
+        }
+        return true;
+      }
+    });
+  }
+
+  /**
+   * Close the current dialog if one is open
+   */
+  closeCurrentDialog() {
+    if (this._currentOverlay) {
+      this._currentOverlay.destroy();
+      this._currentOverlay = null;
+      this._currentDialog = null;
+    }
   }
 
   /**
@@ -28,6 +56,12 @@ export class DialogSystem {
    */
   showDialog(options) {
     return new Promise((resolve) => {
+      // Notify popup manager before showing dialog
+      if (!this._popupManager.notifyOpen('dialog')) {
+        resolve('cancel');
+        return;
+      }
+      
       const { message, buttons, title } = options;
 
       // Create a simple overlay
@@ -38,6 +72,9 @@ export class DialogSystem {
       
       overlay.set_size(this._panelOverlay.width, this._panelOverlay.height);
       overlay.set_position(0, 0);
+      
+      // Store reference to current overlay
+      this._currentOverlay = overlay;
 
       // Calculate dialog width (80% of panel width, with min/max constraints)
       const panelWidth = this._panelOverlay.width;
@@ -48,6 +85,9 @@ export class DialogSystem {
         vertical: true,
         style_class: "dialog-container"
       });
+      
+      // Store reference to current dialog
+      this._currentDialog = dialog;
       
       // Set the width directly on the dialog
       dialog.set_width(dialogWidth);
@@ -72,58 +112,55 @@ export class DialogSystem {
         text: processedMessage,
         style_class: "dialog-message"
       });
-      
-      // Force text wrapping settings
-      if (messageLabel.clutter_text) {
-        messageLabel.clutter_text.set_line_wrap(true);
-        messageLabel.clutter_text.set_ellipsize(0); // Use 0 instead of enum
-        messageLabel.clutter_text.set_single_line_mode(false);
-      }
-      
+
+      // Enable text wrapping
+      messageLabel.clutter_text.line_wrap = true;
+      messageLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+      messageLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+
       dialog.add_child(messageLabel);
 
-      // Use a table layout for evenly distributed buttons
+      // Create buttons
       const buttonsTable = new St.BoxLayout({
         style_class: "dialog-buttons-container",
-        x_expand: true,
         x_align: Clutter.ActorAlign.CENTER
       });
 
-      // Calculate appropriate button sizes based on dialog width
-      const totalButtons = buttons.length;
-      const buttonSpacing = 10; // Space between buttons
-      const buttonPadding = 20; // Button horizontal padding (10px on each side)
-      
-      // Determine if any button has long text
-      const hasLongButtonText = buttons.some(btn => btn.label.length > 10);
-      
-      // Set min width based on button text length
-      const minButtonWidth = hasLongButtonText ? 95 : 80;
-      
-      // Calculate available width for all buttons
-      const availableWidth = dialogWidth - 48; // 24px padding on each side
-      // Calculate width per button including spacing
-      const widthPerButton = Math.floor((availableWidth - (buttonSpacing * (totalButtons - 1))) / totalButtons);
-      // Ensure button width is not less than minimum
-      const buttonWidth = Math.max(widthPerButton, minButtonWidth);
-      
-      // Create and add buttons with calculated spacing
-      buttons.forEach(buttonConfig => {
-        // Create a button with exact width
-        const button = new St.Button({
-          label: buttonConfig.label,
+      buttons.forEach((button) => {
+        const btn = new St.Button({
+          label: button.label,
           style_class: "dialog-button"
         });
-        
-        // Set fixed width to ensure all buttons are the same size
-        button.set_width(buttonWidth);
 
-        button.connect("clicked", () => {
-          overlay.destroy();
-          resolve(buttonConfig.action);
+        btn.connect("clicked", () => {
+          // Close the dialog
+          this.closeCurrentDialog();
+          
+          // Resolve the promise with the action
+          resolve(button.action);
         });
 
-        buttonsTable.add_child(button);
+        buttonsTable.add_child(btn);
+      });
+
+      // Handle clicks outside the dialog to dismiss
+      overlay.connect("button-press-event", (actor, event) => {
+        const [x, y] = event.get_coords();
+        const [dialogX, dialogY] = dialog.get_transformed_position();
+        const [dialogWidth, dialogHeight] = dialog.get_size();
+
+        if (
+          !(
+            x >= dialogX &&
+            x <= dialogX + dialogWidth &&
+            y >= dialogY &&
+            y <= dialogY + dialogHeight
+          )
+        ) {
+          this.closeCurrentDialog();
+          resolve("cancel");
+        }
+        return Clutter.EVENT_STOP;
       });
 
       dialog.add_child(buttonsTable);
@@ -142,41 +179,28 @@ export class DialogSystem {
       });
     });
   }
+
+  /**
+   * Ensures text will wrap properly by adding manual line breaks if needed
+   * 
+   * @private
+   * @param {string} text - The text to process
+   * @param {number} lineLength - Target line length for wrapping
+   * @returns {string} - Processed text with appropriate line breaks
+   */
+  _ensureTextWrapping(text, lineLength) {
+    // Simple algorithm to ensure text wrapping by adding manual breaks as needed
+    if (!text || lineLength <= 0) return text;
+    
+    // Let the UI handle wrapping naturally
+    return text;
+  }
   
   /**
-   * Ensures text is properly wrapped by inserting manual line breaks if needed
-   * 
-   * @param {string} text - Text to wrap
-   * @param {number} maxLineLength - Maximum character count per line 
-   * @returns {string} Text with manual line breaks
+   * Clean up resources
    */
-  _ensureTextWrapping(text, maxLineLength) {
-    // First normalize the text by replacing multiple spaces with single spaces
-    text = text.replace(/\s+/g, ' ').trim();
-    
-    // Split into words
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-    
-    // Build lines of appropriate length
-    for (const word of words) {
-      if (currentLine.length + word.length + 1 <= maxLineLength) {
-        // Add word to current line
-        currentLine += (currentLine ? ' ' : '') + word;
-      } else {
-        // Start a new line
-        lines.push(currentLine);
-        currentLine = word;
-      }
-    }
-    
-    // Add the last line if it's not empty
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    
-    // Join lines with newlines
-    return lines.join('\n');
+  destroy() {
+    this.closeCurrentDialog();
+    this._popupManager.unregisterPopup('dialog');
   }
 } 
