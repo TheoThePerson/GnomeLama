@@ -21,6 +21,7 @@ export class SettingsManager {
     this._temperatureEntry = null;
     this._currentPrompt = "";
     this._currentTemperature = 0.7;
+    this._getConversationHistory = null;
     
     // Listen for external changes to settings
     this._settingsChangedId = this._settings.connect("changed", (settings, key) => {
@@ -139,6 +140,11 @@ export class SettingsManager {
       this._settingsMenu.toggle();
       return Clutter.EVENT_STOP;
     });
+  }
+
+  // Method to set the conversation history getter function
+  setConversationHistoryGetter(getHistoryFunc) {
+    this._getConversationHistory = getHistoryFunc;
   }
 
   async _setupSettingsMenu() {
@@ -368,6 +374,94 @@ export class SettingsManager {
     this._savePromptValue();
     this._saveTemperatureValue();
     this._settingsMenu.close();
+    
+    if (action === "Export Chat") {
+      this._exportChatHistory();
+    }
+  }
+
+  _exportChatHistory() {
+    if (!this._getConversationHistory) {
+      return;
+    }
+    
+    try {
+      const history = this._getConversationHistory();
+      if (!history || history.length === 0) {
+        // No history to export
+        Main.notify("No chat history to export");
+        return;
+      }
+      
+      // Format the conversation history
+      let formattedHistory = "";
+      const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+      
+      history.forEach(msg => {
+        let prefix;
+        if (msg.type === "user") {
+          prefix = "User: ";
+        } else if (msg.type === "system") {
+          prefix = "System prompt: ";
+        } else {
+          prefix = "Assistant: ";
+        }
+        formattedHistory += prefix + msg.text + "\n\n";
+      });
+      
+      // Create a temporary file to hold the formatted history
+      const tempDir = GLib.get_tmp_dir();
+      const tempFilePath = GLib.build_filenamev([tempDir, `chat_export_${timestamp}.txt`]);
+      
+      // Write the content to the temporary file
+      const ByteArray = imports.byteArray;
+      const contentBytes = ByteArray.fromString(formattedHistory);
+      
+      if (!GLib.file_set_contents(tempFilePath, contentBytes)) {
+        console.error(`Failed to create temporary file at ${tempFilePath}`);
+        Main.notify("Failed to create temporary file");
+        return;
+      }
+      
+      // Use an asynchronous approach to run zenity without freezing GNOME Shell
+      // Prepare the default filename
+      const defaultFilename = `${GLib.get_home_dir()}/chat_export_${timestamp}.txt`;
+      
+      // Create a script that handles the zenity dialog and file copying
+      const scriptContent = `
+#!/bin/bash
+RESULT=$(zenity --file-selection --save --filename="${defaultFilename}" --title="Save Chat Export" --file-filter="*.txt")
+if [ $? -eq 0 ] && [ -n "$RESULT" ]; then
+  # Copy the content to the selected file
+  cat "${tempFilePath}" > "$RESULT"
+  if [ $? -eq 0 ]; then
+    echo "Chat exported to $RESULT"
+  else
+    echo "Failed to write to $RESULT"
+  fi
+fi
+# Remove the temp file
+rm "${tempFilePath}"
+`;
+      
+      // Create a temporary script file
+      const scriptPath = GLib.build_filenamev([tempDir, `export_chat_${timestamp}.sh`]);
+      if (!GLib.file_set_contents(scriptPath, ByteArray.fromString(scriptContent))) {
+        console.error(`Failed to create script file at ${scriptPath}`);
+        Main.notify("Failed to create export script");
+        return;
+      }
+      
+      // Make the script executable
+      GLib.spawn_command_line_sync(`chmod +x "${scriptPath}"`);
+      
+      // Run the script asynchronously without opening a terminal
+      GLib.spawn_command_line_async(`"${scriptPath}"`);
+      
+    } catch (error) {
+      console.error(`Error exporting chat history: ${error.message}`);
+      Main.notify(`Error: ${error.message}`);
+    }
   }
 
   closeMenu() {

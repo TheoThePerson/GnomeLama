@@ -207,7 +207,7 @@ export const sendMessageToAPI = provider.sendMessageToAPI;
 export const stopMessage = provider.stopMessage;
 export const isGeminiModel = provider.isModelSupported;
 
-// Export a function to check if a model is from Gemini
-export function isGeminiModel(modelName) {
+// Helper function to check if a model is from Gemini
+export function checkIsGeminiModel(modelName) {
   return modelName && modelName.startsWith('gemini:');
 } 

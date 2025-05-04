@@ -82,11 +82,10 @@ export async function processUserMessage({
         PanelElements.scrollToBottom(scrollView);
       },
       displayMessage: (text, type) => {
-        // Custom display message handler that supports system messages
+        // Custom display message handler that skips system messages
         if (type === "system") {
-          // Always display system message first
-          appendSystemMessage(outputContainer, text);
-          PanelElements.scrollToBottom(scrollView);
+          // System messages are now kept in history but not displayed in UI
+          return;
         } else if (type === "user" && !userMessageAppended) {
           // Then append user message if not already done
           appendUserMessage(outputContainer, text);

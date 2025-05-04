@@ -33,7 +33,7 @@ export function setModel(modelName) {
 function getProviderForModel(modelName) {
   if (openaiProvider.isOpenAIModel(modelName)) {
     return openaiProvider;
-  } else if (geminiProvider.isGeminiModel(modelName)) {
+  } else if (geminiProvider.checkIsGeminiModel(modelName)) {
     return geminiProvider;
   } else {
     return ollamaProvider;
@@ -253,22 +253,16 @@ export async function sendMessage({
   
   // Check if this is the first message in the conversation and show the model prompt
   if (conversationHistory.length === 0) {
-    // Get the model prompt and add it as a system message if it exists
+    // Get the model prompt and add it as a system message in the history only
     const settings = getSettings();
     const modelPrompt = settings.get_string("model-prompt") || "";
     
     if (modelPrompt && modelPrompt.trim() !== "") {
       // Add the model prompt as a system message in the history
-      addMessageToHistory(`System prompt: ${modelPrompt}`, "system");
+      addMessageToHistory(modelPrompt, "system");
       
-      // If displayMessage function is provided, show the system message in the UI
-      if (displayMessage && typeof displayMessage === 'function') {
-        try {
-          displayMessage(`System prompt: ${modelPrompt}`, "system");
-        } catch (error) {
-          console.error("Error displaying system message:", error);
-        }
-      }
+      // Don't display system messages in the UI anymore
+      // System messages are only kept in the conversation history
     }
   }
 

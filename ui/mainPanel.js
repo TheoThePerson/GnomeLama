@@ -181,6 +181,9 @@ export const Indicator = GObject.registerClass(
         this._inputButtonsContainer
       );
 
+      // Provide the conversation history getter to the settings manager
+      this._settingsManager.setConversationHistoryGetter(() => getConversationHistory());
+
       // Connect the paste handler to input field key press events
       this._inputField.clutter_text.connect("key-press-event", (actor, event) => {
         return this._pasteHandler.handleKeyPress(actor, event);
