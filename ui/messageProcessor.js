@@ -39,7 +39,7 @@ export async function processUserMessage({
     displayMessage &&
     (displayMessage.includes("[files attached]") ||
       displayMessage.includes("｢files attached｣"));
-  
+
   // Store this value for use in rendering responses
   lastMessageHadFiles = hasFilesAttached;
 
@@ -534,28 +534,48 @@ function cleanJsonString(jsonString) {
 // Refactoring tryParseJsonResponse by extracting helper methods
 function parseJsonFromResponse(responseText) {
   try {
-    // Try direct parsing
+    // Try direct parsing first
     return JSON.parse(responseText);
   } catch {
-    // Try parsing from code block
-    const codeBlockMatch = responseText.match(
-      /```(?:json)?\s*\n([\s\S]*?)\n```/u
-    );
-    if (codeBlockMatch) {
+    // Try multiple approaches to find JSON in code blocks
+    
+    // 1. Standard code block with json tag
+    let codeBlockMatch = responseText.match(/```(?:json)[\s\n]*([\s\S]*?)[\s\n]*```/);
+    if (codeBlockMatch && codeBlockMatch[1]) {
       try {
-        return JSON.parse(codeBlockMatch[1]);
-      } catch {
-        // Failed to parse JSON in code block - silently fail in production
-      }
+        const jsonContent = codeBlockMatch[1].trim();
+        return JSON.parse(jsonContent);
+      } catch {}
+    }
+    
+    // 2. Code block without language tag
+    codeBlockMatch = responseText.match(/```[\s\n]*([\s\S]*?)[\s\n]*```/);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      try {
+        const jsonContent = codeBlockMatch[1].trim();
+        return JSON.parse(jsonContent);
+      } catch {}
+    }
+    
+    // 3. Try to find JSON-like structures with curly braces - more aggressive approach
+    if (responseText.includes('{') && responseText.includes('}')) {
+      const possibleJson = responseText.substring(
+        responseText.indexOf('{'),
+        responseText.lastIndexOf('}') + 1
+      );
+      
+      try {
+        return JSON.parse(possibleJson);
+      } catch {}
     }
 
-    // Try extracting JSON from text
+    // 4. Try extracting JSON from text with our helper
     const extractedJson = tryExtractJsonFromText(responseText);
     if (extractedJson) {
       return extractedJson;
     }
 
-    // Failed to extract JSON - silently fail in production
+    // Failed to extract JSON with all approaches
     return null;
   }
 }
@@ -625,13 +645,20 @@ function renderJsonResponse(container, jsonData) {
       text: jsonData.summary,
       style_class: "text-label",
       x_expand: true,
-      style: "margin-bottom: 12px;"
+      y_expand: false,
+      y_align: Clutter.ActorAlign.START,
+      style: "margin-bottom: 12px; max-width: 100%;"
     });
+    
+    // Improve text wrapping behavior
     summaryLabel.clutter_text.set_line_wrap(true);
+    summaryLabel.clutter_text.set_line_wrap_mode(imports.gi.Pango.WrapMode.WORD_CHAR);
+    summaryLabel.clutter_text.set_ellipsize(imports.gi.Pango.EllipsizeMode.NONE);
     summaryLabel.clutter_text.set_selectable(true);
+    
     contentBox.add_child(summaryLabel);
   }
-  
+
   // Render each file
   if (jsonData.files && jsonData.files.length > 0) {
     jsonData.files.forEach((file) => {

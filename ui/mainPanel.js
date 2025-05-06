@@ -424,42 +424,10 @@ export const Indicator = GObject.registerClass(
             this._pasteHandler.resetState();
           }
 
-          // Remove temporary messages and clear output
+          // Only remove temporary messages
           MessageProcessor.removeTemporaryMessages(this._outputContainer);
-          MessageProcessor.clearOutput(this._outputContainer);
 
-          // Get and render conversation history
-          const history = getConversationHistory();
-          history.forEach((message, index) => {
-            if (message.type === "user") {
-              MessageProcessor.appendUserMessage(
-                this._outputContainer,
-                message.text
-              );
-            } else if (message.type === "assistant") {
-              const responseContainer = PanelElements.createResponseContainer(
-                this._settings.get_string("ai-message-color")
-              );
-              this._outputContainer.add_child(responseContainer);
-
-              if (
-                index > 0 &&
-                history[index - 1].type === "user" &&
-                (history[index - 1].text.includes("[files attached]") ||
-                  history[index - 1].text.includes("｢files attached｣"))
-              ) {
-                MessageProcessor.setLastMessageHadFiles(true);
-              } else {
-                MessageProcessor.setLastMessageHadFiles(false);
-              }
-
-              MessageProcessor.updateResponseContainer(
-                responseContainer,
-                message.text
-              );
-            }
-          });
-
+          // Ensure scrolling to bottom
           PanelElements.scrollToBottom(this._outputScrollView);
 
           this._initializePanelState();
