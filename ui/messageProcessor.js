@@ -129,7 +129,7 @@ export async function processUserMessage({
  * @param {St.BoxLayout} outputContainer - The output container
  * @param {string} message - The message to append
  */
-export function appendUserMessage(outputContainer, message) {
+function appendUserMessage(outputContainer, message) {
   const userContainer = UIComponents.createMessageContainer(
     message,
     true,
@@ -139,41 +139,10 @@ export function appendUserMessage(outputContainer, message) {
 }
 
 /**
- * Append a system message to the conversation UI
- * @param {St.BoxLayout} outputContainer - The output container 
- * @param {string} message - The system message to display
- */
-export function appendSystemMessage(outputContainer, message) {
-  // Create a special system message container with distinct styling
-  const systemContainer = new St.BoxLayout({
-    style_class: "system-message",
-    x_expand: true,
-    y_expand: false,
-    x_align: Clutter.ActorAlign.CENTER,
-    vertical: true,
-    style: "background-color: rgba(128, 128, 128, 0.1); border-radius: 8px; padding: 8px; margin: 4px 24px; max-width: 90%;"
-  });
-  
-  // Create the message label
-  const messageLabel = new St.Label({
-    text: message,
-    style_class: "system-message-text",
-    x_expand: true,
-    style: "font-style: italic; color: #888888; font-size: 13px;"
-  });
-  
-  messageLabel.clutter_text.set_line_wrap(true);
-  messageLabel.clutter_text.set_selectable(true);
-  systemContainer.add_child(messageLabel);
-  
-  outputContainer.add_child(systemContainer);
-}
-
-/**
  * @param {St.BoxLayout} container - The container to update
  * @param {string} responseText - The response text
  */
-export function updateResponseContainer(container, responseText) {
+function updateResponseContainer(container, responseText) {
   container.get_children().forEach((child) => child.destroy());
 
   if (tryParseJsonResponse(container, responseText, lastMessageHadFiles)) {
@@ -384,14 +353,6 @@ export function clearOutput(outputContainer) {
 
   // Clear any references to temporary messages
   temporaryMessages.clear();
-}
-
-/**
- * Sets the flag indicating if the last message had files attached
- * @param {boolean} hadFiles - Whether the last message had files
- */
-export function setLastMessageHadFiles(hadFiles) {
-  lastMessageHadFiles = hadFiles;
 }
 
 /**
