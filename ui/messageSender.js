@@ -91,42 +91,35 @@ export class MessageSender {
    * @returns {Object} Object containing messageToSend and displayMessage
    */
   _prepareMessageContent(userInput) {
-    let displayMessage = userInput;
-    let messageToSend = "";
-
-    if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-      // Get JSON formatted file content
-      const fileContent = this._fileHandler.getFormattedFileContent();
-
-      if (fileContent) {
-        // The fileContent now contains the marker " ｢files attached｣" from FileHandler
-        // and we'll extract it from the user's display message
-        
-        // Parse the JSON to add the prompt
-        try {
-          // Remove the marker before parsing
-          const jsonContentOnly = fileContent.replace(" ｢files attached｣", "");
-          const jsonData = JSON.parse(jsonContentOnly);
-          jsonData.prompt = userInput;
-          messageToSend = JSON.stringify(jsonData, null, 2);
-          
-          // Just add the marker to the display message
-          displayMessage += " ｢files attached｣";
-
-          // Register file paths for lookup during apply operations
-          MessageProcessor.registerFilePaths(jsonContentOnly);
-        } catch {
-          // If parsing fails, just append the content (minus the marker) to the message
-          messageToSend = userInput + "\n\n" + fileContent.replace(" ｢files attached｣", "");
-          displayMessage += " ｢files attached｣";
-        }
-      }
-    } else {
-      // No files, just use the message directly without the prefix
-      messageToSend = userInput;
+    if (!this._fileHandler?.hasLoadedFiles()) {
+      return { messageToSend: userInput, displayMessage: userInput };
     }
 
-    return { messageToSend, displayMessage };
+    const fileContent = this._fileHandler.getFormattedFileContent();
+    if (!fileContent) {
+      return { messageToSend: userInput, displayMessage: userInput };
+    }
+
+    try {
+      // Remove marker and parse JSON
+      const jsonContentOnly = fileContent.replace(" ｢files attached｣", "");
+      const jsonData = JSON.parse(jsonContentOnly);
+      jsonData.prompt = userInput;
+      
+      // Register file paths for lookup during apply operations
+      MessageProcessor.registerFilePaths(jsonContentOnly);
+      
+      return {
+        messageToSend: JSON.stringify(jsonData, null, 2),
+        displayMessage: userInput + " ｢files attached｣"
+      };
+    } catch {
+      // If parsing fails, append content without marker
+      return {
+        messageToSend: userInput + "\n\n" + fileContent.replace(" ｢files attached｣", ""),
+        displayMessage: userInput + " ｢files attached｣"
+      };
+    }
   }
 
   /**
@@ -154,28 +147,39 @@ export class MessageSender {
     // Reset processing state
     this._isProcessingMessage = false;
     this._updateSendButtonState(true);
-
-    // Update input field hint
     this._updateInputFieldHint();
 
-    // If there was an error, show it as a temporary message - prioritize service errors
+    // Handle errors
     const serviceError = getLastError();
     if (serviceError || error) {
-      let errorMessage = serviceError || "Error processing your message. Please try again.";
-      
-      // Add error details if available
-      if (error && error.message && !errorMessage.includes(error.message)) {
-        errorMessage += ` (${error.message})`;
-      }
-      
-      // Always display errors as temporary messages
+      const errorMessage = this._formatErrorMessage(serviceError, error);
       MessageProcessor.removeTemporaryMessages(this._outputContainer);
       MessageProcessor.addTemporaryMessage(this._outputContainer, errorMessage);
     }
 
-    // Give focus back to input field with a small delay
+    // Give focus back to input field
+    this._focusInputField();
+  }
+
+  /**
+   * Format error message from service and local errors
+   * @private
+   */
+  _formatErrorMessage(serviceError, localError) {
+    let message = serviceError || "Error processing your message. Please try again.";
+    if (localError?.message && !message.includes(localError.message)) {
+      message += ` (${localError.message})`;
+    }
+    return message;
+  }
+
+  /**
+   * Focus the input field with a small delay
+   * @private
+   */
+  _focusInputField() {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-      if (Main && Main.global && Main.global.stage) {
+      if (Main?.global?.stage) {
         Main.global.stage.set_key_focus(this._inputField.clutter_text);
       }
       return GLib.SOURCE_REMOVE;
@@ -187,35 +191,22 @@ export class MessageSender {
    */
   async sendMessage() {
     const userInput = this._inputField.get_text().trim();
-    if (
-      !userInput ||
-      this._isProcessingMessage ||
-      isServiceProcessingMessage()
-    ) {
+    if (!userInput || this._isProcessingMessage || isServiceProcessingMessage()) {
       return;
     }
 
-    // Clear input field immediately
+    // Clear input field and prepare message
     this._inputField.set_text("");
-
-    // Prepare the message content
-    const { messageToSend, displayMessage } =
-      this._prepareMessageContent(userInput);
+    const { messageToSend, displayMessage } = this._prepareMessageContent(userInput);
 
     // Update UI for sending
     this._handlePreSendUpdates();
-
-    // Reset paste handler state to allow pasting the same content again
     if (this._pasteHandler) {
       this._pasteHandler.onMessageSent();
     }
 
     try {
-      // No longer show user message immediately - let processUserMessage handle display order
-      // to ensure system message appears before user message
       MessageProcessor.removeTemporaryMessages(this._outputContainer);
-
-      // Process the user message with files included, but store the display message in history
       await MessageProcessor.processUserMessage({
         userMessage: messageToSend,
         displayMessage,
@@ -224,7 +215,7 @@ export class MessageSender {
         scrollView: this._outputScrollView,
         onResponseStart: () => this._updateSendButtonState(false),
         onResponseEnd: () => this._handlePostSendUpdates(),
-        skipAppendUserMessage: false, // Let processUserMessage handle the display order
+        skipAppendUserMessage: false,
       });
     } catch (error) {
       this._handlePostSendUpdates(error);

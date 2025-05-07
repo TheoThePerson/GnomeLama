@@ -76,7 +76,7 @@ export const Indicator = GObject.registerClass(
       const dimensions = LayoutManager.calculatePanelDimensions();
       this._panelOverlay = PanelElements.createPanelOverlay(dimensions);
 
-      // Create containers with proper initialization
+      // Create containers
       this._inputButtonsContainer = new St.BoxLayout({
         style_class: "input-buttons-container",
         vertical: true,
@@ -93,7 +93,7 @@ export const Indicator = GObject.registerClass(
         y_expand: false
       });
 
-      // Create output area with proper initialization
+      // Create output area
       const { outputScrollView, outputContainer } = PanelElements.createOutputArea(dimensions);
       this._outputScrollView = outputScrollView;
       this._outputContainer = outputContainer;
@@ -114,27 +114,8 @@ export const Indicator = GObject.registerClass(
       this._inputField = inputField;
       this._sendButton = sendButton;
 
-      // Create a safe update layout callback with proper error handling
-      let isUpdatingLayout = false;
-      const safeUpdateLayout = () => {
-        if (!isUpdatingLayout) {
-          isUpdatingLayout = true;
-          try {
-            this._updateLayout();
-          } catch (error) {
-            console.error(`Error in safeUpdateLayout: ${error.message}`);
-          } finally {
-            isUpdatingLayout = false;
-          }
-        }
-      };
-
-      // Initialize components with proper error handling
-      try {
-        this._initializeComponents(safeUpdateLayout);
-      } catch (error) {
-        console.error(`Error initializing components: ${error.message}`);
-      }
+      // Initialize components
+      this._initializeComponents();
 
       // Set up panel overlay scroll behavior
       this._panelOverlay.connect("scroll-event", (_, event) => {
@@ -148,7 +129,7 @@ export const Indicator = GObject.registerClass(
       // Set up global click handler to close popups when clicking elsewhere
       this._globalClickHandlerId = global.stage.connect(
         "button-press-event",
-        (actor, event) => {
+        () => {
           // Get the popup manager
           const popupManager = getPopupManager();
           
@@ -163,18 +144,23 @@ export const Indicator = GObject.registerClass(
         }
       );
 
-      // Finalize UI setup with proper error handling
-      try {
-        this._finalizeUISetup();
-        this._updateLayout();
-      } catch (error) {
-        console.error(`Error finalizing UI setup: ${error.message}`);
-      }
+      // Finalize UI setup
+      this._finalizeUISetup();
+      this._updateLayout();
     }
 
-    _initializeComponents(safeUpdateLayout) {
+    _initializeComponents() {
       // Initialize dialog system
       this._dialogSystem = new DialogSystem({ panelOverlay: this._panelOverlay });
+
+      // Create safe update layout callback
+      const safeUpdateLayout = () => {
+        try {
+          this._updateLayout();
+        } catch (error) {
+          // Silent in production
+        }
+      };
 
       // Initialize file handler
       this._fileHandler = new FileHandler({
@@ -211,13 +197,7 @@ export const Indicator = GObject.registerClass(
       // Connect file handler content removal to paste handler
       this._fileHandler.onContentRemoved = (content) => {
         if (this._pasteHandler) {
-          if (content) {
-            // Reset tracking for this specific content
-            this._pasteHandler.resetTrackedText(content);
-          } else {
-            // Reset all tracking if no specific content
-            this._pasteHandler.resetState();
-          }
+          this._pasteHandler.resetTrackedText(content || null);
         }
       };
 
@@ -241,7 +221,6 @@ export const Indicator = GObject.registerClass(
           if (this._messageSender.isProcessingMessage()) {
             this._messageSender.stopMessage();
           }
-
           // Call the clear history function
           this._clearHistory();
         },
@@ -260,8 +239,7 @@ export const Indicator = GObject.registerClass(
       this._fileButton = fileButton;
       this._fileIcon = fileIcon;
 
-      this._setupClearButton();
-      this._setupSettingsButton();
+      this._setupButtons();
 
       // Connect file button to handler
       this._fileButton.connect("clicked", () => {
@@ -295,24 +273,24 @@ export const Indicator = GObject.registerClass(
       this._panelOverlay.visible = false;
     }
 
-    _setupClearButton() {
+    _setupButtons() {
+      // Get button icon scale once
+      const iconScale = this._settings.get_double("button-icon-scale");
+      
+      // Create clear button
       const { clearButton, clearIcon } = PanelElements.createClearButton(
         this._extensionPath,
-        this._settings.get_double("button-icon-scale")
+        iconScale
       );
-
       this._clearButton = clearButton;
       this._clearIcon = clearIcon;
-
       this._clearButton.connect("clicked", this._clearHistory.bind(this));
-    }
 
-    _setupSettingsButton() {
+      // Create settings button
       const { settingsButton, settingsIcon } = PanelElements.createSettingsButton(
         this._extensionPath,
-        this._settings.get_double("button-icon-scale")
+        iconScale
       );
-
       this._settingsButton = settingsButton;
       this._settingsIcon = settingsIcon;
 
@@ -323,76 +301,66 @@ export const Indicator = GObject.registerClass(
     }
 
     /**
-     * Initialize or reset the panel state
+     * Manage panel state - initialize or cleanup
+     * @param {boolean} isInitializing - Whether to initialize or cleanup
      * @private
      */
-    _initializePanelState() {
+    _managePanelState(isInitializing) {
       // Reset input field
       this._inputField.set_text("");
       
-      // Reset UI element opacity
-      this._inputField.opacity = 255;
-      this._buttonsContainer.opacity = 255;
+      // Set UI element opacity based on state
+      this._inputField.opacity = isInitializing ? 255 : 0;
+      this._buttonsContainer.opacity = isInitializing ? 255 : 0;
 
-      // Update layout first to ensure proper dimensions
-      this._updateLayout(true); // Force full update on initialization
+      if (isInitializing) {
+        // Update layout first to ensure proper dimensions
+        this._updateLayout(true); // Force full update on initialization
 
-      // Restore file UI if needed
-      if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-        this._fileHandler.restoreFileUI();
-        this._updateLayout(true); // Force full update after file UI restore
+        // Restore file UI if needed
+        if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+          this._fileHandler.restoreFileUI();
+          this._updateLayout(true); // Force full update after file UI restore
 
-        // Apply a sequence of timed refreshes to ensure proper formatting
-        const refreshSequence = [10, 50, 100, 200];
-        refreshSequence.forEach((delay) => {
-          imports.gi.GLib.timeout_add(
-            imports.gi.GLib.PRIORITY_DEFAULT,
-            delay,
-            () => {
-              if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
-                this._fileHandler.refreshFileBoxFormatting();
-                this._updateLayout(false); // No need for full update during refresh
+          // Apply a sequence of timed refreshes to ensure proper formatting
+          const refreshSequence = [10, 50, 100, 200];
+          refreshSequence.forEach((delay) => {
+            imports.gi.GLib.timeout_add(
+              imports.gi.GLib.PRIORITY_DEFAULT,
+              delay,
+              () => {
+                if (this._fileHandler && this._fileHandler.hasLoadedFiles()) {
+                  this._fileHandler.refreshFileBoxFormatting();
+                  this._updateLayout(false); // No need for full update during refresh
+                }
+                return imports.gi.GLib.SOURCE_REMOVE;
               }
-              return imports.gi.GLib.SOURCE_REMOVE;
-            }
-          );
-        });
-      }
+            );
+          });
+        }
 
-      // Give focus to input field
-      global.stage.set_key_focus(this._inputField.clutter_text);
+        // Give focus to input field
+        global.stage.set_key_focus(this._inputField.clutter_text);
 
-      // Refresh models in background
-      if (this._modelManager) {
-        this._modelManager.refreshModels();
-      }
-    }
+        // Refresh models in background
+        if (this._modelManager) {
+          this._modelManager.refreshModels();
+        }
+      } else {
+        // Close model menu
+        if (this._modelManager) {
+          this._modelManager.closeMenu();
+        }
 
-    /**
-     * Clean up panel state
-     * @private
-     */
-    _cleanupPanelState() {
-      // Clear input field
-      this._inputField.set_text("");
+        // Close settings menu
+        if (this._settingsManager) {
+          this._settingsManager.closeMenu();
+        }
 
-      // Hide sensitive UI elements
-      this._inputField.opacity = 0;
-      this._buttonsContainer.opacity = 0;
-
-      // Close model menu
-      if (this._modelManager) {
-        this._modelManager.closeMenu();
-      }
-
-      // Close settings menu
-      if (this._settingsManager) {
-        this._settingsManager.closeMenu();
-      }
-
-      // Clean up file UI only (preserve file data)
-      if (this._fileHandler) {
-        this._fileHandler.cleanupFileUI();
+        // Clean up file UI only (preserve file data)
+        if (this._fileHandler) {
+          this._fileHandler.cleanupFileUI();
+        }
       }
     }
 
@@ -407,83 +375,71 @@ export const Indicator = GObject.registerClass(
       }
       this._isTogglingPanel = true;
 
-      try {
-        // If any popup is open, close all popups first
-        const popupManager = getPopupManager();
-        if (popupManager.isAnyPopupOpen()) {
-          popupManager.closeAllExcept(null);
-        }
-
-        // Toggle visibility flag
-        const isOpening = !this._panelOverlay.visible;
-        this._panelOverlay.visible = isOpening;
-
-        if (isOpening) {
-          // Reset paste handler state when opening panel to allow pasting the same text
-          if (this._pasteHandler) {
-            this._pasteHandler.resetState();
-          }
-
-          // Only remove temporary messages
-          MessageProcessor.removeTemporaryMessages(this._outputContainer);
-
-          // Ensure scrolling to bottom
-          PanelElements.scrollToBottom(this._outputScrollView);
-
-          this._initializePanelState();
-        } else {
-          this._cleanupPanelState();
-        }
-
-        // Update layout
-        this._updateLayout();
-      } catch (error) {
-        // Ensure panel is in a consistent state even if error occurs
-        this._panelOverlay.visible = false;
-        this._inputField.opacity = 255;
-        this._buttonsContainer.opacity = 255;
-        
-        console.error(`Error toggling panel: ${error.message}`);
-      } finally {
-        // Reset toggle flag after a small delay
-        imports.gi.GLib.timeout_add(
-          imports.gi.GLib.PRIORITY_DEFAULT,
-          300,
-          () => {
-            this._isTogglingPanel = false;
-            return imports.gi.GLib.SOURCE_REMOVE;
-          }
-        );
+      // If any popup is open, close all popups first
+      const popupManager = getPopupManager();
+      if (popupManager.isAnyPopupOpen()) {
+        popupManager.closeAllExcept(null);
       }
+
+      // Toggle visibility flag
+      const isOpening = !this._panelOverlay.visible;
+      this._panelOverlay.visible = isOpening;
+
+      if (isOpening) {
+        // Reset paste handler state when opening panel
+        if (this._pasteHandler) {
+          this._pasteHandler.resetState();
+        }
+
+        // Only remove temporary messages
+        MessageProcessor.removeTemporaryMessages(this._outputContainer);
+
+        // Ensure scrolling to bottom
+        PanelElements.scrollToBottom(this._outputScrollView);
+      }
+
+      // Apply appropriate state changes
+      this._managePanelState(isOpening);
+      
+      // Update layout
+      this._updateLayout();
+
+      // Reset toggle flag after a small delay
+      imports.gi.GLib.timeout_add(
+        imports.gi.GLib.PRIORITY_DEFAULT,
+        300,
+        () => {
+          this._isTogglingPanel = false;
+          return imports.gi.GLib.SOURCE_REMOVE;
+        }
+      );
     }
 
     _clearHistory() {
-      // Remove temporary messages
+      // Remove temporary messages and clear output
       MessageProcessor.removeTemporaryMessages(this._outputContainer);
-
+      MessageProcessor.clearOutput(this._outputContainer);
+      
       // Clear conversation history
       clearConversationHistory();
       this._context = null;
-
-      // Clear output
-      MessageProcessor.clearOutput(this._outputContainer);
       
-      // Reset paste handler state to allow pasting the same text in new conversations
+      // Reset paste handler state
       if (this._pasteHandler) {
         this._pasteHandler.resetState();
       }
     }
 
     _updateLayout(forceFullUpdate = false) {
-      try {
-        // Ensure all components exist before updating
-        if (!this._panelOverlay || !this._inputButtonsContainer || 
-            !this._buttonsContainer || !this._outputScrollView || 
-            !this._outputContainer || !this._inputFieldBox || 
-            !this._inputField || !this._sendButton) {
-          return;
-        }
+      // Ensure all components exist before updating
+      if (!this._panelOverlay || !this._inputButtonsContainer || 
+          !this._buttonsContainer || !this._outputScrollView || 
+          !this._outputContainer || !this._inputFieldBox || 
+          !this._inputField || !this._sendButton) {
+        return;
+      }
 
+      try {
         // Only do full layout updates when forced or when panel visibility changes
         if (forceFullUpdate || this._panelOverlay.visible !== this._lastPanelVisibility) {
           this._lastPanelVisibility = this._panelOverlay.visible;
@@ -520,8 +476,7 @@ export const Indicator = GObject.registerClass(
           return imports.gi.GLib.SOURCE_REMOVE;
         });
       } catch (error) {
-        // Log error in development, silent in production
-        console.error(`Error updating layout: ${error.message}`);
+        // Silent in production, no console.error needed
       }
     }
 
@@ -547,7 +502,7 @@ export const Indicator = GObject.registerClass(
         // Ensure the model button is properly positioned
         this._modelButton.queue_relayout();
       } catch (error) {
-        console.error(`Error updating model button: ${error.message}`);
+        // Silent in production
       }
     }
 
@@ -599,32 +554,23 @@ export const Indicator = GObject.registerClass(
         );
       }
 
-      // Destroy components
-      if (this._fileHandler) {
-        this._fileHandler.destroy();
-      }
-
-      if (this._modelManager) {
-        this._modelManager.destroy();
-      }
-
-      if (this._settingsManager) {
-        this._settingsManager.destroy();
-      }
-
-      if (this._messageSender) {
-        this._messageSender.destroy();
-      }
-
-      // Clean up paste handler
-      if (this._pasteHandler) {
-        this._pasteHandler.cleanup && this._pasteHandler.cleanup();
-        this._pasteHandler = null;
-      }
+      // Destroy components in reverse order
+      ['_fileHandler', '_modelManager', '_settingsManager', '_messageSender', '_pasteHandler']
+        .forEach(component => {
+          if (this[component]) {
+            if (this[component].destroy) {
+              this[component].destroy();
+            } else if (this[component].cleanup) {
+              this[component].cleanup();
+            }
+            this[component] = null;
+          }
+        });
 
       // Remove chrome
       if (this._panelOverlay) {
         Main.layoutManager.removeChrome(this._panelOverlay);
+        this._panelOverlay = null;
       }
 
       // Disconnect the global click handler

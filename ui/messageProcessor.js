@@ -181,93 +181,62 @@ export function updateResponseContainer(container, responseText) {
   }
 
   const parts = parseMessageContent(responseText);
-
   const contentContainer = new St.BoxLayout({
     vertical: true,
     x_expand: true,
     style: "min-height: auto;"
   });
 
+  // Group parts into paragraphs
   const paragraphs = [];
   let currentParagraph = [];
 
-  parts.forEach((part) => {
-    const isBlockElement =
-      part.type === "code" ||
-      part.type === "blockquote" ||
-      part.type === "heading" ||
-      part.type === "orderedList" ||
-      part.type === "unorderedList" ||
-      part.type === "horizontalRule";
-
-    const hasMultipleParas =
-      part.type === "text" && part.content.includes("\n\n");
-
+  for (const part of parts) {
+    const isBlockElement = ["code", "blockquote", "heading", "orderedList", "unorderedList", "horizontalRule"].includes(part.type);
+    
     if (isBlockElement) {
       if (currentParagraph.length > 0) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
         currentParagraph = [];
       }
       paragraphs.push({ type: "block", part });
-    } else if (hasMultipleParas) {
+    } else if (part.type === "text" && part.content.includes("\n\n")) {
       if (currentParagraph.length > 0) {
         paragraphs.push({ type: "inline", parts: currentParagraph });
         currentParagraph = [];
       }
-
-      const paraTexts = part.content.split("\n\n");
-      paraTexts.forEach((paraText) => {
-        if (paraText.trim() !== "") {
-          paragraphs.push({
-            type: "text",
-            content: paraText,
-          });
-        }
-      });
+      part.content.split("\n\n")
+        .filter(text => text.trim())
+        .forEach(text => paragraphs.push({ type: "text", content: text }));
     } else {
       currentParagraph.push(part);
     }
-  });
+  }
 
   if (currentParagraph.length > 0) {
     paragraphs.push({ type: "inline", parts: currentParagraph });
   }
 
-  paragraphs.forEach((paragraph) => {
+  // Render paragraphs
+  for (const paragraph of paragraphs) {
+    let element;
     if (paragraph.type === "block") {
-      const element = createContentElement(paragraph.part);
-      if (element) {
-        contentContainer.add_child(element);
-      }
+      element = createContentElement(paragraph.part);
     } else if (paragraph.type === "text") {
-      const textLabel = UIComponents.createTextLabel(paragraph.content);
-      contentContainer.add_child(textLabel);
+      element = UIComponents.createTextLabel(paragraph.content);
     } else if (paragraph.type === "inline") {
-      const textBox = new St.BoxLayout({
+      element = new St.BoxLayout({
         style_class: "text-paragraph",
         x_expand: true,
         vertical: true,
       });
-
-      const flowContainer = new St.BoxLayout({
-        style_class: "text-flow-container",
-        x_expand: true,
-        vertical: false,
-        style: "flex-wrap: wrap; width: 100%;",
+      paragraph.parts.forEach(part => {
+        const partElement = createContentElement(part);
+        if (partElement) element.add_child(partElement);
       });
-
-      textBox.add_child(flowContainer);
-
-      paragraph.parts.forEach((part) => {
-        if (part.type === "text") {
-          const textLabel = UIComponents.createTextLabel(part.content);
-          flowContainer.add_child(textLabel);
-        }
-      });
-
-      contentContainer.add_child(textBox);
     }
-  });
+    if (element) contentContainer.add_child(element);
+  }
 
   container.add_child(contentContainer);
 }
