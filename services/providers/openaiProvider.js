@@ -55,7 +55,7 @@ function getApiKey(settings) {
 function extractOpenAIContent(json) {
   // Process an SSE message from OpenAI
   if (json.choices && json.choices.length > 0) {
-    const delta = json.choices[0].delta;
+    const { delta } = json.choices[0];
     if (delta && delta.content) {
       return delta.content;
     }
@@ -146,7 +146,6 @@ const provider = createChatProvider({
 });
 
 // Export the provider interface
-export const fetchModelNames = provider.fetchModelNames;
-export const sendMessageToAPI = provider.sendMessageToAPI;
-export const stopMessage = provider.stopMessage;
-export const isOpenAIModel = provider.isModelSupported;
+const { fetchModelNames, sendMessageToAPI, stopMessage, isModelSupported } = provider;
+export { fetchModelNames, sendMessageToAPI, stopMessage };
+export const isOpenAIModel = isModelSupported;

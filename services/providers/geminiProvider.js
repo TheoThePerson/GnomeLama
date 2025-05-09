@@ -64,7 +64,7 @@ function extractGeminiContent(json) {
       json.candidates[0].content.parts[0].text) {
     
     // Trim trailing newlines to prevent accumulation
-    return json.candidates[0].content.parts[0].text.replace(/\n+$/, "");
+    return json.candidates[0].content.parts[0].text.replace(/\n+$/u, "");
   }
   
   // Check for errors
@@ -129,12 +129,12 @@ function createGeminiPayload(params) {
   const { messages, temperature } = params;
   
   // Convert messages to Gemini format
-  let contents = [];
+  const contents = [];
   try {
     for (const msg of messages) {
       const role = msg.role === 'assistant' ? 'model' : 'user';
       contents.push({
-        role: role,
+        role,
         parts: [{ text: msg.content }]
       });
     }
@@ -177,7 +177,7 @@ function getGeminiEndpoint(params) {
   
   // Remove the gemini: prefix if present
   try {
-    const actualModel = modelName.replace(/^gemini:/, '');
+    const actualModel = modelName.replace(/^gemini:/u, '');
     return GEMINI_CHAT_ENDPOINT(actualModel, apiKey);
   } catch (error) {
     recordError(
@@ -202,12 +202,14 @@ const provider = createChatProvider({
 });
 
 // Export the provider interface
-export const fetchModelNames = provider.fetchModelNames;
-export const sendMessageToAPI = provider.sendMessageToAPI;
-export const stopMessage = provider.stopMessage;
-export const isGeminiModel = provider.isModelSupported;
+const { fetchModelNames, sendMessageToAPI, stopMessage, isModelSupported: isGeminiModel } = provider;
+export { fetchModelNames, sendMessageToAPI, stopMessage, isGeminiModel };
 
-// Helper function to check if a model is from Gemini
+/**
+ * Helper function to check if a model is from Gemini
+ * @param {string} modelName - The model name to check
+ * @returns {boolean} True if the model is a Gemini model
+ */
 export function checkIsGeminiModel(modelName) {
   return modelName && modelName.startsWith('gemini:');
 } 

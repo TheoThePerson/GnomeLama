@@ -145,7 +145,4 @@ const provider = createCompletionProvider({
 });
 
 // Export the provider interface
-export const fetchModelNames = provider.fetchModelNames;
-export const sendMessageToAPI = provider.sendMessageToAPI;
-export const stopMessage = provider.stopMessage;
-export const resetContext = provider.resetContext;
+export const { fetchModelNames, sendMessageToAPI, stopMessage, resetContext } = provider;

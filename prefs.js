@@ -174,10 +174,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       subtitle: _("Color of user messages"),
     });
 
-    // Check if user-message-opacity exists
-    try {
-      settings.get_double("user-message-opacity");
-      // If it exists, add it
+    // Add user message opacity if the setting exists
+    if (GnomeLamaPreferences.settingExists(settings, "user-message-opacity")) {
       this._addSpinRow(colorsGroup, settings, {
         key: "user-message-opacity",
         title: _("User Message Opacity"),
@@ -186,8 +184,6 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
         max: 1.0,
         step: 0.1,
       });
-    } catch (e) {
-      // Ignore if setting doesn't exist
     }
 
     // AI message color
@@ -197,10 +193,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       subtitle: _("Color of AI assistant messages"),
     });
 
-    // Check if ai-message-opacity exists
-    try {
-      settings.get_double("ai-message-opacity");
-      // If it exists, add it
+    // Add AI message opacity if the setting exists
+    if (GnomeLamaPreferences.settingExists(settings, "ai-message-opacity")) {
       this._addSpinRow(colorsGroup, settings, {
         key: "ai-message-opacity",
         title: _("AI Message Opacity"),
@@ -209,14 +203,10 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
         max: 1.0,
         step: 0.1,
       });
-    } catch (e) {
-      // Ignore if setting doesn't exist
     }
 
-    // Check if message-opacity exists
-    try {
-      settings.get_double("message-opacity");
-      // If it exists, add it
+    // Add general message opacity if the setting exists
+    if (GnomeLamaPreferences.settingExists(settings, "message-opacity")) {
       this._addSpinRow(colorsGroup, settings, {
         key: "message-opacity",
         title: _("Message Opacity"),
@@ -225,8 +215,21 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
         max: 1.0,
         step: 0.1,
       });
-    } catch (e) {
-      // Ignore if setting doesn't exist
+    }
+  }
+
+  /**
+   * Check if a setting exists
+   * @param {Gio.Settings} settings - The settings object
+   * @param {string} key - The setting key to check
+   * @returns {boolean} Whether the setting exists
+   */
+  static settingExists(settings, key) {
+    try {
+      settings.get_double(key);
+      return true;
+    } catch {
+      return false;
     }
   }
 

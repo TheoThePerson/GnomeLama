@@ -33,11 +33,11 @@ export function setModel(modelName) {
 function getProviderForModel(modelName) {
   if (openaiProvider.isOpenAIModel(modelName)) {
     return openaiProvider;
-  } else if (geminiProvider.checkIsGeminiModel(modelName)) {
+  } 
+  if (geminiProvider.checkIsGeminiModel(modelName)) {
     return geminiProvider;
-  } else {
-    return ollamaProvider;
   }
+  return ollamaProvider;
 }
 
 /**
@@ -62,8 +62,7 @@ export async function fetchModelNames() {
       models,
       error: models.length === 0 ? "No models found. Please check if services are running with models installed, or that you have API keys in settings." : null
     };
-  } catch (error) {
-    console.error("Error fetching models:", error);
+  } catch {
     // Error fetching models, silent in production
     return {
       models: [],
@@ -115,7 +114,7 @@ function addMessageToHistory(text, type) {
   if (!text) return;
   
   // Remove any "Prompt:" prefix from the text
-  const cleanText = text.replace(/^Prompt:\s*/i, '');
+  const cleanText = text.replace(/^Prompt:\s*/iu, '');
   conversationHistory.push({ text: cleanText, type });
 }
 
@@ -134,43 +133,41 @@ export function isProcessingMessage() {
 function processProviderResponse(response) {
   // Handle string responses directly
   if (typeof response === "string") {
-    return response.replace(/^Prompt:\s*/i, '');
+    return response.replace(/^Prompt:\s*/iu, '');
   }
 
   // Handle object responses
   if (response && typeof response === "object") {
     // Handle OpenAI-style response
     if (response.choices && response.choices[0]?.message?.content) {
-      return response.choices[0].message.content.replace(/^Prompt:\s*/i, '');
+      return response.choices[0].message.content.replace(/^Prompt:\s*/iu, '');
     }
     
     // Handle Ollama-style response
     if (response.response) {
-      return response.response.replace(/^Prompt:\s*/i, '');
+      return response.response.replace(/^Prompt:\s*/iu, '');
     }
 
     // Handle direct response property
     if (response.content) {
-      return response.content.replace(/^Prompt:\s*/i, '');
+      return response.content.replace(/^Prompt:\s*/iu, '');
     }
     
     // Handle text property from parsed responses
     if (response.text) {
-      return response.text.replace(/^Prompt:\s*/i, '');
+      return response.text.replace(/^Prompt:\s*/iu, '');
     }
   }
 
-  console.warn("Unexpected response format:", response);
   return "No valid response received";
 }
 
 /**
  * Handles errors during API communication
  * @param {Error} error - The error that occurred
- * @param {Function|null} asyncOnData - Optional callback for streaming data
  * @returns {string} Error message
  */
-function handleApiError(error, asyncOnData) {
+function handleApiError(error) {
   const provider = getProviderForModel(currentModel);
   let errorMessage;
   
@@ -204,8 +201,12 @@ async function sendApiRequest({
   contextToUse,
   asyncOnData,
 }) {
-  if (cancelCurrentRequest) {
-    cancelCurrentRequest();
+  // Store in a local variable and clear global to avoid race condition
+  const prevCancel = cancelCurrentRequest;
+  cancelCurrentRequest = null;
+  
+  if (prevCancel) {
+    prevCancel();
   }
 
   // For OpenAI and Gemini, use the conversation history directly
@@ -214,15 +215,24 @@ async function sendApiRequest({
     conversationHistory : 
     contextToUse;
 
-  const { result, cancel } = await provider.sendMessageToAPI({
+  const apiResult = await provider.sendMessageToAPI({
     messageText,
     modelName,
     context,
     onData: asyncOnData,
   });
-
-  cancelCurrentRequest = cancel;
-  return result;
+  
+  // Store cancel function - only assign if we're still in this call context
+  // Use a local function to ensure atomic update
+  const newCancel = apiResult.cancel;
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    if (cancelCurrentRequest === null) {
+      cancelCurrentRequest = newCancel;
+    }
+    return GLib.SOURCE_REMOVE;
+  });
+  
+  return apiResult.result;
 }
 
 /**
@@ -240,15 +250,21 @@ export async function sendMessage({
   onData,
   displayMessage = null,
 }) {
-  if (isMessageInProgress) return;
+  // Early return checks - don't start if already processing
+  if (isMessageInProgress) return "";
   if (!currentModel) {
     // Use the default model from settings
     const settings = getSettings();
     currentModel = settings.get_string("default-model");
-    if (!currentModel) return;
+    if (!currentModel) return "";
   }
 
-  isMessageInProgress = true;
+  // Set processing state
+  GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+    isMessageInProgress = true;
+    return GLib.SOURCE_REMOVE;
+  });
+  
   lastError = null;
   
   // Check if this is the first message in the conversation and show the model prompt
@@ -260,23 +276,19 @@ export async function sendMessage({
     if (modelPrompt && modelPrompt.trim() !== "") {
       // Add the model prompt as a system message in the history
       addMessageToHistory(modelPrompt, "system");
-      
-      // Don't display system messages in the UI anymore
-      // System messages are only kept in the conversation history
     }
   }
 
   // For history, use a clean message (but we'll send the original message to the model)
-  // This ensures we don't strip out the model prompt that might be added by formatters.js
-  const cleanMessage = message.replace(/^Prompt:\s*/i, '');
+  const cleanMessage = message.replace(/^Prompt:\s*/iu, '');
   addMessageToHistory(cleanMessage, "user");
 
   // Only call displayMessage if it's provided and is a function
   if (displayMessage && typeof displayMessage === 'function') {
     try {
       displayMessage(cleanMessage, "user");
-    } catch (error) {
-      console.error("Error calling displayMessage:", error);
+    } catch {
+      // Error handling
     }
   }
 
@@ -301,14 +313,10 @@ export async function sendMessage({
 
     // Create proper context based on provider
     const provider = getProviderForModel(currentModel);
-    let providerName = 'Ollama';
-    if (provider === openaiProvider) providerName = 'OpenAI';
-    if (provider === geminiProvider) providerName = 'Gemini';
     
     const contextToUse = context || ((provider === openaiProvider || provider === geminiProvider) ? conversationHistory : null);
     
     // Use the original message (not the cleaned message) for the API request
-    // This preserves any model prompt that might be injected by formatters.js
     const result = await sendApiRequest({
       provider,
       messageText: message,
@@ -327,29 +335,25 @@ export async function sendMessage({
       if (displayMessage && typeof displayMessage === 'function') {
         try {
           displayMessage(responseText, "assistant");
-        } catch (error) {
-          console.error("Error calling displayMessage for response:", error);
+        } catch {
+          // Error handling
         }
       }
     }
   } catch (error) {
-    console.error("Error sending message:", error);
-    
     // Handle the error without sending to asyncOnData callback
-    // This prevents the error from showing up in a message bubble
     const errorMessage = handleApiError(error);
     
     // Only add the error to history if lastError is set to null
-    // This allows UI components to decide how to display errors
     if (lastError === null) {
       addMessageToHistory(errorMessage, "assistant");
     }
-    
-    // If displayMessage is provided, let the UI component handle the error display
-    // This will typically use the temporary message approach
   } finally {
-    isMessageInProgress = false;
-    cancelCurrentRequest = null;
+    // Reset processing state using GLib.idle_add to ensure it's done on the main thread
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+      isMessageInProgress = false;
+      return GLib.SOURCE_REMOVE;
+    });
   }
   
   return responseText;
@@ -365,8 +369,13 @@ export function stopAiMessage() {
     cancelCurrentRequest = null;
   }
   isMessageInProgress = false;
+  return null;
 }
 
+/**
+ * Gets the last error that occurred
+ * @returns {string|null} The last error message or null if no error occurred
+ */
 export function getLastError() {
   return lastError;
 }
