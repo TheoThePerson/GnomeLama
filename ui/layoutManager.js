@@ -127,15 +127,28 @@ export function updateButtonsContainer(
     calculatePanelDimensions();
   const settings = getSettings();
 
-  // Configure model button
-  modelButton.set_width(panelWidth * 0.6);
-  modelButton.set_height(buttonsHeight);
-  modelButton.set_y_align(Clutter.ActorAlign.CENTER);
-
   // Calculate icon and button sizes once
   const buttonIconScale = settings.get_double("button-icon-scale");
   const iconSize = Math.round(24 * buttonIconScale);
   const buttonSize = Math.max(Math.round(buttonsHeight * 0.9), 32);
+
+  // Calculate available space for model button
+  // Account for: 4 other buttons (file, clear, settings, send) + spacer widget + padding
+  const otherButtonsWidth = buttonSize * 4; // file, clear, settings, send buttons
+  const spacerMinWidth = 20; // minimum space for the spacer widget
+  const containerPadding = 16; // estimated container padding
+  const availableWidth = panelWidth - horizontalPadding * 2 - containerPadding;
+  const maxModelButtonWidth = availableWidth - otherButtonsWidth - spacerMinWidth;
+  
+  // Set model button width with responsive constraints
+  const idealWidth = Math.min(panelWidth * 0.6, maxModelButtonWidth);
+  const minModelButtonWidth = 120; // minimum usable width for model names
+  const modelButtonWidth = Math.max(idealWidth, minModelButtonWidth);
+  
+  // Configure model button
+  modelButton.set_width(modelButtonWidth);
+  modelButton.set_height(buttonsHeight);
+  modelButton.set_y_align(Clutter.ActorAlign.CENTER);
 
   // Common button style
   const buttonStyle = "padding: 0; margin: 0;";

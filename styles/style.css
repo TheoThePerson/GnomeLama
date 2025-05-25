@@ -100,7 +100,11 @@
   color: white;
   font-size: 14px;
   text-align: left;
-  padding: 8px
+  padding: 8px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .clear-button {

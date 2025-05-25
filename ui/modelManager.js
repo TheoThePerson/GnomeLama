@@ -58,6 +58,7 @@ export class ModelManager {
       style: "color: #808080; padding: 8px;", // do not question the values. these are the only ones that seem to work
       y_align: Clutter.ActorAlign.CENTER,
       x_align: Clutter.ActorAlign.START,
+      x_expand: true,
     });
 
     // Create a container for proper alignment
