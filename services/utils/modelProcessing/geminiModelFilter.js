@@ -46,7 +46,7 @@ export function processGeminiModels(modelData) {
     const isClean = !hasNumericSuffix && !hasExp && !hasPreview && !hasLatest && !hasTuning && !hasDatePattern;
     
     // Get base name by removing all suffixes to group properly
-    let baseName = modelId
+    const baseName = modelId
       .replace(/-\d+(-|$)/, "-") // Remove numeric suffix like -001 (even when followed by other suffixes)
       .replace(/-$/, "")  // Remove trailing dash if it exists
       .replace(/-exp.*/, "") // Remove -exp and anything after

@@ -142,8 +142,7 @@ export function updateButtonsContainer(
   
   // Set model button width with responsive constraints
   const idealWidth = Math.min(panelWidth * 0.6, maxModelButtonWidth);
-  const minModelButtonWidth = 120; // minimum usable width for model names
-  const modelButtonWidth = Math.max(idealWidth, minModelButtonWidth);
+  const modelButtonWidth = Math.max(idealWidth, 0); // Ensure width is not negative
   
   // Configure model button
   modelButton.set_width(modelButtonWidth);

@@ -765,7 +765,7 @@ export class FileHandler {
     outerContainer.set_child(fileBox);
     
     // Store a reference to the inner file box in userData for later access
-    outerContainer.userData = { innerFileBox: fileBox, fileName: fileName };
+    outerContainer.userData = { innerFileBox: fileBox, fileName };
 
     return outerContainer;
   }

@@ -95,7 +95,7 @@ export async function processUserMessage({
         // Custom display message handler that skips system messages
         if (type === "system") {
           // System messages are now kept in history but not displayed in UI
-          return;
+          
         } else if (type === "user" && !userMessageAppended) {
           // Display the clean version (displayMessage) for user messages with files
           const textToDisplay = (hasFilesAttached) ? messageToDisplay : text;
@@ -857,7 +857,7 @@ function renderFileItem(container, file) {
         }
 
         try {
-          let fullPath = pathToApply;
+          const fullPath = pathToApply;
 
           try {
             const ByteArray = imports.byteArray;

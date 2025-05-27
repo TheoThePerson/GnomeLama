@@ -209,7 +209,7 @@ export function createOutputArea(dimensions) {
   });
 
   // Ensure scrollbar is properly sized
-  const vscroll = outputScrollView.vscroll;
+  const {vscroll} = outputScrollView;
   if (vscroll) {
     vscroll.set_width(8);
 
@@ -385,9 +385,9 @@ export function scrollToBottom(scrollView) {
   // Use idle_add to ensure the scroll happens after the content is added
   GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     try {
-      const vscroll = scrollView.vscroll;
+      const {vscroll} = scrollView;
       if (vscroll && vscroll.adjustment) {
-        const adjustment = vscroll.adjustment;
+        const {adjustment} = vscroll;
         adjustment.value = adjustment.upper - adjustment.page_size;
       }
     } catch (error) {

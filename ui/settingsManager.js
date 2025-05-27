@@ -487,7 +487,7 @@ export class SettingsManager {
       });
       
       const label = new St.Label({ 
-        text: text,
+        text,
         y_expand: true,
         x_expand: true,
         y_align: Clutter.ActorAlign.CENTER

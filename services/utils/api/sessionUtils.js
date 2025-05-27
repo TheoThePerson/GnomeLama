@@ -88,7 +88,7 @@ export class SessionManager {
    * @returns {boolean} True if there is an active session
    */
   hasActiveSession() {
-    return !!this.activeSession && !this.isTerminated;
+    return Boolean(this.activeSession) && !this.isTerminated;
   }
   
   /**
