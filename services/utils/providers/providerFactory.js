@@ -191,9 +191,6 @@ export function createCompletionProvider(options) {
       // Get current context
       const currentContext = context || contextManager.getCurrentContext();
       
-      // For completion-based models like Ollama, prepare messages with isOllama flag
-      const messages = prepareBasicMessages(messageText, context, { isOllama: true });
-      
       // Create payload
       const payload = createCompletionPayload({
         modelName,

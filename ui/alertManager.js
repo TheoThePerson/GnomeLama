@@ -1,6 +1,5 @@
 import Clutter from "gi://Clutter";
 import St from "gi://St";
-import GLib from "gi://GLib";
 import Pango from "gi://Pango";
 import { getPopupManager } from "./popupManager.js";
 

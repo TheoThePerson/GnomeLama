@@ -14,30 +14,14 @@ unnecessary_exports=()
 unused_files=()
 exported_names=()
 
-EXCLUDE_PATTERNS=(
-    "index.js"
-    "*test.js"
-    "*spec.js"
-    "*stories.js"
-    "*.d.ts"
-)
-
-# Get all .js files
+# Get all .js files excluding node_modules and test/spec/story files
 while IFS= read -r file; do
     all_js_files+=("$file")
-done < <(find . -type f -name "*.js" \
+done < <(find . -path ./node_modules -prune -o -type f -name "*.js" \
     ! -name "index.js" \
     ! -name "*test.js" \
     ! -name "*spec.js" \
-    ! -name "*stories.js")
-
-is_excluded() {
-    local file="$1"
-    for pattern in "${EXCLUDE_PATTERNS[@]}"; do
-        [[ "$file" == $pattern ]] && return 0
-    done
-    return 1
-}
+    ! -name "*stories.js" -print)
 
 for file in "${all_js_files[@]}"; do
     [[ ! -f "$file" ]] && continue
@@ -49,7 +33,7 @@ for file in "${all_js_files[@]}"; do
             func=$(echo "$match" | sed -E 's/.*function\s+([a-zA-Z0-9_]+)\s*\(.*/\1/')
             line_number=$(echo "$match" | cut -d: -f1)
 
-            used_elsewhere=$(grep -Rw --include="*.js" "\b$func\b" . | grep -v "$file" | wc -l)
+            used_elsewhere=$(grep -Rw --include="*.js" --exclude-dir=node_modules "\b$func\b" . | grep -v "$file" | wc -l)
             used_locally=$(grep -w "$func" "$file" | grep -vE "^\s*export|function\s+$func" | wc -l)
 
             if [[ "$used_elsewhere" -eq 0 && "$used_locally" -gt 0 ]]; then
@@ -69,7 +53,7 @@ for file in "${all_js_files[@]}"; do
             var=$(echo "$match" | sed -E 's/.*(const|let|var)\s+([a-zA-Z0-9_]+).*/\2/')
             line_number=$(echo "$match" | cut -d: -f1)
 
-            used_elsewhere=$(grep -Rw --include="*.js" "\b$var\b" . | grep -v "$file" | wc -l)
+            used_elsewhere=$(grep -Rw --include="*.js" --exclude-dir=node_modules "\b$var\b" . | grep -v "$file" | wc -l)
             used_locally=$(grep -w "$var" "$file" | grep -vE "^\s*export|$var\s*=" | wc -l)
 
             if [[ "$used_elsewhere" -eq 0 && "$used_locally" -gt 0 ]]; then
@@ -120,10 +104,8 @@ if [[ "$check_files" == "y" ]]; then
         base=$(basename "$file")
         base_no_ext="${base%.js}"
 
-        is_excluded "$base" && continue
-
-        import_count=$(grep -Rl --include="*.js" -E "(import|require)[^'\"]*(['\"]([^'\"]*/)?($base|$base_no_ext)['\"])" . | grep -v "$file" | wc -l)
-        content_match=$(grep -Rl --include="*.js" "$base" . | grep -v "$file" | wc -l)
+        import_count=$(grep -Rl --include="*.js" --exclude-dir=node_modules -E "(import|require)[^'\"]*(['\"]([^'\"]*/)?($base|$base_no_ext)['\"])" . | grep -v "$file" | wc -l)
+        content_match=$(grep -Rl --include="*.js" --exclude-dir=node_modules "$base" . | grep -v "$file" | wc -l)
 
         if [[ "$import_count" -eq 0 && "$content_match" -eq 0 ]]; then
             echo "⚠️ File '$file' appears to be unused."

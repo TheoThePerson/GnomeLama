@@ -25,7 +25,6 @@ settings.connect("changed::model-prompt", () => {
  */
 export function prepareBasicMessages(messageText, context = [], options = {}) {
   const { 
-    defaultSystemMessage = currentModelPrompt || "You are a helpful assistant.",
     roleMapping = (type) => type === "user" ? "user" : type === "system" ? "system" : "assistant",
     isOllama = false
   } = options;
