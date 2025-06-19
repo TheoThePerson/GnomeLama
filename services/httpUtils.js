@@ -28,19 +28,11 @@ export const TextDecoder =
  */
 export function cleanupStreams(inputStream, dataInputStream) {
   if (dataInputStream) {
-    try {
-      dataInputStream.close(null);
-    } catch {
-      // Error closing data input stream (silently handle)
-    }
+    dataInputStream.close(null);
   }
 
   if (inputStream) {
-    try {
-      inputStream.close(null);
-    } catch {
-      // Error closing input stream (silently handle)
-    }
+    inputStream.close(null);
   }
 }
 
@@ -111,11 +103,7 @@ export function invokeCallback(callback, data) {
   if (typeof callback === "function") {
     // Use GLib.idle_add for immediate processing without blocking
     GLib.idle_add(GLib.PRIORITY_HIGH, () => {
-      try {
-        callback(data);
-      } catch {
-        // Error in streaming callback (silently handle)
-      }
+      callback(data);
       return GLib.SOURCE_REMOVE;
     });
   }

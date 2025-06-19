@@ -2,7 +2,6 @@
  * Global popup management system
  * Handles coordination between all popups in the extension
  */
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 class PopupManager {
   constructor() {

@@ -155,11 +155,7 @@ export const Indicator = GObject.registerClass(
 
       // Create safe update layout callback
       const safeUpdateLayout = () => {
-        try {
           this._updateLayout();
-        } catch (error) {
-          // Silent in production
-        }
       };
 
       // Initialize file handler
@@ -438,8 +434,6 @@ export const Indicator = GObject.registerClass(
           !this._inputField || !this._sendButton) {
         return;
       }
-
-      try {
         // Only do full layout updates when forced or when panel visibility changes
         if (forceFullUpdate || this._panelOverlay.visible !== this._lastPanelVisibility) {
           this._lastPanelVisibility = this._panelOverlay.visible;
@@ -475,9 +469,6 @@ export const Indicator = GObject.registerClass(
           PanelElements.scrollToBottom(this._outputScrollView);
           return imports.gi.GLib.SOURCE_REMOVE;
         });
-      } catch (error) {
-        // Silent in production, no console.error needed
-      }
     }
 
     /**
@@ -488,8 +479,6 @@ export const Indicator = GObject.registerClass(
       if (!this._modelButton || !this._buttonsContainer) {
         return;
       }
-
-      try {
         // Update only the buttons container and model button
         LayoutManager.updateButtonsContainer(
           this._buttonsContainer,
@@ -501,9 +490,6 @@ export const Indicator = GObject.registerClass(
 
         // Ensure the model button is properly positioned
         this._modelButton.queue_relayout();
-      } catch (error) {
-        // Silent in production
-      }
     }
 
     /**

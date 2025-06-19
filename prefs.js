@@ -7,6 +7,55 @@ import {
 } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
 export default class GnomeLamaPreferences extends ExtensionPreferences {
+  constructor(metadata) {
+    super(metadata);
+    
+    // Store references to UI controls for updating
+    this._uiControls = {};
+    
+    // Page-specific setting keys
+    this._pageSettings = {
+      appearance: [
+        "panel-width-fraction",
+        "input-field-height-fraction", 
+        "file-box-size",
+        "padding-fraction-x",
+        "padding-fraction-y",
+        "button-icon-scale",
+        "send-button-icon-scale"
+      ],
+      colors: [
+        "user-message-color",
+        "ai-message-color",
+        "background-color",
+        "input-container-background-color",
+        "text-color",
+        "background-opacity",
+        "input-container-opacity",
+        "message-opacity"
+      ],
+      api: [
+        "default-model",
+        "temperature",
+        "model-prompt",
+        "api-endpoint", 
+        "models-api-endpoint",
+        "openai-api-key",
+        "gemini-api-key"
+      ]
+    };
+  }
+
+  /**
+   * Get the default value for a setting key from the schema
+   * @param {Gio.Settings} settings - The settings object
+   * @param {string} key - The setting key
+   * @returns {*} The default value from the schema
+   */
+  _getSchemaDefault(settings, key) {
+    return settings.get_default_value(key).unpack();
+  }
+
   fillPreferencesWindow(window) {
     // Get settings directly from the extension instance
     const settings = this.getSettings("org.gnome.shell.extensions.gnomelama");
@@ -15,6 +64,108 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     this._createAppearancePage(window, settings);
     this._createColorsPage(window, settings);
     this._createApiSettingsPage(window, settings);
+  }
+
+  /**
+   * Restore defaults for a specific page
+   * @param {string} pageType - The page type (appearance, colors, api)
+   * @param {Gio.Settings} settings - The settings object
+   * @param {Gtk.Widget} parentWidget - Parent widget for the confirmation dialog
+   */
+  _restorePageDefaults(pageType, settings, parentWidget) {
+    const pageKeys = this._pageSettings[pageType];
+    if (!pageKeys) return;
+    
+    // Create confirmation dialog
+    const confirmDialog = new Adw.MessageDialog({
+      heading: _("Restore to Defaults"),
+      body: _(`Are you sure you want to restore all ${pageType} settings to their default values? This action cannot be undone.`),
+      modal: true,
+      transient_for: parentWidget.get_root()
+    });
+    
+    confirmDialog.add_response("cancel", _("Cancel"));
+    confirmDialog.add_response("restore", _("Restore"));
+    confirmDialog.set_response_appearance("restore", Adw.ResponseAppearance.DESTRUCTIVE);
+    confirmDialog.set_default_response("cancel");
+    confirmDialog.set_close_response("cancel");
+    
+    confirmDialog.connect("response", (dialog, response) => {
+      if (response === "restore") {
+        // Reset all settings for this page
+        pageKeys.forEach(key => {
+          const defaultValue = this._getSchemaDefault(settings, key);
+          if (defaultValue !== null && defaultValue !== void 0) {
+            if (typeof defaultValue === 'string') {
+              settings.set_string(key, defaultValue);
+            } else if (typeof defaultValue === 'number') {
+              settings.set_double(key, defaultValue);
+            }
+          }
+        });
+        
+        // Update UI controls
+        this._updateUIControls(pageKeys);
+      }
+      dialog.destroy();
+    });
+    
+    confirmDialog.present();
+  }
+
+  /**
+   * Update UI controls after settings change
+   * @param {string[]} keys - Array of setting keys to update
+   */
+  _updateUIControls(keys) {
+    keys.forEach(key => {
+      const control = this._uiControls[key];
+      if (control) {
+        const defaultValue = this._getSchemaDefault(this.getSettings("org.gnome.shell.extensions.gnomelama"), key);
+        if (defaultValue !== null && defaultValue !== void 0) {
+          if (control.set_value && typeof defaultValue === 'number') {
+            // Spin button
+            control.set_value(defaultValue);
+          } else if (control.set_rgba && typeof defaultValue === 'string') {
+            // Color button
+            control.set_rgba(GnomeLamaPreferences.hexToRGBA(defaultValue));
+          } else if (control.set_text && typeof defaultValue === 'string') {
+            // Entry
+            control.set_text(defaultValue);
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Add a restore defaults button to a page
+   * @param {Adw.PreferencesPage} page - The page to add the button to
+   * @param {string} pageType - The page type (appearance, colors, api)
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addRestoreDefaultsButton(page, pageType, settings) {
+    const restoreGroup = new Adw.PreferencesGroup();
+    page.add(restoreGroup);
+
+    const restoreButton = new Gtk.Button({
+      label: _("Restore to Defaults"),
+      halign: Gtk.Align.CENTER,
+      valign: Gtk.Align.CENTER,
+      css_classes: ["destructive-action"]
+    });
+
+    restoreButton.connect("clicked", () => {
+      this._restorePageDefaults(pageType, settings, restoreButton);
+    });
+
+    const restoreRow = new Adw.ActionRow({
+      title: _("Reset Settings"),
+      subtitle: _("Restore all settings on this page to their default values")
+    });
+    restoreRow.add_suffix(restoreButton);
+    restoreRow.activatable_widget = restoreButton;
+    restoreGroup.add(restoreRow);
   }
 
   /**
@@ -32,6 +183,7 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     this._addLayoutGroup(appearancePage, settings);
     this._addPaddingGroup(appearancePage, settings);
     this._addIconGroup(appearancePage, settings);
+    this._addRestoreDefaultsButton(appearancePage, "appearance", settings);
   }
 
   /**
@@ -154,6 +306,7 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     this._addMessageColorsGroup(colorsPage, settings);
     this._addUIColorsGroup(colorsPage, settings);
+    this._addRestoreDefaultsButton(colorsPage, "colors", settings);
   }
 
   /**
@@ -174,36 +327,12 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       subtitle: _("Color of user messages"),
     });
 
-    // Add user message opacity if the setting exists
-    if (GnomeLamaPreferences.settingExists(settings, "user-message-opacity")) {
-      this._addSpinRow(colorsGroup, settings, {
-        key: "user-message-opacity",
-        title: _("User Message Opacity"),
-        subtitle: _("Background opacity of user messages (0.0-1.0)"),
-        min: 0.1,
-        max: 1.0,
-        step: 0.1,
-      });
-    }
-
     // AI message color
     this._addColorRow(colorsGroup, settings, {
       key: "ai-message-color",
       title: _("AI Message Color"),
       subtitle: _("Color of AI assistant messages"),
     });
-
-    // Add AI message opacity if the setting exists
-    if (GnomeLamaPreferences.settingExists(settings, "ai-message-opacity")) {
-      this._addSpinRow(colorsGroup, settings, {
-        key: "ai-message-opacity",
-        title: _("AI Message Opacity"),
-        subtitle: _("Background opacity of AI messages (0.0-1.0)"),
-        min: 0.1,
-        max: 1.0,
-        step: 0.1,
-      });
-    }
 
     // Add general message opacity if the setting exists
     if (GnomeLamaPreferences.settingExists(settings, "message-opacity")) {
@@ -302,6 +431,7 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     this._addOllamaConfigGroup(apiPage, settings);
     this._addOpenAIConfigGroup(apiPage, settings);
     this._addGeminiConfigGroup(apiPage, settings);
+    this._addRestoreDefaultsButton(apiPage, "api", settings);
   }
 
   /**
@@ -451,6 +581,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.activatable_widget = spinButton;
     group.add(row);
 
+    // Store reference to the control
+    this._uiControls[key] = spinButton;
+
     return this;
   }
 
@@ -486,6 +619,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.add_suffix(colorButton);
     row.activatable_widget = colorButton;
     group.add(row);
+
+    // Store reference to the control
+    this._uiControls[key] = colorButton;
 
     return this;
   }
@@ -530,6 +666,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     row.add_suffix(entry);
     row.activatable_widget = entry;
     group.add(row);
+
+    // Store reference to the control
+    this._uiControls[key] = entry;
 
     return this;
   }

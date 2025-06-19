@@ -14,7 +14,6 @@ import {
   processGenericResult
 } from "../api/responseProcessors.js";
 import { validateMessages } from "../modelProcessing/formatters.js";
-import { prepareBasicMessages } from "../modelProcessing/formatters.js";
 
 /**
  * Creates a standard provider interface for chat-based models like OpenAI

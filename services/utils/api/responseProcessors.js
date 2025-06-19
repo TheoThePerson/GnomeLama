@@ -19,7 +19,6 @@ export function createBasicChunkProcessor(options) {
   } = options;
   
   return async (chunk) => {
-    try {
       let content;
       
       if (parseJson) {
@@ -34,10 +33,6 @@ export function createBasicChunkProcessor(options) {
       }
       
       return content;
-    } catch (error) {
-      // Silent error for unparseable chunks
-      return null;
-    }
   };
 }
 
@@ -101,7 +96,7 @@ export function createSSEProcessor(options) {
       return content;
     } catch (error) {
       console.error("Error parsing chunk:", error, "Line:", lineText);
-      // Silent error for unparseable chunks
+      // unparseable chunks
       return null;
     }
   };

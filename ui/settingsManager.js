@@ -6,7 +6,6 @@ import St from "gi://St";
 import GLib from "gi://GLib";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
-import Gio from "gi://Gio";
 import { spawnCommandLine } from 'resource:///org/gnome/shell/misc/util.js';
 import Pango from "gi://Pango";
 import { getPopupManager } from "./popupManager.js";
@@ -56,7 +55,7 @@ export class SettingsManager {
       let formattedValue;
       if (typeof value === 'string') {
         // Strings need to be quoted
-        formattedValue = `"${value.replace(/"/g, '\\"')}"`;
+        formattedValue = `"${value.replace(/"/gu, '\\"')}"`;
       } else if (typeof value === 'number') {
         formattedValue = value.toString();
       } else {
@@ -545,8 +544,8 @@ export class SettingsManager {
       
       // Format the conversation history
       let formattedHistory = "";
-      const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
-      
+      const timestamp = new Date().toISOString().replace(/:/gu, '-').replace(/\..+/u, '');
+
       history.forEach(msg => {
         let prefix;
         if (msg.type === "user") {

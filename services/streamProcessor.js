@@ -85,7 +85,6 @@ export function createStreamProcessor(options) {
       let done = false;
 
       while (!done && !isCancelled() && !cancellable.is_cancelled()) {
-        try {
           // eslint-disable-next-line no-await-in-loop
           const [line] = await dataInputStream.read_line_async(
             GLib.PRIORITY_DEFAULT,
@@ -97,10 +96,6 @@ export function createStreamProcessor(options) {
           } else {
             lines.push(new TextDecoder().decode(line));
           }
-        } catch {
-          // Error reading line (silently handle)
-          done = true;
-        }
       }
 
       return lines;

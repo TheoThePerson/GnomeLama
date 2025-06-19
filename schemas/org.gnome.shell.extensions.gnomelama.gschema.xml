@@ -2,7 +2,7 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.gnomelama" path="/org/gnome/shell/extensions/gnomelama/">
     <key name="panel-width-fraction" type="d">
-      <default>0.17</default>
+      <default>0.13</default>
       <summary>Panel Width Fraction</summary>
       <description>Defines the fraction of screen width occupied by the panel.</description>
     </key>
@@ -12,29 +12,24 @@
       <description>Height of the input field as a fraction of screen height.</description>
     </key>
     <key name="padding-fraction-x" type="d">
-      <default>0.02</default>
+      <default>0.03</default>
       <summary>Padding Fraction X</summary>
       <description>Horizontal padding fraction.</description>
     </key>
     <key name="padding-fraction-y" type="d">
-      <default>0.01</default>
+      <default>0.02</default>
       <summary>Padding Fraction Y</summary>
       <description>Vertical padding fraction.</description>
     </key>
     <key name="button-icon-scale" type="d">
-      <default>1</default>
+      <default>0.9</default>
       <summary>Button Icon Scale</summary>
       <description>Scale factor for the clear and file button icons.</description>
     </key>
     <key name="send-button-icon-scale" type="d">
-      <default>1</default>
+      <default>1.4</default>
       <summary>Send Button Icon Scale</summary>
       <description>Scale factor for the send button icon.</description>
-    </key>
-    <key name="clear-button-padding-fraction" type="d">
-      <default>0.01</default>
-      <summary>Clear Button Padding Fraction</summary>
-      <description>Padding for the clear button as a fraction.</description>
     </key>
     <key name="user-message-color" type="s">
       <default>"#276988"</default>
@@ -47,7 +42,7 @@
       <description>Color of AI messages.</description>
     </key>
     <key name="background-color" type="s">
-      <default>"#313131"</default>
+      <default>"#1A1A1A"</default>
       <summary>Background Color</summary>
       <description>Background color of the panel.</description>
     </key>
@@ -57,7 +52,7 @@
       <description>Default text color for the panel.</description>
     </key>
     <key name="default-model" type="s">
-      <default>"llama3.2:1b"</default>
+      <default>""</default>
       <summary>Default AI Model</summary>
       <description>The default AI model to use for conversations.</description>
     </key>
@@ -107,12 +102,12 @@
       <description>Spacing between input field and send button as a fraction of panel width.</description>
     </key>
     <key name="input-container-background-color" type="s">
-      <default>"#505050"</default>
+      <default>"#212121"</default>
       <summary>Input Container Background Color</summary>
       <description>Background color of the input container.</description>
     </key>
     <key name="input-container-opacity" type="d">
-      <default>0.2</default>
+      <default>1</default>
       <summary>Input Container Opacity</summary>
       <description>Background opacity of the input container (0.0-1.0, where 1.0 is fully opaque).</description>
     </key>

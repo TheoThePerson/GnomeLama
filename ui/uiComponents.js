@@ -26,21 +26,7 @@ export function createMessageContainer(text, isUser, alignment) {
     synchronizeMessageOpacity();
   }
     
-  // Try to get message-opacity first, then fall back to specific opacities
-  let opacity;
-  try {
-    opacity = settings.get_double("message-opacity");
-  } catch (e) {
-    // If that fails, try the individual opacity settings
-    try {
-      opacity = isUser
-        ? settings.get_double("user-message-opacity")
-        : settings.get_double("ai-message-opacity");
-    } catch (e) {
-      // If all else fails, default to 1.0 (fully opaque)
-      opacity = 1.0;
-    }
-  }
+  const opacity = settings.get_double("message-opacity");
     
   // Parse color components for rgba
   const r = parseInt(bgColor.substring(1, 3), 16);
@@ -127,16 +113,11 @@ function executeBashScript(script) {
   if (!script || script.trim() === "") {
     return; // no script to execute
   }
-
-  try {
     // Trim script to remove unwanted spaces and newlines
     const trimmedScript = script.trim().replace(/(["`$])/gu, "\\$1"); // Escape special characters
     // Use double quotes instead of single quotes
     const fullCommand = `gnome-terminal -- bash -c "${trimmedScript}; exec bash"`;
     GLib.spawn_command_line_async(fullCommand);
-  } catch (e) {
-    // Error handling silently
-  }
 }
 
 /**
@@ -443,28 +424,10 @@ export function createHorizontalRuleElement() {
  */
 export function synchronizeMessageOpacity() {
   const settings = getSettings();
-  let opacity;
+  const opacity = settings.get_double("message-opacity");
   
-  try {
-    // Get the unified message opacity
-    opacity = settings.get_double("message-opacity");
-  } catch (e) {
-    // If that fails, get user message opacity as fallback
-    try {
-      opacity = settings.get_double("user-message-opacity");
-    } catch (e) {
-      // Default to 1.0 if nothing exists
-      opacity = 1.0;
-    }
-  }
-  
-  // Apply this opacity to both settings
-  try {
-    settings.set_double("user-message-opacity", opacity);
-    settings.set_double("ai-message-opacity", opacity);
-  } catch (e) {
-    // Error handling silently
-  }
+  // No need to set user-message-opacity or ai-message-opacity since they don't exist in schema
+  // Just return the unified message-opacity value
   
   return opacity;
 }
@@ -485,21 +448,7 @@ export function updateMessageContainerStyle(container, isUser) {
     synchronizeMessageOpacity();
   }
   
-  // Try to get message-opacity first, then fall back to specific opacities
-  let opacity;
-  try {
-    opacity = settings.get_double("message-opacity");
-  } catch (e) {
-    // If that fails, try the individual opacity settings
-    try {
-      opacity = isUser
-        ? settings.get_double("user-message-opacity")
-        : settings.get_double("ai-message-opacity");
-    } catch (e) {
-      // If all else fails, default to 1.0 (fully opaque)
-      opacity = 1.0;
-    }
-  }
+  const opacity = settings.get_double("message-opacity");
     
   // Parse color components for rgba
   const r = parseInt(bgColor.substring(1, 3), 16);

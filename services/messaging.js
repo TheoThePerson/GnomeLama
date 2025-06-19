@@ -63,7 +63,7 @@ export async function fetchModelNames() {
       error: models.length === 0 ? "No models found. Please check if services are running with models installed, or that you have API keys in settings." : null
     };
   } catch {
-    // Error fetching models, silent in production
+    // Error fetching models
     return {
       models: [],
       error: "Error fetching models. Please check network connection and service availability."

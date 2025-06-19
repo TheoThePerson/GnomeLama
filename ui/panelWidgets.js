@@ -35,11 +35,7 @@ export function createPanelOverlay(dimensions) {
     } catch {
       // Try again after a short delay
       GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-        try {
-          Main.layoutManager.uiGroup.add_child(panelOverlay);
-        } catch {
-          // Silent error in production
-        }
+        Main.layoutManager.uiGroup.add_child(panelOverlay);
         return GLib.SOURCE_REMOVE;
       });
     }
@@ -346,20 +342,7 @@ export function updateInputFieldHint(inputField, isNewChat) {
  */
 export function createResponseContainer(bgColor) {
   const settings = getSettings();
-  let opacity;
-  
-  // Try to get message-opacity first
-  try {
-    opacity = settings.get_double("message-opacity");
-  } catch (e) {
-    try {
-      // Fall back to ai-message-opacity
-      opacity = settings.get_double("ai-message-opacity");
-    } catch (e) {
-      // Default to 1.0 if nothing works
-      opacity = 1.0;
-    }
-  }
+  const opacity = settings.get_double("message-opacity");
   
   // Parse color components for rgba
   const r = parseInt(bgColor.substring(1, 3), 16);

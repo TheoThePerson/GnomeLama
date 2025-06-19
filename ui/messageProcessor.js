@@ -360,18 +360,14 @@ export function clearOutput(outputContainer) {
  * @param {string} jsonString - JSON string containing file information
  */
 export function registerFilePaths(jsonString) {
-  try {
-    const jsonData = JSON.parse(jsonString);
-
-    if (jsonData && jsonData.files && Array.isArray(jsonData.files)) {
-      jsonData.files.forEach((file) => {
-        if (file.filename && file.path) {
-          FilePathRegistry.set(file.filename, file.path);
-        }
-      });
-    }
-  } catch {
-    // Error registering file paths, silently fail in production
+  const data = JSON.parse(jsonString);
+  
+  if (data.files && Array.isArray(data.files)) {
+    data.files.forEach(file => {
+      if (file.filename && file.path) {
+        FilePathRegistry.set(file.filename, file.path);
+      }
+    });
   }
 }
 
@@ -418,30 +414,25 @@ function isValidFilesContainer(obj) {
  * @returns {object|null} - The parsed JSON object or null if none found
  */
 function tryExtractJsonFromText(text) {
-  try {
-    // Direct parsing approach
-    const directResult = safeJsonParse(text);
-    if (
-      directResult &&
-      (isValidFilesContainer(directResult) || isValidFileObject(directResult))
-    ) {
-      return directResult;
-    }
-
-    // Try parsing with cleaned text if direct parsing fails
-    const cleanedResult = safeJsonParse(cleanJsonString(text));
-    if (
-      cleanedResult &&
-      (isValidFilesContainer(cleanedResult) || isValidFileObject(cleanedResult))
-    ) {
-      return cleanedResult;
-    }
-
-    return null;
-  } catch {
-    // Error in JSON extraction, silently fail in production
-    return null;
+  // Direct parsing approach
+  const directResult = safeJsonParse(text);
+  if (
+    directResult &&
+    (isValidFilesContainer(directResult) || isValidFileObject(directResult))
+  ) {
+    return directResult;
   }
+
+  // Try parsing with cleaned text if direct parsing fails
+  const cleanedResult = safeJsonParse(cleanJsonString(text));
+  if (
+    cleanedResult &&
+    (isValidFilesContainer(cleanedResult) || isValidFileObject(cleanedResult))
+  ) {
+    return cleanedResult;
+  }
+
+  return null;
 }
 
 /**
@@ -470,21 +461,19 @@ function parseJsonFromResponse(responseText) {
     // Try multiple approaches to find JSON in code blocks
     
     // 1. Standard code block with json tag
-    let codeBlockMatch = responseText.match(/```(?:json)[\s\n]*([\s\S]*?)[\s\n]*```/);
+    let codeBlockMatch = responseText.match(/```(?:json)[\s\n]*([\s\S]*?)[\s\n]*```/u);
     if (codeBlockMatch && codeBlockMatch[1]) {
-      try {
-        const jsonContent = codeBlockMatch[1].trim();
-        return JSON.parse(jsonContent);
-      } catch {}
+      const jsonContent = codeBlockMatch[1].trim();
+      const result = safeJsonParse(jsonContent);
+      if (result) return result;
     }
     
     // 2. Code block without language tag
-    codeBlockMatch = responseText.match(/```[\s\n]*([\s\S]*?)[\s\n]*```/);
+    codeBlockMatch = responseText.match(/```[\s\n]*([\s\S]*?)[\s\n]*```/u);
     if (codeBlockMatch && codeBlockMatch[1]) {
-      try {
-        const jsonContent = codeBlockMatch[1].trim();
-        return JSON.parse(jsonContent);
-      } catch {}
+      const jsonContent = codeBlockMatch[1].trim();
+      const result = safeJsonParse(jsonContent);
+      if (result) return result;
     }
     
     // 3. Try to find JSON-like structures with curly braces - more aggressive approach
@@ -494,9 +483,8 @@ function parseJsonFromResponse(responseText) {
         responseText.lastIndexOf('}') + 1
       );
       
-      try {
-        return JSON.parse(possibleJson);
-      } catch {}
+      const result = safeJsonParse(possibleJson);
+      if (result) return result;
     }
 
     // 4. Try extracting JSON from text with our helper
@@ -605,13 +593,13 @@ function renderJsonResponse(container, jsonData) {
 // Add the renderFileItem function that's missing
 function renderFileItem(container, file) {
   if (!file.filename) {
-    // Skip file entries with no filename - silently fail in production
+    // Skip file entries with no filename
     return;
   }
 
   if (file.content === null) {
     file.content = "";
-    // File has no content, using empty string - silently continue in production
+    // File has no content, using empty string
   }
 
   // Create a code-like container using the same style classes as code blocks
@@ -761,7 +749,7 @@ function renderFileItem(container, file) {
                 }
               }
             } else if (stderr && stderr.trim()) {
-              // Save dialog error - silently fail in production
+              // Save dialog error
             }
 
             if (saveAsTimeoutId) {
@@ -791,7 +779,7 @@ function renderFileItem(container, file) {
           }
         });
       } catch (error) {
-        // Error launching save dialog - silently fail in production
+        // Error launching save dialog
         addTemporaryMessage(
           container.get_parent(),
           `Error launching save dialog: ${error}`
@@ -810,7 +798,7 @@ function renderFileItem(container, file) {
         });
       }
     } catch (error) {
-      // Error in Save As operation - silently fail in production
+      // Error in Save As operation
       addTemporaryMessage(
         container.get_parent(),
         `Error: ${error.message || "Unknown error during Save As operation"}`
@@ -875,7 +863,7 @@ function renderFileItem(container, file) {
               );
             }
           } catch {
-            // Error writing to file - silently fail in production
+            // Error writing to file
             addTemporaryMessage(container.get_parent(), `Error writing to file`);
           }
 
@@ -887,7 +875,7 @@ function renderFileItem(container, file) {
             return GLib.SOURCE_REMOVE;
           });
         } catch {
-          // Error applying file content - silently fail in production
+          // Error applying file content
           addTemporaryMessage(
             container.get_parent(),
             `Error: Error applying file content`
