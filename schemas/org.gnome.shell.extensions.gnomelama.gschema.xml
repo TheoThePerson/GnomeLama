@@ -2,7 +2,7 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.gnomelama" path="/org/gnome/shell/extensions/gnomelama/">
     <key name="panel-width-fraction" type="d">
-      <default>0.13</default>
+      <default>0.11</default>
       <summary>Panel Width Fraction</summary>
       <description>Defines the fraction of screen width occupied by the panel.</description>
     </key>
@@ -12,7 +12,7 @@
       <description>Height of the input field as a fraction of screen height.</description>
     </key>
     <key name="padding-fraction-x" type="d">
-      <default>0.03</default>
+      <default>0.04</default>
       <summary>Padding Fraction X</summary>
       <description>Horizontal padding fraction.</description>
     </key>
@@ -22,7 +22,7 @@
       <description>Vertical padding fraction.</description>
     </key>
     <key name="button-icon-scale" type="d">
-      <default>0.9</default>
+      <default>1</default>
       <summary>Button Icon Scale</summary>
       <description>Scale factor for the clear and file button icons.</description>
     </key>
@@ -95,11 +95,6 @@
       <default>100</default>
       <summary>File Box Size</summary>
       <description>Size of the file box in pixels.</description>
-    </key>
-    <key name="input-field-spacing-fraction" type="d">
-      <default>0.005</default>
-      <summary>Input Field Spacing Fraction</summary>
-      <description>Spacing between input field and send button as a fraction of panel width.</description>
     </key>
     <key name="input-container-background-color" type="s">
       <default>"#212121"</default>
