@@ -116,5 +116,15 @@
       <summary>Message Opacity</summary>
       <description>Background opacity of all messages (0.0-1.0, where 1.0 is fully opaque).</description>
     </key>
+    <key name="monitor-index" type="d">
+      <default>0</default>
+      <summary>Monitor Index</summary>
+      <description>Monitor index to display the panel on (0 = primary monitor).</description>
+    </key>
+    <key name="panel-position" type="s">
+      <default>"right"</default>
+      <summary>Panel Position</summary>
+      <description>Which side of the monitor to position the panel (left, right).</description>
+    </key>
   </schema>
 </schemalist>

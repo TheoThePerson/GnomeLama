@@ -1,6 +1,7 @@
 import Adw from "gi://Adw";
 import Gdk from "gi://Gdk";
 import Gtk from "gi://Gtk";
+import GObject from "gi://GObject";
 import {
   ExtensionPreferences,
   gettext as _,
@@ -22,7 +23,9 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
         "padding-fraction-x",
         "padding-fraction-y",
         "button-icon-scale",
-        "send-button-icon-scale"
+        "send-button-icon-scale",
+        "monitor-index",
+        "panel-position"
       ],
       colors: [
         "user-message-color",
@@ -132,6 +135,18 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
           } else if (control.set_text && typeof defaultValue === 'string') {
             // Entry
             control.set_text(defaultValue);
+          } else if (control.set_selected && typeof defaultValue === 'string') {
+            // Combo row - need to find the index of the default value
+            if (key === "panel-position") {
+              const options = [
+                { value: "left", title: _("Left") },
+                { value: "right", title: _("Right") }
+              ];
+              const defaultIndex = options.findIndex(option => option.value === defaultValue);
+              if (defaultIndex >= 0) {
+                control.set_selected(defaultIndex);
+              }
+            }
           }
         }
       }
@@ -183,6 +198,7 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
     this._addLayoutGroup(appearancePage, settings);
     this._addPaddingGroup(appearancePage, settings);
     this._addIconGroup(appearancePage, settings);
+    this._addDisplayPositionGroup(appearancePage, settings);
     this._addRestoreDefaultsButton(appearancePage, "appearance", settings);
   }
 
@@ -289,6 +305,39 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       min: 0.5,
       max: 1.5,
       step: 0.1,
+    });
+  }
+
+  /**
+   * Add display position settings group to the appearance page
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addDisplayPositionGroup(page, settings) {
+    const displayGroup = new Adw.PreferencesGroup({
+      title: _("Display Position"),
+    });
+    page.add(displayGroup);
+
+    // Monitor selection
+    this._addSpinRow(displayGroup, settings, {
+      key: "monitor-index",
+      title: _("Monitor"),
+      subtitle: _("Monitor index to display the panel on (0 = primary)"),
+      min: 0,
+      max: 10,
+      step: 1,
+    });
+
+    // Panel position/side
+    this._addComboRow(displayGroup, settings, {
+      key: "panel-position",
+      title: _("Panel Position"),
+      subtitle: _("Which side of the monitor to position the panel"),
+      options: [
+        { value: "left", title: _("Left") },
+        { value: "right", title: _("Right") }
+      ]
     });
   }
 
@@ -669,6 +718,55 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     // Store reference to the control
     this._uiControls[key] = entry;
+
+    return this;
+  }
+
+  /**
+   * Add a combo box row to a preferences group
+   * @param {Adw.PreferencesGroup} group - The group to add the row to
+   * @param {Gio.Settings} settings - The settings object
+   * @param {Object} config - Configuration object
+   * @param {string} config.key - The settings key
+   * @param {string} config.title - The row title
+   * @param {string} config.subtitle - The row subtitle
+   * @param {Array} config.options - Array of {value, title} objects
+   */
+  _addComboRow(group, settings, config) {
+    const { key, title, subtitle, options } = config;
+
+    // Create string list for the combo row
+    const stringList = new Gtk.StringList();
+    options.forEach(option => {
+      stringList.append(option.title);
+    });
+
+    // Create combo row
+    const comboRow = new Adw.ComboRow({
+      title,
+      subtitle,
+      model: stringList,
+    });
+
+    // Set current selection
+    const currentValue = settings.get_string(key);
+    const currentIndex = options.findIndex(option => option.value === currentValue);
+    if (currentIndex >= 0) {
+      comboRow.set_selected(currentIndex);
+    }
+
+    // Connect to notify::selected signal
+    comboRow.connect("notify::selected", () => {
+      const selectedIndex = comboRow.get_selected();
+      if (selectedIndex >= 0 && selectedIndex < options.length) {
+        settings.set_string(key, options[selectedIndex].value);
+      }
+    });
+
+    group.add(comboRow);
+
+    // Store reference to the control
+    this._uiControls[key] = comboRow;
 
     return this;
   }

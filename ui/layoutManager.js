@@ -11,6 +11,8 @@ import { getSettings } from "../lib/settings.js";
 let cachedDimensions = null;
 let lastMonitorWidth = 0;
 let lastMonitorHeight = 0;
+let lastMonitorIndex = -1;
+let lastPanelPosition = "";
 let lastSettingsUpdate = 0;
 
 // Initialize settings listener to invalidate cache on any settings change
@@ -27,15 +29,27 @@ export function invalidateCache() {
  * @returns {Object} Object containing calculated dimensions
  */
 export function calculatePanelDimensions() {
-  const monitor = Main.layoutManager.primaryMonitor;
   const settings = getSettings();
+  const monitorIndex = Math.floor(settings.get_double("monitor-index"));
+  const panelPosition = settings.get_string("panel-position");
+  
+  // Get the specified monitor, fallback to primary if index is invalid
+  let monitor;
+  if (monitorIndex >= 0 && monitorIndex < Main.layoutManager.monitors.length) {
+    monitor = Main.layoutManager.monitors[monitorIndex];
+  } else {
+    monitor = Main.layoutManager.primaryMonitor;
+  }
+  
   const currentTime = Date.now();
 
-  // Return cached dimensions if monitor size hasn't changed and settings haven't been updated recently
+  // Return cached dimensions if monitor size, index, and position haven't changed and settings haven't been updated recently
   if (
     cachedDimensions &&
     monitor.width === lastMonitorWidth &&
     monitor.height === lastMonitorHeight &&
+    monitorIndex === lastMonitorIndex &&
+    panelPosition === lastPanelPosition &&
     currentTime - lastSettingsUpdate > 500 // Only use cache if settings weren't updated in the last 500ms
   ) {
     return cachedDimensions;
@@ -44,9 +58,11 @@ export function calculatePanelDimensions() {
   // Update last settings update time
   lastSettingsUpdate = currentTime;
 
-  // Store current monitor dimensions
+  // Store current monitor dimensions and settings
   lastMonitorWidth = monitor.width;
   lastMonitorHeight = monitor.height;
+  lastMonitorIndex = monitorIndex;
+  lastPanelPosition = panelPosition;
 
   // Calculate basic dimensions
   const panelWidth =
@@ -87,15 +103,24 @@ export function calculatePanelDimensions() {
 export function updatePanelOverlay(panelOverlay) {
   const { panelWidth, panelHeight, monitor } = calculatePanelDimensions();
   const settings = getSettings();
+  const panelPosition = settings.get_string("panel-position");
 
-  // Set size and position
+  // Set size
   panelOverlay.set_size(panelWidth, panelHeight);
-  panelOverlay.set_position(
-    monitor.width - panelWidth,
-    Main.panel.height
-  );
 
-  // Apply background color with opacity
+  // Calculate position based on panel position setting
+  let x, y;
+  y = monitor.y + Main.panel.height; // Always position below the top panel
+
+  if (panelPosition === "left") {
+    x = monitor.x; // Left edge of the monitor
+  } else { // default to "right"
+    x = monitor.x + monitor.width - panelWidth; // Right edge of the monitor
+  }
+
+  panelOverlay.set_position(x, y);
+
+  // Apply background color with opacity and appropriate border
   const bgColor = settings.get_string("background-color");
   const bgOpacity = settings.get_double("background-opacity");
 
@@ -104,8 +129,13 @@ export function updatePanelOverlay(panelOverlay) {
   const g = parseInt(bgColor.substring(3, 5), 16);
   const b = parseInt(bgColor.substring(5, 7), 16);
 
+  // Apply border based on position
+  const borderStyle = panelPosition === "left" 
+    ? "border-right: 1px solid rgba(255, 255, 255, 0.1);"
+    : "border-left: 1px solid rgba(255, 255, 255, 0.1);";
+
   panelOverlay.set_style(
-    `background-color: rgba(${r}, ${g}, ${b}, ${bgOpacity}); border-left: 1px solid rgba(255, 255, 255, 0.1);`
+    `background-color: rgba(${r}, ${g}, ${b}, ${bgOpacity}); ${borderStyle}`
   );
 }
 
