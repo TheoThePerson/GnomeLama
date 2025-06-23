@@ -70,9 +70,12 @@ export class FileBoxRenderer {
    * Sets up the file boxes container
    */
   setupFileBoxesContainer() {
-    if (this._fileBoxesContainer) return this._fileBoxesContainer;
+    if (this._fileBoxesContainer) {
+      return this._fileBoxesContainer;
+    }
 
     this._createFileBoxesContainer();
+    
     this._inputButtonsContainer.insert_child_at_index(
       this._fileBoxesContainer,
       0
@@ -113,15 +116,11 @@ export class FileBoxRenderer {
 
     this._fileBoxesContainer = new St.Widget({
       layout_manager: flowLayout,
+      style_class: 'file-boxes-container',
       x_expand: true,
       y_expand: true,
       clip_to_allocation: false,
     });
-
-    this._fileBoxesContainer.set_style(`
-      background: transparent;
-      padding: 10px;
-    `);
   }
 
   /**
@@ -177,53 +176,51 @@ export class FileBoxRenderer {
    * Creates a completely new file box from scratch
    */
   _createNewFileBox(fileName, content) {
-    const fileBoxSize = getSettings().get_double("file-box-size");
+    let fileBoxSize = getSettings().get_double("file-box-size");
+    
+    // Ensure minimum size for visibility
+    if (fileBoxSize < 100) {
+      fileBoxSize = 150;
+    }
 
-    const fileBox = new St.Bin({
+    // Create the main file box container using the CSS class the stylesheet expects
+    const fileBox = new St.BoxLayout({
+      vertical: true,
       width: fileBoxSize,
       height: fileBoxSize,
       x_expand: false,
       y_expand: false,
       reactive: true,
+      style_class: 'file-content-box', // This matches the CSS
     });
 
+    // Force white background with inline style as backup
     fileBox.set_style(`
+      background-color: #FFFFFF !important;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 8px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
       width: ${fileBoxSize}px;
       height: ${fileBoxSize}px;
-      background: #FFFFFF;
-      border: 2px solid #000000;
-      border-radius: 8px;
-      padding: 6px;
-      margin: 3px;
     `);
 
-    const contentBox = new St.BoxLayout({
-      vertical: true,
-      x_expand: true,
-      y_expand: true,
-    });
-
-    const titleBar = this._createTitleBar(fileName, fileBox);
-    contentBox.add_child(titleBar);
-
-    const contentArea = this._createContentArea(content);
-    contentBox.add_child(contentArea);
-
-    fileBox.set_child(contentBox);
-    fileBox._fileName = fileName;
-
-    return fileBox;
-  }
-
-  /**
-   * Creates a title bar for the file box
-   */
-  _createTitleBar(fileName, fileBox) {
-    const titleBar = new St.BoxLayout({
+    // Create header container with proper CSS class
+    const header = new St.BoxLayout({
       vertical: false,
       x_expand: true,
+      style_class: 'file-content-header',
     });
 
+    // Force header background
+    header.set_style(`
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 6px;
+      padding: 4px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    `);
+
+    // Create title label with proper CSS class
     let displayName = fileName;
     if (displayName.length > 15) {
       displayName = displayName.substring(0, 12) + "...";
@@ -232,56 +229,95 @@ export class FileBoxRenderer {
     const titleLabel = new St.Label({
       text: displayName,
       x_expand: true,
+      style_class: 'file-content-title',
     });
+
+    // Force title styling
     titleLabel.set_style(`
       font-weight: bold;
-      font-size: 11px;
       color: #000000;
+      font-size: 12px;
+      padding: 2px 4px;
     `);
 
+    // Create close button with proper CSS class
     const closeButton = new St.Button({
       label: "×",
       x_expand: false,
+      style_class: 'file-content-close-button',
     });
+
+    // Force close button styling
     closeButton.set_style(`
-      font-size: 14px;
-      color: #666666;
+      font-weight: bold;
+      color: #000000;
+      font-size: 12px;
       background: none;
       border: none;
-      padding: 0px 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
     `);
 
     closeButton.connect("clicked", () => {
       this._removeFileBox(fileBox);
     });
 
-    titleBar.add_child(titleLabel);
-    titleBar.add_child(closeButton);
+    // Add title and close button to header
+    header.add_child(titleLabel);
+    header.add_child(closeButton);
 
-    return titleBar;
-  }
-
-  /**
-   * Creates the content area for the file box
-   */
-  _createContentArea(content) {
+    // Create content label with proper CSS class
     const contentLabel = new St.Label({
       text: content,
       x_expand: true,
       y_expand: true,
+      style_class: 'file-content-text',
     });
 
+    // Force content styling
     contentLabel.set_style(`
       font-family: monospace;
-      font-size: 8px;
-      color: #333333;
-      line-height: 1.1;
+      font-size: 11px;
+      color: #000000;
+      padding: 2px;
+      line-height: 1.4;
     `);
 
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
-    return contentLabel;
+    // Add a white square behind the content text
+    const whiteBox = new St.Widget({
+      style_class: 'debug-white-box',
+      width: Math.floor(fileBoxSize * 0.8),
+      height: Math.floor(fileBoxSize * 0.8),
+      x_expand: false,
+      y_expand: false,
+      reactive: false,
+    });
+    whiteBox.set_style('background-color: white; border-radius: 8px; margin: auto;');
+
+    // Create a widget to stack the white box and content label
+    const contentStack = new St.Widget({
+      layout_manager: new Clutter.BinLayout(),
+      x_expand: true,
+      y_expand: true,
+    });
+    whiteBox.set_x_align(Clutter.ActorAlign.FILL);
+    whiteBox.set_y_align(Clutter.ActorAlign.FILL);
+    contentLabel.set_x_align(Clutter.ActorAlign.FILL);
+    contentLabel.set_y_align(Clutter.ActorAlign.FILL);
+    contentStack.add_child(whiteBox);
+    contentStack.add_child(contentLabel);
+
+    // Add header and content stack to the main file box
+    fileBox.add_child(header);
+    fileBox.add_child(contentStack);
+
+    fileBox._fileName = fileName;
+
+    return fileBox;
   }
 
   /**
@@ -303,16 +339,45 @@ export class FileBoxRenderer {
    * Updates content in an existing file box
    */
   _updateExistingFileBox(fileBox, content) {
-    const contentBox = fileBox.get_child();
-    if (!contentBox) return;
-
-    const children = contentBox.get_children();
+    // With the new structure: fileBox contains [header, contentStack]
+    const children = fileBox.get_children();
     if (children.length >= 2) {
-      const oldContentArea = children[1];
-      contentBox.remove_child(oldContentArea);
+      const oldContentStack = children[1]; // Second child is content stack
+      fileBox.remove_child(oldContentStack);
       
-      const newContentArea = this._createContentArea(content);
-      contentBox.add_child(newContentArea);
+      // Create new content label with proper CSS class
+      const newContentLabel = new St.Label({
+        text: content,
+        x_expand: true,
+        y_expand: true,
+        style_class: 'file-content-text',
+      });
+
+      // Force content styling
+      newContentLabel.set_style(`
+        font-family: monospace;
+        font-size: 11px;
+        color: #000000;
+        padding: 2px;
+        line-height: 1.4;
+      `);
+
+      newContentLabel.clutter_text.set_line_wrap(true);
+      newContentLabel.clutter_text.set_selectable(true);
+
+      // Create a bin to stack the white box and new content label
+      const newContentStack = new St.Widget({
+        layout_manager: new Clutter.BinLayout(),
+        x_expand: true,
+        y_expand: true,
+      });
+
+      // Add the white box as the background
+      newContentStack.set_child(whiteBox);
+      // Add the new content label on top
+      newContentStack.add_child(newContentLabel);
+
+      fileBox.add_child(newContentStack);
     }
   }
 
@@ -348,17 +413,69 @@ export class FileBoxRenderer {
     
     const children = this._fileBoxesContainer.get_children();
     for (const fileBox of children) {
+      // Update size and force styling
       fileBox.set_size(fileBoxSize, fileBoxSize);
       
+      // Force white background styling
       fileBox.set_style(`
+        background-color: #FFFFFF !important;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
         width: ${fileBoxSize}px;
         height: ${fileBoxSize}px;
-        background: #FFFFFF;
-        border: 2px solid #000000;
-        border-radius: 8px;
-        padding: 6px;
-        margin: 3px;
       `);
+
+      // Also refresh child elements
+      const fileBoxChildren = fileBox.get_children();
+      if (fileBoxChildren.length >= 2) {
+        const header = fileBoxChildren[0];
+        const contentStack = fileBoxChildren[1];
+
+        // Force header styling
+        header.set_style(`
+          background-color: rgba(0, 0, 0, 0.05);
+          border-radius: 6px;
+          padding: 4px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        `);
+
+        // Force content styling
+        const contentLabel = contentStack.get_child();
+        contentLabel.set_style(`
+          font-family: monospace;
+          font-size: 11px;
+          color: #000000;
+          padding: 2px;
+          line-height: 1.4;
+        `);
+
+        // Force header children styling
+        const headerChildren = header.get_children();
+        if (headerChildren.length >= 2) {
+          const titleLabel = headerChildren[0];
+          const closeButton = headerChildren[1];
+
+          titleLabel.set_style(`
+            font-weight: bold;
+            color: #000000;
+            font-size: 12px;
+            padding: 2px 4px;
+          `);
+
+          closeButton.set_style(`
+            font-weight: bold;
+            color: #000000;
+            font-size: 12px;
+            background: none;
+            border: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+          `);
+        }
+      }
     }
     
     this._updateContainerStyles(fileBoxSize);
