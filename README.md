@@ -14,6 +14,15 @@ GnomeLama is an integration between Ollama (the open source local ai project) an
 - ChatGpt Api
 - Files
 
+## Known Issues
+-File box displaying in general (lots of issues) IN PROGRESS
+-File response, some models do not follow the proper formatting, and sometimes use the formatting when they shouldn't
+-When opening the chat panel for the first time, the input field is unselectable unless you open and close the panel or go into overview
+-Weird compression of long AI response text and code blocks
+
+If you find any other issues, please make an issue request in the issues tab.
+
+
 ## Features In Progress
 
 - File editing
