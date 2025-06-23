@@ -24,6 +24,7 @@ import {
 } from "../services/messaging.js";
 
 import * as UIComponents from "./uiComponents.js";
+import { getInputContainerManager, destroyInputContainerManager } from "./inputContainerManager.js";
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -36,6 +37,9 @@ export const Indicator = GObject.registerClass(
         "org.gnome.shell.extensions.gnomelama"
       );
       this._context = null;
+      
+      // Recursion protection for layout updates
+      this._isUpdatingLayout = false;
 
       // Load stylesheet
       this._loadStylesheet();
@@ -150,13 +154,20 @@ export const Indicator = GObject.registerClass(
     }
 
     _initializeComponents() {
+      // Create components with necessary references
+      const safeUpdateLayout = () => {
+        this._updateLayout();
+      };
+
+      // Initialize InputContainerManager
+      this._inputContainerManager = getInputContainerManager({
+        inputButtonsContainer: this._inputButtonsContainer,
+        outputScrollView: this._outputScrollView,
+        onLayoutUpdate: safeUpdateLayout
+      });
+
       // Initialize dialog system
       this._dialogSystem = new DialogSystem({ panelOverlay: this._panelOverlay });
-
-      // Create safe update layout callback
-      const safeUpdateLayout = () => {
-          this._updateLayout();
-      };
 
       // Initialize file handler
       this._fileHandler = new FileHandler({
@@ -427,6 +438,11 @@ export const Indicator = GObject.registerClass(
     }
 
     _updateLayout(forceFullUpdate = false) {
+      // Prevent recursion
+      if (this._isUpdatingLayout) {
+        return;
+      }
+      
       // Ensure all components exist before updating
       if (!this._panelOverlay || !this._inputButtonsContainer || 
           !this._buttonsContainer || !this._outputScrollView || 
@@ -434,6 +450,10 @@ export const Indicator = GObject.registerClass(
           !this._inputField || !this._sendButton) {
         return;
       }
+
+      this._isUpdatingLayout = true;
+
+      try {
         // Only do full layout updates when forced or when panel visibility changes
         if (forceFullUpdate || this._panelOverlay.visible !== this._lastPanelVisibility) {
           this._lastPanelVisibility = this._panelOverlay.visible;
@@ -441,7 +461,15 @@ export const Indicator = GObject.registerClass(
           // Update each component's layout in a specific order
           LayoutManager.updatePanelOverlay(this._panelOverlay);
           LayoutManager.updateOutputArea(this._outputScrollView, this._outputContainer);
-          LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+          
+          // Use InputContainerManager for input container layout
+          if (this._inputContainerManager) {
+            this._inputContainerManager.updateContainerLayout();
+          } else {
+            // Fallback to old method if manager not available
+            LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
+          }
+          
           LayoutManager.updateButtonsContainer(
             this._buttonsContainer,
             this._modelButton,
@@ -462,13 +490,21 @@ export const Indicator = GObject.registerClass(
 
           // Update message box colors to reflect current settings
           this._updateMessageBoxColors();
+        } else {
+          // For quick updates, just update the input container layout
+          if (this._inputContainerManager) {
+            this._inputContainerManager.updateContainerLayout();
+          }
         }
+      } finally {
+        this._isUpdatingLayout = false;
+      }
 
-        // Always ensure proper scrolling after updates
-        imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_DEFAULT, () => {
-          PanelElements.scrollToBottom(this._outputScrollView);
-          return imports.gi.GLib.SOURCE_REMOVE;
-        });
+      // Always ensure proper scrolling after updates
+      imports.gi.GLib.idle_add(imports.gi.GLib.PRIORITY_DEFAULT, () => {
+        PanelElements.scrollToBottom(this._outputScrollView);
+        return imports.gi.GLib.SOURCE_REMOVE;
+      });
     }
 
     /**
@@ -539,6 +575,9 @@ export const Indicator = GObject.registerClass(
           Gio.File.new_for_path(`${this._extensionPath}/styles/style.css`)
         );
       }
+
+      // Destroy InputContainerManager
+      destroyInputContainerManager();
 
       // Destroy components in reverse order
       ['_fileHandler', '_modelManager', '_settingsManager', '_messageSender', '_pasteHandler']

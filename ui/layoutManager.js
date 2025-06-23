@@ -345,7 +345,6 @@ export function updateInputButtonsContainer(inputButtonsContainer) {
 
   inputButtonsContainer.set_style(`
     background-color: rgba(${r}, ${g}, ${b}, ${inputOpacity});
-    border-radius: 16px 16px 0 0;
     padding: 6px;
     z-index: 100;
   `);
