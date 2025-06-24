@@ -21,14 +21,14 @@ export class FileHandler {
       extensionPath,
       outputContainer,
       panelOverlay,
-      inputButtonsContainer,
+      visualContainerManager,
       updateLayoutCallback,
     } = options;
 
     this._extensionPath = extensionPath;
     this._outputContainer = outputContainer;
     this._panelOverlay = panelOverlay;
-    this._inputButtonsContainer = inputButtonsContainer;
+    this._visualContainerManager = visualContainerManager;
     this._updateLayoutCallback = updateLayoutCallback;
 
     // Track loaded file content
@@ -42,12 +42,10 @@ export class FileHandler {
     
     // Get managers
     this._popupManager = getPopupManager();
-    this._inputContainerManager = getInputContainerManager();
 
-    // Initialize file box renderer
+    // Initialize file box renderer with visual container manager
     this._fileBoxRenderer = new FileBoxRenderer({
-      inputButtonsContainer: this._inputButtonsContainer,
-      inputContainerManager: this._inputContainerManager,
+      visualContainerManager: this._visualContainerManager,
       updateLayoutCallback: this._updateLayoutCallback,
       onRemoveCallback: this._onFileRemoved.bind(this),
     });
@@ -198,15 +196,12 @@ export class FileHandler {
     
     const hadFiles = this._fileBoxRenderer.hasFiles();
     
-    if (this._inputContainerManager) {
-      this._inputContainerManager.unregisterExpandableContainer('file-boxes');
-    }
-    
+    // File box renderer handles its own cleanup with visual container manager
     this._fileBoxRenderer.cleanupFileBoxes();
     this._notifyContentRemoved();
     
-    if (this._inputContainerManager) {
-      this._inputContainerManager.resetToBaseState();
+    if (this._visualContainerManager) {
+      this._visualContainerManager.resetToBaseState();
     } else if (hadFiles) {
       const {
         panelWidth,
@@ -219,15 +214,7 @@ export class FileHandler {
       
       const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
       
-      if (this._inputButtonsContainer) {
-        this._inputButtonsContainer.set_height(containerHeight);
-        this._inputButtonsContainer.set_position(
-          (panelWidth - (panelWidth - horizontalPadding * 2)) / 2,
-          panelHeight - containerHeight
-        );
-        this._inputButtonsContainer.queue_relayout();
-      }
-      
+      // Fallback cleanup if visual container manager not available
       LayoutManager.invalidateCache();
       
       if (this._updateLayoutCallback) {

@@ -52,14 +52,12 @@ const UI = {
 export class FileBoxRenderer {
   constructor(options) {
     const {
-      inputButtonsContainer,
-      inputContainerManager,
+      visualContainerManager,
       updateLayoutCallback,
       onRemoveCallback,
     } = options;
 
-    this._inputButtonsContainer = inputButtonsContainer;
-    this._inputContainerManager = inputContainerManager;
+    this._visualContainerManager = visualContainerManager;
     this._updateLayoutCallback = updateLayoutCallback;
     this._onRemoveCallback = onRemoveCallback;
 
@@ -76,22 +74,15 @@ export class FileBoxRenderer {
 
     this._createFileBoxesContainer();
     
-    this._inputButtonsContainer.insert_child_at_index(
-      this._fileBoxesContainer,
-      0
-    );
-
-    if (this._inputContainerManager) {
-      this._inputContainerManager.registerExpandableContainer(
-        'file-boxes',
+    // Register with visual container manager instead of input container manager
+    if (this._visualContainerManager) {
+      this._visualContainerManager.registerFileBoxesContainer(
         this._fileBoxesContainer,
-        {
-          getHeight: () => {
-            if (!this._fileBoxesContainer || this._fileBoxesContainer.get_n_children() === 0) {
-              return 0;
-            }
-            return this._calculateFileBoxesHeight();
+        () => {
+          if (!this._fileBoxesContainer || this._fileBoxesContainer.get_n_children() === 0) {
+            return 0;
           }
+          return this._calculateFileBoxesHeight();
         }
       );
     }
@@ -104,6 +95,11 @@ export class FileBoxRenderer {
    */
   _createFileBoxesContainer() {
     const fileBoxSize = getSettings().get_double("file-box-size");
+    const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
+    
+    // Calculate container width to match available space
+    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2;
+    const containerWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
 
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
@@ -117,14 +113,15 @@ export class FileBoxRenderer {
     this._fileBoxesContainer = new St.Widget({
       layout_manager: flowLayout,
       style_class: 'file-boxes-container',
-      x_expand: true,
+      width: containerWidth,
+      x_expand: false,
       y_expand: true,
       clip_to_allocation: false,
     });
   }
 
   /**
-   * Calculates the height needed for the file boxes container
+   * Calculates the height needed for the file boxes container (for internal use)
    */
   _calculateFileBoxesHeight() {
     if (!this._fileBoxesContainer) return 0;
@@ -135,24 +132,21 @@ export class FileBoxRenderer {
     const fileBoxSize = getSettings().get_double("file-box-size");
     const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
     
-    const containerPaddingTop = 12;
-    const containerPaddingBottom = 6; 
-    const containerPaddingHorizontal = 16;
+    // Account for padding around file boxes area (12px on each side)
+    const fileBoxAreaPadding = 24; // 12px top + 12px bottom
+    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2 + 24; // Add 12px left + 12px right
     
-    const availableWidth = 
-      panelWidth - horizontalPadding * 2 - containerPaddingHorizontal * 2;
-    const boxTotalSize = fileBoxSize + UI.CONTAINER.FILE_BOXES.SPACING;
-    const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalSize));
-    const rowsNeeded = Math.max(1, Math.ceil(fileCount / boxesPerRow));
+    // Calculate available width for file boxes
+    const availableWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
     
-    const rowSpacing = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
-    const containerHeight = 
-      fileBoxSize * rowsNeeded + 
-      rowSpacing + 
-      containerPaddingTop + 
-      containerPaddingBottom;
+    const boxTotalWidth = fileBoxSize + UI.CONTAINER.FILE_BOXES.SPACING;
+    const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalWidth));
+    const rowsNeeded = Math.ceil(fileCount / boxesPerRow);
+    
+    const spacingBetweenRows = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
+    const totalHeight = (fileBoxSize * rowsNeeded) + spacingBetweenRows + fileBoxAreaPadding;
 
-    return containerHeight;
+    return totalHeight;
   }
 
   /**
@@ -183,7 +177,7 @@ export class FileBoxRenderer {
       fileBoxSize = 150;
     }
 
-    // Create the main file box container using the CSS class the stylesheet expects
+    // Create the main file box container
     const fileBox = new St.BoxLayout({
       vertical: true,
       width: fileBoxSize,
@@ -191,15 +185,30 @@ export class FileBoxRenderer {
       x_expand: false,
       y_expand: false,
       reactive: true,
-      style_class: 'file-content-box', // This matches the CSS
+      style_class: 'file-content-box',
     });
-
-    // Force white background with inline style as backup
+    // Remove background from fileBox
     fileBox.set_style(`
+      background: none;
+      width: ${fileBoxSize}px;
+      height: ${fileBoxSize}px;
+      padding: 0;
+    `);
+
+    // Create a white box as the background for both header and content
+    const whiteBox = new St.BoxLayout({
+      vertical: true,
+      width: fileBoxSize,
+      height: fileBoxSize,
+      x_expand: true,
+      y_expand: true,
+      reactive: false,
+      style_class: 'debug-white-box',
+    });
+    whiteBox.set_style(`
       background-color: #FFFFFF !important;
       border: 1px solid rgba(0, 0, 0, 0.2);
       border-radius: 10px;
-      padding: 8px;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
       width: ${fileBoxSize}px;
       height: ${fileBoxSize}px;
@@ -210,6 +219,7 @@ export class FileBoxRenderer {
       vertical: false,
       x_expand: true,
       style_class: 'file-content-header',
+      height: UI.FILE_BOX.HEADER.HEIGHT,
     });
 
     // Force header background
@@ -218,6 +228,7 @@ export class FileBoxRenderer {
       border-radius: 6px;
       padding: 4px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      margin-bottom: 8px;
     `);
 
     // Create title label with proper CSS class
@@ -282,38 +293,18 @@ export class FileBoxRenderer {
       color: #000000;
       padding: 2px;
       line-height: 1.4;
+      margin-top: 4px;
     `);
 
     contentLabel.clutter_text.set_line_wrap(true);
     contentLabel.clutter_text.set_selectable(true);
 
-    // Add a white square behind the content text
-    const whiteBox = new St.Widget({
-      style_class: 'debug-white-box',
-      width: Math.floor(fileBoxSize * 0.8),
-      height: Math.floor(fileBoxSize * 0.8),
-      x_expand: false,
-      y_expand: false,
-      reactive: false,
-    });
-    whiteBox.set_style('background-color: white; border-radius: 8px; margin: auto;');
+    // Add header and content label to the white box
+    whiteBox.add_child(header);
+    whiteBox.add_child(contentLabel);
 
-    // Create a widget to stack the white box and content label
-    const contentStack = new St.Widget({
-      layout_manager: new Clutter.BinLayout(),
-      x_expand: true,
-      y_expand: true,
-    });
-    whiteBox.set_x_align(Clutter.ActorAlign.FILL);
-    whiteBox.set_y_align(Clutter.ActorAlign.FILL);
-    contentLabel.set_x_align(Clutter.ActorAlign.FILL);
-    contentLabel.set_y_align(Clutter.ActorAlign.FILL);
-    contentStack.add_child(whiteBox);
-    contentStack.add_child(contentLabel);
-
-    // Add header and content stack to the main file box
-    fileBox.add_child(header);
-    fileBox.add_child(contentStack);
+    // Add only the white box to the fileBox
+    fileBox.add_child(whiteBox);
 
     fileBox._fileName = fileName;
 
@@ -369,13 +360,12 @@ export class FileBoxRenderer {
       const newContentStack = new St.Widget({
         layout_manager: new Clutter.BinLayout(),
         x_expand: true,
-        y_expand: true,
+        y_expand: false,
+        height: fileBox.get_height() - UI.FILE_BOX.HEADER.HEIGHT - 16,
       });
 
       // Add the white box as the background
-      newContentStack.set_child(whiteBox);
-      // Add the new content label on top
-      newContentStack.add_child(newContentLabel);
+      newContentStack.set_child(newContentLabel);
 
       fileBox.add_child(newContentStack);
     }
@@ -421,7 +411,7 @@ export class FileBoxRenderer {
         background-color: #FFFFFF !important;
         border: 1px solid rgba(0, 0, 0, 0.2);
         border-radius: 10px;
-        padding: 8px;
+        padding: 0;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
         width: ${fileBoxSize}px;
         height: ${fileBoxSize}px;
@@ -439,6 +429,7 @@ export class FileBoxRenderer {
           border-radius: 6px;
           padding: 4px;
           border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+          margin-bottom: 8px;
         `);
 
         // Force content styling
@@ -449,6 +440,7 @@ export class FileBoxRenderer {
           color: #000000;
           padding: 2px;
           line-height: 1.4;
+          margin-top: 4px;
         `);
 
         // Force header children styling
@@ -487,6 +479,12 @@ export class FileBoxRenderer {
    * Updates container styles and layout manager
    */
   _updateContainerStyles(fileBoxSize) {
+    const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
+    
+    // Calculate container width to match available space
+    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2;
+    const containerWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
+
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
       homogeneous: false,
@@ -497,6 +495,7 @@ export class FileBoxRenderer {
     });
 
     this._fileBoxesContainer.set_layout_manager(flowLayout);
+    this._fileBoxesContainer.set_width(containerWidth);
     this._fileBoxesContainer.queue_relayout();
   }
 
@@ -543,9 +542,9 @@ export class FileBoxRenderer {
         child.destroy();
       }
       
-      if (this._inputButtonsContainer && 
-          this._inputButtonsContainer.contains(this._fileBoxesContainer)) {
-        this._inputButtonsContainer.remove_child(this._fileBoxesContainer);
+      // Unregister from visual container manager
+      if (this._visualContainerManager) {
+        this._visualContainerManager.unregisterFileBoxesContainer();
       }
       
       this._fileBoxesContainer.destroy();
@@ -582,8 +581,8 @@ export class FileBoxRenderer {
    * Updates the layout
    */
   _updateLayout() {
-    if (this._inputContainerManager) {
-      this._inputContainerManager.updateContainerLayout();
+    if (this._visualContainerManager) {
+      this._visualContainerManager.updateLayout();
     } else if (this._updateLayoutCallback) {
       this._updateLayoutCallback(true);
     }

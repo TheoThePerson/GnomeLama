@@ -25,6 +25,7 @@ import {
 
 import * as UIComponents from "./uiComponents.js";
 import { getInputContainerManager, destroyInputContainerManager } from "./inputContainerManager.js";
+import { VisualContainerManager } from "./visualContainer.js";
 
 export const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -159,22 +160,29 @@ export const Indicator = GObject.registerClass(
         this._updateLayout();
       };
 
-      // Initialize InputContainerManager
-      this._inputContainerManager = getInputContainerManager({
-        inputButtonsContainer: this._inputButtonsContainer,
+      // Initialize Visual Container Manager (replaces InputContainerManager)
+      this._visualContainerManager = new VisualContainerManager({
         outputScrollView: this._outputScrollView,
         onLayoutUpdate: safeUpdateLayout
       });
 
+      // Create the visual container and get transparent input container
+      const visualContainer = this._visualContainerManager.createVisualContainer();
+      const transparentInputContainer = this._visualContainerManager.getInputElementsContainer();
+      
+      // Replace the styled inputButtonsContainer with the transparent one
+      this._originalInputButtonsContainer = this._inputButtonsContainer;
+      this._inputButtonsContainer = transparentInputContainer;
+
       // Initialize dialog system
       this._dialogSystem = new DialogSystem({ panelOverlay: this._panelOverlay });
 
-      // Initialize file handler
+      // Initialize file handler with visual container manager
       this._fileHandler = new FileHandler({
         extensionPath: this._extensionPath,
         outputContainer: this._outputContainer,
         panelOverlay: this._panelOverlay,
-        inputButtonsContainer: this._inputButtonsContainer,
+        visualContainerManager: this._visualContainerManager,
         updateLayoutCallback: safeUpdateLayout,
         dialogSystem: this._dialogSystem
       });
@@ -263,13 +271,13 @@ export const Indicator = GObject.registerClass(
       this._buttonsContainer.add_child(this._settingsButton);
       this._buttonsContainer.add_child(this._sendButton);
 
-      // Build input container
+      // Build transparent input container (now inside visual container)
       this._inputButtonsContainer.add_child(this._inputFieldBox);
       this._inputButtonsContainer.add_child(this._buttonsContainer);
 
-      // Add elements to panel overlay
+      // Add elements to panel overlay - use visual container instead of input container
       this._panelOverlay.add_child(this._outputScrollView);
-      this._panelOverlay.add_child(this._inputButtonsContainer);
+      this._panelOverlay.add_child(this._visualContainerManager._visualContainer);
 
       // Add to chrome with input region
       Main.layoutManager.addChrome(this._panelOverlay, {
@@ -462,9 +470,9 @@ export const Indicator = GObject.registerClass(
           LayoutManager.updatePanelOverlay(this._panelOverlay);
           LayoutManager.updateOutputArea(this._outputScrollView, this._outputContainer);
           
-          // Use InputContainerManager for input container layout
-          if (this._inputContainerManager) {
-            this._inputContainerManager.updateContainerLayout();
+          // Use Visual Container Manager for input container layout
+          if (this._visualContainerManager) {
+            this._visualContainerManager.updateLayout();
           } else {
             // Fallback to old method if manager not available
             LayoutManager.updateInputButtonsContainer(this._inputButtonsContainer);
@@ -492,8 +500,8 @@ export const Indicator = GObject.registerClass(
           this._updateMessageBoxColors();
         } else {
           // For quick updates, just update the input container layout
-          if (this._inputContainerManager) {
-            this._inputContainerManager.updateContainerLayout();
+          if (this._visualContainerManager) {
+            this._visualContainerManager.updateLayout();
           }
         }
       } finally {
@@ -576,8 +584,11 @@ export const Indicator = GObject.registerClass(
         );
       }
 
-      // Destroy InputContainerManager
-      destroyInputContainerManager();
+      // Destroy Visual Container Manager
+      if (this._visualContainerManager) {
+        this._visualContainerManager.destroy();
+        this._visualContainerManager = null;
+      }
 
       // Destroy components in reverse order
       ['_fileHandler', '_modelManager', '_settingsManager', '_messageSender', '_pasteHandler']
