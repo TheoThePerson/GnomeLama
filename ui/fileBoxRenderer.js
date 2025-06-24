@@ -97,9 +97,12 @@ export class FileBoxRenderer {
     const fileBoxSize = getSettings().get_double("file-box-size");
     const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
     
-    // Calculate container width to match available space
-    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2;
-    const containerWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
+    // Calculate container width using same padding logic as height calculation
+    const panelSidePadding = horizontalPadding * 2;
+    const visualContainerPadding = 6 * 2;
+    const fileBoxesAreaPadding = 12 * 2;
+    const totalHorizontalPadding = panelSidePadding + visualContainerPadding + fileBoxesAreaPadding;
+    const containerWidth = panelWidth - totalHorizontalPadding;
 
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
@@ -132,19 +135,26 @@ export class FileBoxRenderer {
     const fileBoxSize = getSettings().get_double("file-box-size");
     const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
     
-    // Account for padding around file boxes area (12px on each side)
-    const fileBoxAreaPadding = 24; // 12px top + 12px bottom
-    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2 + 24; // Add 12px left + 12px right
+    // Calculate available width accounting for all padding layers:
+    // 1. Panel horizontal padding (both sides)
+    // 2. Visual container padding (6px each side) 
+    // 3. File boxes area padding (12px each side)
+    const panelSidePadding = horizontalPadding * 2;  // Panel padding
+    const visualContainerPadding = 6 * 2;             // Visual container padding
+    const fileBoxesAreaPadding = 12 * 2;              // File boxes area padding
     
-    // Calculate available width for file boxes
-    const availableWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
+    const totalHorizontalPadding = panelSidePadding + visualContainerPadding + fileBoxesAreaPadding;
+    const availableWidth = panelWidth - totalHorizontalPadding;
     
+    // Calculate boxes per row and rows needed
     const boxTotalWidth = fileBoxSize + UI.CONTAINER.FILE_BOXES.SPACING;
     const boxesPerRow = Math.max(1, Math.floor(availableWidth / boxTotalWidth));
     const rowsNeeded = Math.ceil(fileCount / boxesPerRow);
     
+    // Calculate total height: boxes + spacing between rows + vertical padding
     const spacingBetweenRows = (rowsNeeded - 1) * UI.CONTAINER.FILE_BOXES.SPACING;
-    const totalHeight = (fileBoxSize * rowsNeeded) + spacingBetweenRows + fileBoxAreaPadding;
+    const verticalPadding = 12 * 2; // 12px top + 12px bottom for file boxes area
+    const totalHeight = (fileBoxSize * rowsNeeded) + spacingBetweenRows + verticalPadding;
 
     return totalHeight;
   }
@@ -481,9 +491,12 @@ export class FileBoxRenderer {
   _updateContainerStyles(fileBoxSize) {
     const { panelWidth, horizontalPadding } = LayoutManager.calculatePanelDimensions();
     
-    // Calculate container width to match available space
-    const containerHorizontalPadding = UI.CONTAINER.FILE_BOXES.PADDING * 2;
-    const containerWidth = panelWidth - horizontalPadding * 2 - containerHorizontalPadding;
+    // Calculate container width using same padding logic as height calculation
+    const panelSidePadding = horizontalPadding * 2;
+    const visualContainerPadding = 6 * 2;
+    const fileBoxesAreaPadding = 12 * 2;
+    const totalHorizontalPadding = panelSidePadding + visualContainerPadding + fileBoxesAreaPadding;
+    const containerWidth = panelWidth - totalHorizontalPadding;
 
     const flowLayout = new Clutter.FlowLayout({
       orientation: Clutter.Orientation.HORIZONTAL,

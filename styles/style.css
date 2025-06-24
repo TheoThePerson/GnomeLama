@@ -2,6 +2,7 @@
 .panel-overlay {
   background-color: #1a1a1a;
   border-radius: 0px;
+  z-index: 1;
 }
 
 /* Model menu popup styles */
@@ -12,8 +13,7 @@
   width: auto;
   min-width: 150px;
   border: none;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.4);
-  z-index: 3;
+  z-index: 15;
 }
 
 .model-menu-box {
@@ -45,8 +45,19 @@
   width: auto;
   min-width: 150px; /* Match model menu */
   border: none;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.4);
-  z-index: 3;
+  z-index: 15;
+}
+
+.settings-menu-shadow {
+  border-radius: 16px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.model-menu-shadow {
+  border-radius: 8px;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .settings-menu-box {
@@ -118,7 +129,6 @@
   margin: 8px 4px;
   border-radius: 24px;
   color: white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   word-wrap: break-word;
   overflow-wrap: break-word;
   width: auto;
@@ -126,6 +136,7 @@
   box-sizing: border-box;
   height: fit-content !important;
   min-height: fit-content !important;
+  z-index: 5;
 }
 
 .user-message {
@@ -173,7 +184,7 @@
   background-color: rgb(30, 30, 30);
   border-radius: 16px;
   padding: 8px;
-  z-index: 2;
+  z-index: 20;
   transition-property: height, y;
   transition-duration: 0.1s;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -486,7 +497,7 @@
 /* Dialog system styles */
 .dialog-overlay {
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: 30;
 }
 
 .dialog-container {

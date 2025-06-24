@@ -16,30 +16,31 @@ export class ModelManager {
     settingsOrOptions,
     outputContainer,
     stopAiMessageCallback,
-    inputButtonsContainer
+    inputButtonsContainer,
+    visualContainerManager = null
   ) {
-    // Support both new options object format and old individual parameters format
-    if (
-      arguments.length === 1 &&
-      settingsOrOptions &&
-      typeof settingsOrOptions === "object"
-    ) {
-      // New format with options object
-      const options = settingsOrOptions;
-      this._settings = options.settings;
-      this._outputContainer = options.outputContainer;
-      this._stopAiMessageCallback = options.stopAiMessageCallback;
-      this._inputButtonsContainer = options.inputButtonsContainer;
+    // Handle both old and new constructor signatures
+    if (typeof settingsOrOptions === 'object' && settingsOrOptions.settings) {
+      // New signature with options object
+      const { settings, outputContainer: oc, stopAiMessageCallback: cb, inputButtonsContainer: ic, visualContainerManager: vcm } = settingsOrOptions;
+      this._settings = settings;
+      this._outputContainer = oc;
+      this._stopAiMessageCallback = cb;
+      this._inputButtonsContainer = ic;
+      this._visualContainerManager = vcm;
     } else {
-      // Old format with individual parameters
+      // Legacy signature
       this._settings = settingsOrOptions;
       this._outputContainer = outputContainer;
       this._stopAiMessageCallback = stopAiMessageCallback;
       this._inputButtonsContainer = inputButtonsContainer;
+      this._visualContainerManager = visualContainerManager;
     }
+
     this._modelMenu = null;
     this._modelButton = null;
     this._modelButtonLabel = null;
+    this._stageEventId = null;
     
     // Get the popup manager
     this._popupManager = getPopupManager();
@@ -105,11 +106,17 @@ export class ModelManager {
       this._modelMenu.box.add_style_class_name("model-menu-box");
     }
 
+    // Apply the styling
+    this._applyModelMenuStyling();
+
     this._modelMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
         // Notify popup manager when opening
         this._popupManager.notifyOpen('model');
         this._positionModelMenu();
+        
+        // Refresh styling to match current settings
+        this._applyModelMenuStyling();
       }
     });
 
@@ -161,7 +168,7 @@ export class ModelManager {
   }
 
   _positionModelMenu() {
-    // Get model button position and size
+    // Get model button position
     const [buttonX] = this._modelButton.get_transformed_position();
 
     // Get menu actor
@@ -170,10 +177,89 @@ export class ModelManager {
     // Get menu height
     const [, menuHeight] = menuActor.get_preferred_height(-1);
 
-    // Position it above the input field container if it exists
-    const [, inputY] = this._inputButtonsContainer.get_transformed_position();
+    // Use visual container if available, otherwise fall back to input container
+    let containerY;
+    
+    if (this._visualContainerManager && this._visualContainerManager._visualContainer) {
+      const visualContainer = this._visualContainerManager._visualContainer;
+      [, containerY] = visualContainer.get_transformed_position();
+    } else {
+      // Fallback to input container
+      [, containerY] = this._inputButtonsContainer.get_transformed_position();
+    }
 
-    menuActor.set_position(buttonX - 7, inputY - menuHeight - 8); // adjust for padding
+    menuActor.set_position(buttonX - 7, containerY - menuHeight - 8); // adjust for padding
+  }
+
+  _applyModelMenuStyling() {
+    if (!this._modelMenu) return;
+    
+    // Get the same color settings as the visual container
+    const inputBgColor = this._settings.get_string("input-container-background-color");
+    const inputOpacity = this._settings.get_double("input-container-opacity");
+    
+    // Parse the color and apply opacity
+    let r, g, b;
+    if (inputBgColor.startsWith("#")) {
+      const hex = inputBgColor.slice(1);
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    } else if (inputBgColor.startsWith("rgb(")) {
+      const match = inputBgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        r = parseInt(match[1]);
+        g = parseInt(match[2]);
+        b = parseInt(match[3]);
+      }
+    } else {
+      // Default to dark grey if parsing fails
+      r = 30;
+      g = 30;
+      b = 30;
+    }
+    
+    // Apply the color with opacity to the menu (with shadow)
+    const menuActor = this._modelMenu.actor || this._modelMenu;
+    const menuBox = this._modelMenu.box;
+    
+    const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
+    const shadowCss = this._generateShadowCss();
+    
+    if (menuBox) {
+      menuBox.set_style(`
+        background-color: ${backgroundColor};
+        border-radius: 8px;
+        padding: 8px 8px;
+        margin: 0;
+        spacing: 2px;
+        border: none;
+        ${shadowCss}
+      `);
+    }
+  }
+
+  _generateShadowCss() {
+    const shadowColor = this._settings.get_string("shadow-color");
+    const shadowOpacity = this._settings.get_double("shadow-opacity");
+    const shadowBlur = this._settings.get_double("shadow-blur");
+    const shadowOffsetX = this._settings.get_double("shadow-offset-x");
+    const shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    
+    // Parse shadow color components
+    let shadowR, shadowG, shadowB;
+    if (shadowColor.startsWith("#")) {
+      shadowR = parseInt(shadowColor.substring(1, 3), 16);
+      shadowG = parseInt(shadowColor.substring(3, 5), 16);
+      shadowB = parseInt(shadowColor.substring(5, 7), 16);
+    } else {
+      // Default to black if parsing fails
+      shadowR = 0;
+      shadowG = 0;
+      shadowB = 0;
+    }
+    
+    return `box-shadow: ${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity});`;
   }
 
   async _populateModelMenu() {

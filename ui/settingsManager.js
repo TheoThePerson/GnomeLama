@@ -11,9 +11,10 @@ import Pango from "gi://Pango";
 import { getPopupManager } from "./popupManager.js";
 
 export class SettingsManager {
-  constructor(settings, inputButtonsContainer) {
+  constructor(settings, inputButtonsContainer, visualContainerManager = null) {
     this._settings = settings;
     this._inputButtonsContainer = inputButtonsContainer;
+    this._visualContainerManager = visualContainerManager;
     this._settingsMenu = null;
     this._settingsButton = null;
     this._settingsIcon = null;
@@ -171,6 +172,9 @@ export class SettingsManager {
       this._settingsMenu.box.add_style_class_name("settings-menu-box");
     }
 
+    // Apply the styling (without shadow on the main menu now)
+    this._applySettingsMenuStyling();
+
     this._settingsMenu.connect("open-state-changed", (menu, isOpen) => {
       if (isOpen) {
         // Notify popup manager
@@ -180,6 +184,9 @@ export class SettingsManager {
         // Update the UI values when the menu opens
         this._updatePromptEntry();
         this._updateTemperatureEntry();
+        
+        // Refresh styling to match current settings
+        this._applySettingsMenuStyling();
       } else {
         // Save values when menu closes
         this._savePromptValue();
@@ -244,17 +251,148 @@ export class SettingsManager {
 
   _positionSettingsMenu() {
     const menuActor = this._settingsMenu.actor || this._settingsMenu;
+    
+    // Use visual container if available, otherwise fall back to input container
+    let containerX, containerY, containerWidth;
+    
+    if (this._visualContainerManager && this._visualContainerManager._visualContainer) {
+      const visualContainer = this._visualContainerManager._visualContainer;
+      [containerX, containerY] = visualContainer.get_transformed_position();
+      containerWidth = visualContainer.get_width();
+    } else {
+      // Fallback to input container
+      [containerX, containerY] = this._inputButtonsContainer.get_transformed_position();
+      containerWidth = this._inputButtonsContainer.get_width();
+    }
+    
+    // Set menu width to match the container
+    menuActor.set_width(containerWidth);
+    
+    // Position above the container with a small gap
     const [menuWidth, menuHeight] = menuActor.get_size();
-    const [inputX, inputY] = this._inputButtonsContainer.get_transformed_position();
-    const inputWidth = this._inputButtonsContainer.get_width();
-    
-    // Set a fixed width for the menu to match input container
-    menuActor.set_width(inputWidth);
-    
     menuActor.set_position(
-      inputX,
-      inputY - menuHeight - 8
+      containerX,
+      containerY - menuHeight - 8
     );
+  }
+
+  _applySettingsMenuStyling() {
+    if (!this._settingsMenu) return;
+    
+    // Get the same color settings as the visual container
+    const inputBgColor = this._settings.get_string("input-container-background-color");
+    const inputOpacity = this._settings.get_double("input-container-opacity");
+    
+    // Parse the color and apply opacity
+    let r, g, b;
+    if (inputBgColor.startsWith("#")) {
+      const hex = inputBgColor.slice(1);
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    } else if (inputBgColor.startsWith("rgb(")) {
+      const match = inputBgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        r = parseInt(match[1]);
+        g = parseInt(match[2]);
+        b = parseInt(match[3]);
+      }
+    } else {
+      // Default to dark grey if parsing fails
+      r = 30;
+      g = 30;
+      b = 30;
+    }
+    
+    // Apply the color with opacity to the menu (with shadow)
+    const menuActor = this._settingsMenu.actor || this._settingsMenu;
+    const menuBox = this._settingsMenu.box;
+    
+    const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
+    const shadowCss = this._generateShadowCss();
+    
+    if (menuBox) {
+      menuBox.set_style(`
+        background-color: ${backgroundColor};
+        border-radius: 16px;
+        padding: 12px;
+        margin: 0;
+        spacing: 2px;
+        border: none;
+        ${shadowCss}
+      `);
+    }
+  }
+
+  _applyAboutMenuStyling() {
+    if (!this._aboutMenu) return;
+    
+    // Get the same color settings as the visual container
+    const inputBgColor = this._settings.get_string("input-container-background-color");
+    const inputOpacity = this._settings.get_double("input-container-opacity");
+    
+    // Parse the color and apply opacity
+    let r, g, b;
+    if (inputBgColor.startsWith("#")) {
+      const hex = inputBgColor.slice(1);
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    } else if (inputBgColor.startsWith("rgb(")) {
+      const match = inputBgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        r = parseInt(match[1]);
+        g = parseInt(match[2]);
+        b = parseInt(match[3]);
+      }
+    } else {
+      // Default to dark grey if parsing fails
+      r = 30;
+      g = 30;
+      b = 30;
+    }
+    
+    // Apply the color with opacity to the menu
+    const menuActor = this._aboutMenu.actor || this._aboutMenu;
+    const menuBox = this._aboutMenu.box;
+    
+    const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
+    const shadowCss = this._generateShadowCss();
+    
+    if (menuBox) {
+      menuBox.set_style(`
+        background-color: ${backgroundColor};
+        border-radius: 16px;
+        padding: 12px;
+        margin: 0;
+        spacing: 2px;
+        border: none;
+        ${shadowCss}
+      `);
+    }
+  }
+
+  _generateShadowCss() {
+    const shadowColor = this._settings.get_string("shadow-color");
+    const shadowOpacity = this._settings.get_double("shadow-opacity");
+    const shadowBlur = this._settings.get_double("shadow-blur");
+    const shadowOffsetX = this._settings.get_double("shadow-offset-x");
+    const shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    
+    // Parse shadow color components
+    let shadowR, shadowG, shadowB;
+    if (shadowColor.startsWith("#")) {
+      shadowR = parseInt(shadowColor.substring(1, 3), 16);
+      shadowG = parseInt(shadowColor.substring(3, 5), 16);
+      shadowB = parseInt(shadowColor.substring(5, 7), 16);
+    } else {
+      // Default to black if parsing fails
+      shadowR = 0;
+      shadowG = 0;
+      shadowB = 0;
+    }
+    
+    return `box-shadow: ${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity});`;
   }
 
   _populateSettingsMenu() {
@@ -467,6 +605,9 @@ export class SettingsManager {
       });
     }
 
+    // Apply the same styling as the settings menu
+    this._applyAboutMenuStyling();
+
     // Clear and populate the about menu
     this._aboutMenu.removeAll();
 
@@ -509,11 +650,22 @@ export class SettingsManager {
 
     // Position the about menu in the same place as the settings menu
     const menuActor = this._aboutMenu.actor || this._aboutMenu;
-    const [inputX, inputY] = this._inputButtonsContainer.get_transformed_position();
-    const inputWidth = this._inputButtonsContainer.get_width();
     
-    // Set a fixed width for the menu to match input container
-    menuActor.set_width(inputWidth);
+    // Use visual container if available, otherwise fall back to input container
+    let containerX, containerY, containerWidth;
+    
+    if (this._visualContainerManager && this._visualContainerManager._visualContainer) {
+      const visualContainer = this._visualContainerManager._visualContainer;
+      [containerX, containerY] = visualContainer.get_transformed_position();
+      containerWidth = visualContainer.get_width();
+    } else {
+      // Fallback to input container
+      [containerX, containerY] = this._inputButtonsContainer.get_transformed_position();
+      containerWidth = this._inputButtonsContainer.get_width();
+    }
+    
+    // Set menu width to match the container
+    menuActor.set_width(containerWidth);
     
     // Open the menu and position it
     this._aboutMenu.open();
@@ -522,8 +674,8 @@ export class SettingsManager {
     GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       const [menuWidth, menuHeight] = menuActor.get_size();
       menuActor.set_position(
-        inputX,
-        inputY - menuHeight - 8
+        containerX,
+        containerY - menuHeight - 8
       );
       return GLib.SOURCE_REMOVE;
     });

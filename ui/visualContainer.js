@@ -226,11 +226,29 @@ export class VisualContainerManager {
     const settings = getSettings();
     const inputBgColor = settings.get_string("input-container-background-color");
     const inputOpacity = settings.get_double("input-container-opacity");
+    const shadowColor = settings.get_string("shadow-color");
+    const shadowOpacity = settings.get_double("shadow-opacity");
+    const shadowBlur = settings.get_double("shadow-blur");
+    const shadowOffsetX = settings.get_double("shadow-offset-x");
+    const shadowOffsetY = settings.get_double("shadow-offset-y");
     
-    // Parse color components
+    // Parse color components for background
     const r = parseInt(inputBgColor.substring(1, 3), 16);
     const g = parseInt(inputBgColor.substring(3, 5), 16);
     const b = parseInt(inputBgColor.substring(5, 7), 16);
+
+    // Parse shadow color components
+    let shadowR, shadowG, shadowB;
+    if (shadowColor.startsWith("#")) {
+      shadowR = parseInt(shadowColor.substring(1, 3), 16);
+      shadowG = parseInt(shadowColor.substring(3, 5), 16);
+      shadowB = parseInt(shadowColor.substring(5, 7), 16);
+    } else {
+      // Default to black if parsing fails
+      shadowR = 0;
+      shadowG = 0;
+      shadowB = 0;
+    }
 
     // Always use top-only rounded corners
     const borderRadius = "16px 16px 0 0";
@@ -239,8 +257,8 @@ export class VisualContainerManager {
       background-color: rgba(${r}, ${g}, ${b}, ${inputOpacity});
       border-radius: ${borderRadius};
       padding: 6px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      z-index: 100;
+      box-shadow: ${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity});
+      z-index: 20;
     `);
   }
 

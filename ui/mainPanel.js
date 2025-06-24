@@ -198,7 +198,8 @@ export const Indicator = GObject.registerClass(
       // Initialize settings manager
       this._settingsManager = new SettingsManager(
         this._settings,
-        this._inputButtonsContainer
+        this._inputButtonsContainer,
+        this._visualContainerManager
       );
 
       // Provide the conversation history getter to the settings manager
@@ -239,7 +240,8 @@ export const Indicator = GObject.registerClass(
           // Call the clear history function
           this._clearHistory();
         },
-        this._inputButtonsContainer
+        this._inputButtonsContainer,
+        this._visualContainerManager
       );
 
       // Get UI elements from components

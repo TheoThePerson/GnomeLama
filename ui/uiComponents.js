@@ -9,6 +9,47 @@ import St from "gi://St";
 import { getSettings } from "../lib/settings.js";
 
 /**
+ * Generates CSS for message shadows based on current settings
+ * @returns {string} CSS string for box-shadow
+ */
+function generateMessageShadowCss() {
+  const settings = getSettings();
+  
+  // Try to get the settings, but use fallback values if not available
+  let shadowColor, shadowOpacity, shadowBlur, shadowOffsetX, shadowOffsetY;
+  
+  try {
+    shadowColor = settings.get_string("message-shadow-color");
+    shadowOpacity = settings.get_double("message-shadow-opacity");
+    shadowBlur = settings.get_double("message-shadow-blur");
+    shadowOffsetX = settings.get_double("message-shadow-offset-x");
+    shadowOffsetY = settings.get_double("message-shadow-offset-y");
+  } catch (e) {
+    // Fallback to defaults if settings aren't available yet
+    shadowColor = "#000000";
+    shadowOpacity = 0.5;
+    shadowBlur = 8.0;
+    shadowOffsetX = 2.0;
+    shadowOffsetY = 4.0;
+  }
+  
+  // Parse shadow color components
+  let shadowR, shadowG, shadowB;
+  if (shadowColor.startsWith("#")) {
+    shadowR = parseInt(shadowColor.substring(1, 3), 16);
+    shadowG = parseInt(shadowColor.substring(3, 5), 16);
+    shadowB = parseInt(shadowColor.substring(5, 7), 16);
+  } else {
+    // Default to black if parsing fails
+    shadowR = 0;
+    shadowG = 0;
+    shadowB = 0;
+  }
+  
+  return `box-shadow: ${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity});`;
+}
+
+/**
  * Creates a message container (user or AI)
  * @param {string} text - Message text
  * @param {boolean} isUser - Whether this is a user message
@@ -33,12 +74,15 @@ export function createMessageContainer(text, isUser, alignment) {
   const g = parseInt(bgColor.substring(3, 5), 16);
   const b = parseInt(bgColor.substring(5, 7), 16);
 
+  // Get shadow CSS
+  const shadowCss = generateMessageShadowCss();
+
   // Create the outer container with specific styling class and explicit style
   const messageBox = new St.BoxLayout({
     style_class: isUser ? "message-box user-message" : "message-box ai-message",
     style: `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: ${
       isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px"
-    };`,
+    }; ${shadowCss}`,
     x_align: alignment,
     vertical: true,
     x_expand: true
@@ -456,8 +500,11 @@ export function updateMessageContainerStyle(container, isUser) {
   const b = parseInt(bgColor.substring(5, 7), 16);
 
   const borderRadius = isUser ? "24px 24px 6px 24px" : "24px 24px 24px 6px";
+  
+  // Get shadow CSS
+  const shadowCss = generateMessageShadowCss();
 
   container.set_style(
-    `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: ${borderRadius};`
+    `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); padding: 14px 18px; margin: 8px 4px; border-radius: ${borderRadius}; ${shadowCss}`
   );
 }

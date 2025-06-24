@@ -35,7 +35,17 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
         "text-color",
         "background-opacity",
         "input-container-opacity",
-        "message-opacity"
+        "message-opacity",
+        "shadow-color",
+        "shadow-opacity",
+        "shadow-blur",
+        "shadow-offset-x",
+        "shadow-offset-y",
+        "message-shadow-color",
+        "message-shadow-opacity",
+        "message-shadow-blur",
+        "message-shadow-offset-x",
+        "message-shadow-offset-y"
       ],
       api: [
         "default-model",
@@ -355,6 +365,8 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
 
     this._addMessageColorsGroup(colorsPage, settings);
     this._addUIColorsGroup(colorsPage, settings);
+    this._addShadowEffectsGroup(colorsPage, settings);
+    this._addMessageShadowGroup(colorsPage, settings);
     this._addRestoreDefaultsButton(colorsPage, "colors", settings);
   }
 
@@ -461,6 +473,124 @@ export default class GnomeLamaPreferences extends ExtensionPreferences {
       key: "text-color",
       title: _("Text Color"),
       subtitle: _("Default text color for the panel"),
+    });
+  }
+
+  /**
+   * Add shadow effects group to the colors page
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addShadowEffectsGroup(page, settings) {
+    const shadowGroup = new Adw.PreferencesGroup({
+      title: _("UI Shadow Effects"),
+    });
+    page.add(shadowGroup);
+
+    // Shadow color
+    this._addColorRow(shadowGroup, settings, {
+      key: "shadow-color",
+      title: _("Shadow Color"),
+      subtitle: _("Color of shadows for visual container and popup menus"),
+    });
+
+    // Shadow opacity
+    this._addSpinRow(shadowGroup, settings, {
+      key: "shadow-opacity",
+      title: _("Shadow Opacity"),
+      subtitle: _("Opacity of shadows for visual container and popup menus (0.0-1.0)"),
+      min: 0.0,
+      max: 1.0,
+      step: 0.1,
+    });
+
+    // Shadow blur
+    this._addSpinRow(shadowGroup, settings, {
+      key: "shadow-blur",
+      title: _("Shadow Blur"),
+      subtitle: _("Blur radius for shadows in pixels"),
+      min: 0.0,
+      max: 50.0,
+      step: 1.0,
+    });
+
+    // Shadow offset X
+    this._addSpinRow(shadowGroup, settings, {
+      key: "shadow-offset-x",
+      title: _("Shadow Offset X"),
+      subtitle: _("Horizontal offset for shadows in pixels"),
+      min: -50.0,
+      max: 50.0,
+      step: 1.0,
+    });
+
+    // Shadow offset Y
+    this._addSpinRow(shadowGroup, settings, {
+      key: "shadow-offset-y",
+      title: _("Shadow Offset Y"),
+      subtitle: _("Vertical offset for shadows in pixels"),
+      min: -50.0,
+      max: 50.0,
+      step: 1.0,
+    });
+  }
+
+  /**
+   * Add message shadow effects group to the colors page
+   * @param {Adw.PreferencesPage} page - The parent page
+   * @param {Gio.Settings} settings - The settings object
+   */
+  _addMessageShadowGroup(page, settings) {
+    const messageShadowGroup = new Adw.PreferencesGroup({
+      title: _("Message Shadow Effects"),
+    });
+    page.add(messageShadowGroup);
+
+    // Message shadow color
+    this._addColorRow(messageShadowGroup, settings, {
+      key: "message-shadow-color",
+      title: _("Message Shadow Color"),
+      subtitle: _("Color of shadows for message bubbles"),
+    });
+
+    // Message shadow opacity
+    this._addSpinRow(messageShadowGroup, settings, {
+      key: "message-shadow-opacity",
+      title: _("Message Shadow Opacity"),
+      subtitle: _("Opacity of shadows for message bubbles (0.0-1.0)"),
+      min: 0.0,
+      max: 1.0,
+      step: 0.1,
+    });
+
+    // Message shadow blur
+    this._addSpinRow(messageShadowGroup, settings, {
+      key: "message-shadow-blur",
+      title: _("Message Shadow Blur"),
+      subtitle: _("Blur radius for message shadows in pixels"),
+      min: 0.0,
+      max: 20.0,
+      step: 1.0,
+    });
+
+    // Message shadow offset X
+    this._addSpinRow(messageShadowGroup, settings, {
+      key: "message-shadow-offset-x",
+      title: _("Message Shadow Offset X"),
+      subtitle: _("Horizontal offset for message shadows in pixels"),
+      min: -50.0,
+      max: 50.0,
+      step: 1.0,
+    });
+
+    // Message shadow offset Y
+    this._addSpinRow(messageShadowGroup, settings, {
+      key: "message-shadow-offset-y",
+      title: _("Message Shadow Offset Y"),
+      subtitle: _("Vertical offset for message shadows in pixels"),
+      min: -50.0,
+      max: 50.0,
+      step: 1.0,
     });
   }
 
