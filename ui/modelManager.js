@@ -115,8 +115,11 @@ export class ModelManager {
         this._popupManager.notifyOpen('model');
         this._positionModelMenu();
         
-        // Refresh styling to match current settings
-        this._applyModelMenuStyling();
+        // Apply styling after positioning to ensure accurate shadow detection
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          this._applyModelMenuStyling();
+          return GLib.SOURCE_REMOVE;
+        });
       }
     });
 
@@ -219,12 +222,49 @@ export class ModelManager {
       b = 30;
     }
     
-    // Apply the color with opacity to the menu (with shadow)
+    // Apply the color with opacity to the menu
     const menuActor = this._modelMenu.actor || this._modelMenu;
     const menuBox = this._modelMenu.box;
     
     const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
-    const shadowCss = this._generateShadowCss();
+    
+    // Smart shadow detection to prevent overlap with visual container
+    let shadowCss = '';
+    if (this._visualContainerManager && this._visualContainerManager._visualContainer) {
+      const visualContainer = this._visualContainerManager._visualContainer;
+      
+      try {
+        const [menuX, menuY] = menuActor.get_transformed_position();
+        const [menuWidth, menuHeight] = menuActor.get_size();
+        const [visualX, visualY] = visualContainer.get_transformed_position();
+        const [visualWidth, visualHeight] = visualContainer.get_size();
+        
+        // Get shadow offset settings
+        let shadowOffsetY;
+        try {
+          shadowOffsetY = this._settings.get_double("shadow-offset-y");
+        } catch (e) {
+          shadowOffsetY = 4.0; // fallback
+        }
+        
+        // Calculate if shadow would overlap with visual container
+        const menuBottom = menuY + menuHeight;
+        const shadowBottom = menuBottom + Math.abs(shadowOffsetY);
+        const shadowWouldOverlap = shadowBottom > visualY && 
+                                   menuX < visualX + visualWidth && 
+                                   menuX + menuWidth > visualX;
+        
+        if (!shadowWouldOverlap) {
+          shadowCss = this._generateShadowCss();
+        }
+      } catch (e) {
+        // If position detection fails, apply shadow anyway
+        shadowCss = this._generateShadowCss();
+      }
+    } else {
+      // No visual container to check against, apply shadow
+      shadowCss = this._generateShadowCss();
+    }
     
     if (menuBox) {
       menuBox.set_style(`
@@ -240,11 +280,22 @@ export class ModelManager {
   }
 
   _generateShadowCss() {
-    const shadowColor = this._settings.get_string("shadow-color");
-    const shadowOpacity = this._settings.get_double("shadow-opacity");
-    const shadowBlur = this._settings.get_double("shadow-blur");
-    const shadowOffsetX = this._settings.get_double("shadow-offset-x");
-    const shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    let shadowColor, shadowOpacity, shadowBlur, shadowOffsetX, shadowOffsetY;
+    
+    try {
+      shadowColor = this._settings.get_string("shadow-color");
+      shadowOpacity = this._settings.get_double("shadow-opacity");
+      shadowBlur = this._settings.get_double("shadow-blur");
+      shadowOffsetX = this._settings.get_double("shadow-offset-x");
+      shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    } catch (e) {
+      // Fallback to defaults if settings aren't available yet
+      shadowColor = "#000000";
+      shadowOpacity = 0.3;
+      shadowBlur = 20.0;
+      shadowOffsetX = 0.0;
+      shadowOffsetY = 4.0;
+    }
     
     // Parse shadow color components
     let shadowR, shadowG, shadowB;

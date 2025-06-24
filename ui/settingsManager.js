@@ -185,8 +185,11 @@ export class SettingsManager {
         this._updatePromptEntry();
         this._updateTemperatureEntry();
         
-        // Refresh styling to match current settings
-        this._applySettingsMenuStyling();
+        // Apply styling after positioning to ensure accurate shadow detection
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+          this._applySettingsMenuStyling();
+          return GLib.SOURCE_REMOVE;
+        });
       } else {
         // Save values when menu closes
         this._savePromptValue();
@@ -304,12 +307,11 @@ export class SettingsManager {
       b = 30;
     }
     
-    // Apply the color with opacity to the menu (with shadow)
+    // Apply the color with opacity to the menu (no shadow)
     const menuActor = this._settingsMenu.actor || this._settingsMenu;
     const menuBox = this._settingsMenu.box;
     
     const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
-    const shadowCss = this._generateShadowCss();
     
     if (menuBox) {
       menuBox.set_style(`
@@ -319,7 +321,6 @@ export class SettingsManager {
         margin: 0;
         spacing: 2px;
         border: none;
-        ${shadowCss}
       `);
     }
   }
@@ -352,12 +353,11 @@ export class SettingsManager {
       b = 30;
     }
     
-    // Apply the color with opacity to the menu
+    // Apply the color with opacity to the menu (no shadow)
     const menuActor = this._aboutMenu.actor || this._aboutMenu;
     const menuBox = this._aboutMenu.box;
     
     const backgroundColor = `rgba(${r}, ${g}, ${b}, ${inputOpacity})`;
-    const shadowCss = this._generateShadowCss();
     
     if (menuBox) {
       menuBox.set_style(`
@@ -367,17 +367,27 @@ export class SettingsManager {
         margin: 0;
         spacing: 2px;
         border: none;
-        ${shadowCss}
       `);
     }
   }
 
   _generateShadowCss() {
-    const shadowColor = this._settings.get_string("shadow-color");
-    const shadowOpacity = this._settings.get_double("shadow-opacity");
-    const shadowBlur = this._settings.get_double("shadow-blur");
-    const shadowOffsetX = this._settings.get_double("shadow-offset-x");
-    const shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    let shadowColor, shadowOpacity, shadowBlur, shadowOffsetX, shadowOffsetY;
+    
+    try {
+      shadowColor = this._settings.get_string("shadow-color");
+      shadowOpacity = this._settings.get_double("shadow-opacity");
+      shadowBlur = this._settings.get_double("shadow-blur");
+      shadowOffsetX = this._settings.get_double("shadow-offset-x");
+      shadowOffsetY = this._settings.get_double("shadow-offset-y");
+    } catch (e) {
+      // Fallback to defaults if settings aren't available yet
+      shadowColor = "#000000";
+      shadowOpacity = 0.3;
+      shadowBlur = 20.0;
+      shadowOffsetX = 0.0;
+      shadowOffsetY = 4.0;
+    }
     
     // Parse shadow color components
     let shadowR, shadowG, shadowB;

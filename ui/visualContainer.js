@@ -226,11 +226,23 @@ export class VisualContainerManager {
     const settings = getSettings();
     const inputBgColor = settings.get_string("input-container-background-color");
     const inputOpacity = settings.get_double("input-container-opacity");
-    const shadowColor = settings.get_string("shadow-color");
-    const shadowOpacity = settings.get_double("shadow-opacity");
-    const shadowBlur = settings.get_double("shadow-blur");
-    const shadowOffsetX = settings.get_double("shadow-offset-x");
-    const shadowOffsetY = settings.get_double("shadow-offset-y");
+    
+    let shadowColor, shadowOpacity, shadowBlur, shadowOffsetX, shadowOffsetY;
+    
+    try {
+      shadowColor = settings.get_string("shadow-color");
+      shadowOpacity = settings.get_double("shadow-opacity");
+      shadowBlur = settings.get_double("shadow-blur");
+      shadowOffsetX = settings.get_double("shadow-offset-x");
+      shadowOffsetY = settings.get_double("shadow-offset-y");
+    } catch (e) {
+      // Fallback to defaults if settings aren't available yet
+      shadowColor = "#000000";
+      shadowOpacity = 0.3;
+      shadowBlur = 20.0;
+      shadowOffsetX = 0.0;
+      shadowOffsetY = 4.0;
+    }
     
     // Parse color components for background
     const r = parseInt(inputBgColor.substring(1, 3), 16);
@@ -258,7 +270,7 @@ export class VisualContainerManager {
       border-radius: ${borderRadius};
       padding: 6px;
       box-shadow: ${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity});
-      z-index: 20;
+      z-index: 100;
     `);
   }
 

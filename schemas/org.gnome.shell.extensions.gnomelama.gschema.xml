@@ -127,12 +127,12 @@
       <description>Color of shadows for visual container and popup menus.</description>
     </key>
     <key name="shadow-opacity" type="d">
-      <default>1.0</default>
+      <default>0.6</default>
       <summary>Shadow Opacity</summary>
       <description>Opacity of shadows for visual container and popup menus (0.0-1.0).</description>
     </key>
     <key name="shadow-blur" type="d">
-      <default>20.0</default>
+      <default>12.0</default>
       <summary>Shadow Blur</summary>
       <description>Blur radius for shadows on visual container and popup menus in pixels.</description>
     </key>
@@ -142,7 +142,7 @@
       <description>Horizontal offset for shadows on visual container and popup menus in pixels.</description>
     </key>
     <key name="shadow-offset-y" type="d">
-      <default>4.0</default>
+      <default>1.5</default>
       <summary>Shadow Offset Y</summary>
       <description>Vertical offset for shadows on visual container and popup menus in pixels.</description>
     </key>
@@ -152,12 +152,12 @@
       <description>Color of shadows for message bubbles.</description>
     </key>
     <key name="message-shadow-opacity" type="d">
-      <default>0.2</default>
+      <default>0.6</default>
       <summary>Message Shadow Opacity</summary>
       <description>Opacity of shadows for message bubbles (0.0-1.0).</description>
     </key>
     <key name="message-shadow-blur" type="d">
-      <default>5.0</default>
+      <default>12.0</default>
       <summary>Message Shadow Blur</summary>
       <description>Blur radius for shadows on message bubbles in pixels.</description>
     </key>
@@ -167,7 +167,7 @@
       <description>Horizontal offset for shadows on message bubbles in pixels.</description>
     </key>
     <key name="message-shadow-offset-y" type="d">
-      <default>2.0</default>
+      <default>1.5</default>
       <summary>Message Shadow Offset Y</summary>
       <description>Vertical offset for shadows on message bubbles in pixels.</description>
     </key>
