@@ -291,6 +291,14 @@ export function createInputArea(extensionPath, isNewChat = true) {
   inputField.clutter_text.set_line_wrap(true);
   inputField.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
 
+  // Add click handler to focus the input field
+  inputField.connect("button-press-event", () => {
+    if (Main && Main.global && Main.global.stage) {
+      Main.global.stage.set_key_focus(inputField.clutter_text);
+    }
+    return Clutter.EVENT_PROPAGATE;
+  });
+
   // Load icon asynchronously
   const sendIcon = new St.Icon({
     style_class: "system-status-icon",
