@@ -226,6 +226,7 @@ export const Indicator = GObject.registerClass(
         outputScrollView: this._outputScrollView,
         fileHandler: this._fileHandler,
         pasteHandler: this._pasteHandler,
+        visualContainerManager: this._visualContainerManager,
       });
 
       // Initialize model manager with clear callback
@@ -273,9 +274,18 @@ export const Indicator = GObject.registerClass(
       this._buttonsContainer.add_child(this._settingsButton);
       this._buttonsContainer.add_child(this._sendButton);
 
-      // Build transparent input container (now inside visual container)
-      this._inputButtonsContainer.add_child(this._inputFieldBox);
-      this._inputButtonsContainer.add_child(this._buttonsContainer);
+      // Get separate containers from visual container manager
+      const inputFieldContainer = this._visualContainerManager.getInputFieldContainer();
+      const fixedButtonsContainer = this._visualContainerManager.getFixedButtonsContainer();
+
+      // Add input field to its own container
+      inputFieldContainer.add_child(this._inputFieldBox);
+
+      // Add buttons to the fixed buttons container (stays in place)
+      fixedButtonsContainer.add_child(this._buttonsContainer);
+
+      // Update the reference to point to the input field container
+      this._inputButtonsContainer = inputFieldContainer;
 
       // Add elements to panel overlay - use visual container instead of input container
       this._panelOverlay.add_child(this._outputScrollView);

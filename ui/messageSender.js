@@ -18,6 +18,8 @@ import {
   stopAiMessage,
 } from "../services/messaging.js";
 
+import * as LayoutManager from "./layoutManager.js";
+
 export class MessageSender {
   constructor(options) {
     const {
@@ -28,6 +30,7 @@ export class MessageSender {
       outputScrollView,
       fileHandler = null,
       pasteHandler = null,
+      visualContainerManager = null,
     } = options;
 
     this._extensionPath = extensionPath;
@@ -37,6 +40,7 @@ export class MessageSender {
     this._outputScrollView = outputScrollView;
     this._fileHandler = fileHandler;
     this._pasteHandler = pasteHandler;
+    this._visualContainerManager = visualContainerManager;
 
     this._sendIcon = null;
     this._sendButtonClickId = null;
@@ -58,7 +62,19 @@ export class MessageSender {
   _setupInputField() {
     // Set up enter key handler
     this._inputField.clutter_text.connect("key-press-event", (_, event) => {
-      if (event.get_key_symbol() === Clutter.KEY_Return) {
+      const keySymbol = event.get_key_symbol();
+      const modifiers = event.get_state();
+      
+      if (keySymbol === Clutter.KEY_Return || keySymbol === Clutter.KEY_KP_Enter) {
+        // Check for Ctrl+Enter or Shift+Enter - these should create new lines
+        if (modifiers & Clutter.ModifierType.CONTROL_MASK || 
+            modifiers & Clutter.ModifierType.SHIFT_MASK) {
+          // Let the text field handle the newline naturally
+          this._updateInputFieldHeight();
+          return Clutter.EVENT_PROPAGATE;
+        }
+        
+        // Plain Enter sends the message
         if (this._isProcessingMessage) {
           this.stopMessage();
         } else {
@@ -68,6 +84,14 @@ export class MessageSender {
       }
       return Clutter.EVENT_PROPAGATE;
     });
+
+    // Monitor text changes to handle input field expansion
+    this._inputField.clutter_text.connect("text-changed", () => {
+      this._updateInputFieldHeight();
+    });
+
+    // Register input field as expandable container
+    this._registerInputFieldExpansion();
 
     // Update input field hint based on conversation history
     this._updateInputFieldHint();
@@ -83,6 +107,57 @@ export class MessageSender {
         });
       }
     });
+  }
+
+  /**
+   * Registers the input field with the visual container manager for expansion
+   * @private
+   */
+  _registerInputFieldExpansion() {
+    // Use the visual container manager if available
+    if (this._visualContainerManager && this._inputField) {
+      // Store a reference to track expansion
+      this._currentInputExpansion = 0;
+      
+      // Register the input field for expansion tracking with a simple getter
+      this._visualContainerManager.registerInputFieldExpansion(
+        this._inputField,
+        () => this._currentInputExpansion
+      );
+    }
+  }
+
+  /**
+   * Updates the input field height and container layout
+   * @private
+   */
+  _updateInputFieldHeight() {
+    if (!this._inputField || !this._inputField.clutter_text) {
+      return;
+    }
+
+    // Simple line-based calculation
+    const text = this._inputField.get_text();
+    const lines = text.split('\n').length;
+    const extraLines = Math.max(0, lines - 1);
+    
+    // Use a larger fixed amount per line
+    const expansionPerLine = 19;
+    const newExpansion = extraLines * expansionPerLine;
+    
+    console.log("Lines:", lines, "Extra lines:", extraLines, "New expansion:", newExpansion);
+    
+    // Update our expansion tracker
+    this._currentInputExpansion = newExpansion;
+    
+    // Also directly set the input field height
+    const baseHeight = 40;
+    this._inputField.set_height(baseHeight + newExpansion);
+    
+    // Update the visual container manager layout
+    if (this._visualContainerManager) {
+      this._visualContainerManager.updateLayout();
+    }
   }
 
   /**
@@ -197,6 +272,10 @@ export class MessageSender {
 
     // Clear input field and prepare message
     this._inputField.set_text("");
+    
+    // Reset input field height after clearing text
+    this._resetInputFieldHeight();
+    
     const { messageToSend, displayMessage } = this._prepareMessageContent(userInput);
 
     // Update UI for sending
@@ -219,6 +298,23 @@ export class MessageSender {
       });
     } catch (error) {
       this._handlePostSendUpdates(error);
+    }
+  }
+
+  /**
+   * Resets the input field to its base height
+   * @private
+   */
+  _resetInputFieldHeight() {
+    // Reset expansion tracker
+    this._currentInputExpansion = 0;
+    
+    // Reset input field height
+    const baseHeight = 40;
+    this._inputField.set_height(baseHeight);
+    
+    if (this._visualContainerManager) {
+      this._visualContainerManager.resetToBaseState();
     }
   }
 
@@ -292,6 +388,11 @@ export class MessageSender {
     if (this._sendButtonClickId) {
       this._sendButton.disconnect(this._sendButtonClickId);
       this._sendButtonClickId = null;
+    }
+
+    // Unregister input field from expansion manager
+    if (this._visualContainerManager) {
+      this._visualContainerManager.unregisterInputFieldExpansion();
     }
 
     // Ensure any in-progress messages are stopped

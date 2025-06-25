@@ -65,10 +65,19 @@ export class VisualContainerManager {
       layout_manager: new Clutter.BinLayout(),
     });
 
-    // Create input elements container (positioned at bottom)
-    this._inputElementsContainer = new St.BoxLayout({
-      style_class: "input-elements-container",
+    // Create input field container (only for input field, not buttons)
+    this._inputFieldContainer = new St.BoxLayout({
+      style_class: "input-field-container",
       vertical: true,
+      x_expand: true,
+      y_expand: false,
+      style: "background-color: transparent;",
+    });
+
+    // Create fixed buttons container (positioned independently at bottom)
+    this._fixedButtonsContainer = new St.BoxLayout({
+      style_class: "fixed-buttons-container",
+      vertical: false,
       x_expand: true,
       y_expand: false,
       style: "background-color: transparent;",
@@ -76,10 +85,11 @@ export class VisualContainerManager {
 
     // Add areas to content container
     this._contentContainer.add_child(this._fileBoxesArea);
-    this._contentContainer.add_child(this._inputElementsContainer);
+    this._contentContainer.add_child(this._inputFieldContainer);
 
-    // Add content container to visual container
+    // Add content container and fixed buttons to visual container
     this._visualContainer.add_child(this._contentContainer);
+    this._visualContainer.add_child(this._fixedButtonsContainer);
 
     // Apply initial styling
     this._applyVisualStyling(false);
@@ -88,13 +98,34 @@ export class VisualContainerManager {
   }
 
   /**
+   * Returns the input field container for adding only the input field
+   */
+  getInputFieldContainer() {
+    if (!this._visualContainer) {
+      this.createVisualContainer();
+    }
+    return this._inputFieldContainer;
+  }
+
+  /**
    * Returns the input elements container for adding input field and buttons
+   * @deprecated Use getInputFieldContainer() and getFixedButtonsContainer() instead
    */
   getInputElementsContainer() {
     if (!this._visualContainer) {
       this.createVisualContainer();
     }
-    return this._inputElementsContainer;
+    return this._inputFieldContainer;
+  }
+
+  /**
+   * Returns the fixed buttons container for adding buttons
+   */
+  getFixedButtonsContainer() {
+    if (!this._visualContainer) {
+      this.createVisualContainer();
+    }
+    return this._fixedButtonsContainer;
   }
 
   /**
@@ -138,6 +169,66 @@ export class VisualContainerManager {
   }
 
   /**
+   * Registers an input field for expansion tracking
+   */
+  registerInputFieldExpansion(inputField, getHeight) {
+    this._expandableContainers.set('input-field', {
+      container: inputField,
+      getHeight: getHeight || (() => this._calculateInputFieldExpansion(inputField)),
+    });
+    
+    this.updateLayout();
+  }
+
+  /**
+   * Unregisters input field expansion
+   */
+  unregisterInputFieldExpansion() {
+    if (this._expandableContainers.has('input-field')) {
+      this._expandableContainers.delete('input-field');
+    }
+    
+    this.updateLayout();
+  }
+
+  /**
+   * Calculates the additional height needed for input field expansion
+   */
+  _calculateInputFieldExpansion(inputField) {
+    console.log("_calculateInputFieldExpansion called");
+    
+    if (!inputField || !inputField.clutter_text) {
+      console.log("No input field or clutter_text");
+      return 0;
+    }
+
+    const text = inputField.get_text();
+    console.log("Input text:", text);
+    
+    if (!text || !text.includes('\n')) {
+      console.log("No text or no newlines");
+      return 0; // No newlines, no expansion needed
+    }
+
+    // Get the current actual height of the input field
+    const currentHeight = inputField.get_height();
+    console.log("Current height:", currentHeight);
+    
+    // Get the actual preferred height for the current content
+    const [minHeight, naturalHeight] = inputField.get_preferred_height(-1);
+    console.log("Natural height:", naturalHeight, "Min height:", minHeight);
+    
+    // Calculate how much additional height is needed beyond current height
+    // Apply a slight reduction factor to account for over-expansion
+    const rawAdditionalHeight = Math.max(0, naturalHeight - currentHeight);
+    const additionalHeight = Math.floor(rawAdditionalHeight * 1); // Test with 50% to see if it works
+    
+    console.log("Raw additional height:", rawAdditionalHeight, "Final additional height:", additionalHeight);
+    
+    return additionalHeight;
+  }
+
+  /**
    * Updates the visual container layout
    */
   updateLayout() {
@@ -172,10 +263,32 @@ export class VisualContainerManager {
         }
       }
 
-      // Calculate total visual container height
-      const totalHeight = baseInputHeight + fileBoxesHeight;
+      // Calculate input field expansion height
+      let inputFieldExpansionHeight = 0;
+      if (this._expandableContainers.has('input-field')) {
+        const { container, getHeight } = this._expandableContainers.get('input-field');
+        if (container) {
+          inputFieldExpansionHeight = getHeight();
+          console.log("Input field expansion height:", inputFieldExpansionHeight);
+          
+          // The input field height is already set by MessageSender
+          // Just apply the positioning for upward expansion
+          if (inputFieldExpansionHeight > 0) {
+            console.log("Moving input field up by:", inputFieldExpansionHeight);
+            // Move the input field upward within its parent by the expansion amount
+            container.set_y(-inputFieldExpansionHeight);
+          } else {
+            // Reset position when no expansion
+            container.set_y(0);
+            console.log("Reset input field position");
+          }
+        }
+      }
 
-      // Update visual container size and position - fix bottom positioning
+      // Calculate total visual container height including input field expansion
+      const totalHeight = baseInputHeight + fileBoxesHeight + inputFieldExpansionHeight;
+
+      // Update visual container size and position - container expands upward
       this._visualContainer.set_size(
         panelWidth - horizontalPadding * 2,
         totalHeight
@@ -198,17 +311,26 @@ export class VisualContainerManager {
         this._fileBoxesArea.hide();
       }
 
-      // Update input elements container height
-      this._inputElementsContainer.set_height(baseInputHeight);
+      // Keep input elements container at its base height to prevent buttons from moving
+      // The input field will expand upward beyond the container boundaries
+      this._inputFieldContainer.set_height(baseInputHeight);
+      
+      // Position the input field container accounting for buttons space
+      const buttonsSpace = buttonsHeight + paddingY;
+      this._inputFieldContainer.set_y(totalHeight - baseInputHeight - buttonsSpace);
 
-      // Update output scroll view height
+      // Position the fixed buttons container at the very bottom of the visual container
+      this._fixedButtonsContainer.set_height(buttonsSpace);
+      this._fixedButtonsContainer.set_y(totalHeight - buttonsSpace);
+
+      // Update output scroll view height to account for the expanded container
       const remainingHeight = panelHeight - totalHeight - paddingY;
       if (this._outputScrollView && remainingHeight > 0) {
         this._outputScrollView.set_height(remainingHeight);
       }
 
       // Apply styling based on whether we have expandable content
-      this._applyVisualStyling(hasVisibleFileBoxes);
+      this._applyVisualStyling(hasVisibleFileBoxes || inputFieldExpansionHeight > 0);
 
       // Force layout recalculation
       LayoutManager.invalidateCache();
@@ -293,6 +415,15 @@ export class VisualContainerManager {
       this._fileBoxesArea.hide();
     }
 
+    // Reset input field height if registered
+    if (this._expandableContainers.has('input-field')) {
+      const { container } = this._expandableContainers.get('input-field');
+      if (container) {
+        const { inputFieldHeight } = LayoutManager.calculatePanelDimensions();
+        container.set_height(inputFieldHeight);
+      }
+    }
+
     // Update layout
     this.updateLayout();
 
@@ -313,7 +444,8 @@ export class VisualContainerManager {
     }
     
     this._fileBoxesArea = null;
-    this._inputElementsContainer = null;
+    this._inputFieldContainer = null;
+    this._fixedButtonsContainer = null;
     this._contentContainer = null;
     this._outputScrollView = null;
     this._onLayoutUpdate = null;

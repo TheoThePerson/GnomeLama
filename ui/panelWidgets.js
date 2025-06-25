@@ -6,6 +6,7 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import St from "gi://St";
+import Pango from "gi://Pango";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { getSettings } from "../lib/settings.js";
 
@@ -284,6 +285,11 @@ export function createInputArea(extensionPath, isNewChat = true) {
     style:
       "background-color: transparent; border: none; caret-color: white; color: white;",
   });
+
+  // Enable multiline support
+  inputField.clutter_text.set_single_line_mode(false);
+  inputField.clutter_text.set_line_wrap(true);
+  inputField.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
 
   // Load icon asynchronously
   const sendIcon = new St.Icon({
