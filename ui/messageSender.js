@@ -107,7 +107,11 @@ export class MessageSender {
 
     // Monitor text changes to handle input field expansion
     this._inputField.clutter_text.connect("text-changed", () => {
-      this._updateInputFieldHeight();
+      // Use a longer delay to allow layout recalculation for text wrapping detection
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+        this._updateInputFieldHeight();
+        return GLib.SOURCE_REMOVE;
+      });
     });
 
     // Register input field as expandable container
@@ -156,21 +160,53 @@ export class MessageSender {
       return;
     }
 
-    // Simple line-based calculation
     const text = this._inputField.get_text();
+    if (!text) {
+      this._currentInputExpansion = 0;
+      this._inputField.set_height(40);
+      if (this._visualContainerManager) {
+        this._visualContainerManager.updateLayout();
+      }
+      return;
+    }
+
+    // Count manual newlines (this was working)
     const lines = text.split('\n').length;
     const extraLines = Math.max(0, lines - 1);
     
-    // Use a larger fixed amount per line
+    // Calculate expansion for manual newlines
     const expansionPerLine = 19;
-    const newExpansion = extraLines * expansionPerLine;
+    let newExpansion = extraLines * expansionPerLine;
     
-    console.log("Lines:", lines, "Extra lines:", extraLines, "New expansion:", newExpansion);
+    // Add text wrapping detection
+    try {
+      const clutterText = this._inputField.clutter_text;
+      if (clutterText) {
+        const layout = clutterText.get_layout();
+        if (layout) {
+          const layoutLineCount = layout.get_line_count();
+          console.log("Layout line count:", layoutLineCount, "Manual lines:", lines);
+          const actualLines = Math.max(lines, layoutLineCount); // Use whichever is higher
+          const totalExtraLines = Math.max(0, actualLines - 1);
+          newExpansion = totalExtraLines * expansionPerLine;
+          console.log("Using layout-based expansion:", newExpansion);
+        } else {
+          console.log("No layout available");
+        }
+      } else {
+        console.log("No clutter text available");
+      }
+    } catch (e) {
+      // Fall back to just counting manual newlines if layout detection fails
+      console.log("Layout detection failed:", e.message, "using manual line count");
+    }
+    
+    console.log("Manual lines:", lines, "Total expansion:", newExpansion);
     
     // Update our expansion tracker
     this._currentInputExpansion = newExpansion;
     
-    // Also directly set the input field height
+    // Set the input field height
     const baseHeight = 40;
     this._inputField.set_height(baseHeight + newExpansion);
     
