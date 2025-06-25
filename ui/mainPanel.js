@@ -333,9 +333,6 @@ export const Indicator = GObject.registerClass(
      * @private
      */
     _managePanelState(isInitializing) {
-      // Reset input field
-      this._inputField.set_text("");
-      
       // Set UI element opacity based on state
       this._inputField.opacity = isInitializing ? 255 : 0;
       this._buttonsContainer.opacity = isInitializing ? 255 : 0;
