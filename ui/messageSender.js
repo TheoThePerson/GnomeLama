@@ -124,9 +124,7 @@ export class MessageSender {
     this._inputField.get_parent().connect("notify::mapped", () => {
       if (this._inputField.get_parent().mapped) {
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-          if (Main && Main.global && Main.global.stage) {
-            Main.global.stage.set_key_focus(this._inputField.clutter_text);
-          }
+          this._tryFocusInputField();
           return GLib.SOURCE_REMOVE;
         });
       }
@@ -305,13 +303,75 @@ export class MessageSender {
   }
 
   /**
+   * Public method to focus the input field - can be called from main panel
+   */
+  focusInputField() {
+    this._focusInputField();
+  }
+
+  /**
+   * Force focus the input field immediately
+   */
+  forceFocusInputField() {
+    this._tryFocusInputField();
+  }
+
+  /**
    * Focus the input field with a small delay
    * @private
    */
   _focusInputField() {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-      if (Main?.global?.stage) {
-        Main.global.stage.set_key_focus(this._inputField.clutter_text);
+      this._tryFocusInputField();
+      return GLib.SOURCE_REMOVE;
+    });
+  }
+
+  /**
+   * Try different methods to focus the input field
+   * @private
+   */
+  _tryFocusInputField() {
+    if (!this._inputField || !this._inputField.clutter_text) {
+      // Retry after a short delay if input field is not ready
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+        this._tryFocusInputField();
+        return GLib.SOURCE_REMOVE;
+      });
+      return;
+    }
+
+    // Method 1: Try stage focus
+    if (Main?.global?.stage) {
+      Main.global.stage.set_key_focus(this._inputField.clutter_text);
+    }
+
+    // Method 2: Try direct grab_key_focus
+    if (this._inputField.clutter_text.grab_key_focus) {
+      this._inputField.clutter_text.grab_key_focus();
+    }
+
+    // Method 3: Try focusing parent first, then input field
+    const parent = this._inputField.get_parent();
+    if (parent && parent.grab_key_focus) {
+      parent.grab_key_focus();
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+        if (this._inputField.clutter_text && this._inputField.clutter_text.grab_key_focus) {
+          this._inputField.clutter_text.grab_key_focus();
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+    }
+
+    // Method 4: Try with a longer delay as fallback
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+      if (this._inputField && this._inputField.clutter_text) {
+        if (Main?.global?.stage) {
+          Main.global.stage.set_key_focus(this._inputField.clutter_text);
+        }
+        if (this._inputField.clutter_text.grab_key_focus) {
+          this._inputField.clutter_text.grab_key_focus();
+        }
       }
       return GLib.SOURCE_REMOVE;
     });

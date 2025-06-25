@@ -171,9 +171,6 @@ export class ModelManager {
   }
 
   _positionModelMenu() {
-    // Get model button position
-    const [buttonX] = this._modelButton.get_transformed_position();
-
     // Get menu actor
     const menuActor = this._modelMenu.actor || this._modelMenu;
 
@@ -181,17 +178,25 @@ export class ModelManager {
     const [, menuHeight] = menuActor.get_preferred_height(-1);
 
     // Use visual container if available, otherwise fall back to input container
-    let containerY;
+    let containerX, containerY, containerWidth;
     
     if (this._visualContainerManager && this._visualContainerManager._visualContainer) {
       const visualContainer = this._visualContainerManager._visualContainer;
-      [, containerY] = visualContainer.get_transformed_position();
+      [containerX, containerY] = visualContainer.get_transformed_position();
+      containerWidth = visualContainer.get_width();
     } else {
       // Fallback to input container
+      const [buttonX] = this._modelButton.get_transformed_position();
       [, containerY] = this._inputButtonsContainer.get_transformed_position();
+      containerX = buttonX - 7; // Use button-based positioning as fallback
+      containerWidth = this._inputButtonsContainer.get_width();
     }
 
-    menuActor.set_position(buttonX - 7, containerY - menuHeight - 8); // adjust for padding
+    // Set menu width to match the container (like settings menu)
+    menuActor.set_width(containerWidth);
+
+    // Position above the container with a small gap (exactly like settings menu)
+    menuActor.set_position(containerX, containerY - menuHeight - 8);
   }
 
   _applyModelMenuStyling() {
@@ -269,8 +274,8 @@ export class ModelManager {
     if (menuBox) {
       menuBox.set_style(`
         background-color: ${backgroundColor};
-        border-radius: 8px;
-        padding: 8px 8px;
+        border-radius: 16px;
+        padding: 12px;
         margin: 0;
         spacing: 2px;
         border: none;

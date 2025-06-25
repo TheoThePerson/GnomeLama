@@ -211,9 +211,7 @@ export class FileHandler {
         buttonsHeight,
         paddingY,
       } = LayoutManager.calculatePanelDimensions();
-      
-      const containerHeight = inputFieldHeight + buttonsHeight + paddingY;
-      
+            
       // Fallback cleanup if visual container manager not available
       LayoutManager.invalidateCache();
       

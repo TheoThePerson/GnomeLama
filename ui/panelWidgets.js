@@ -293,9 +293,40 @@ export function createInputArea(extensionPath, isNewChat = true) {
 
   // Add click handler to focus the input field
   inputField.connect("button-press-event", () => {
-    if (Main && Main.global && Main.global.stage) {
-      Main.global.stage.set_key_focus(inputField.clutter_text);
-    }
+    // Try multiple focus methods to ensure it works even when other windows have focus
+    const tryFocus = () => {
+      // Method 1: Try stage focus
+      if (Main && Main.global && Main.global.stage) {
+        Main.global.stage.set_key_focus(inputField.clutter_text);
+      }
+
+      // Method 2: Try direct grab_key_focus
+      if (inputField.clutter_text && inputField.clutter_text.grab_key_focus) {
+        inputField.clutter_text.grab_key_focus();
+      }
+
+      // Method 3: Try focusing parent first, then input field
+      const parent = inputField.get_parent();
+      if (parent && parent.grab_key_focus) {
+        parent.grab_key_focus();
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+          if (inputField.clutter_text && inputField.clutter_text.grab_key_focus) {
+            inputField.clutter_text.grab_key_focus();
+          }
+          return GLib.SOURCE_REMOVE;
+        });
+      }
+    };
+
+    // Try immediately
+    tryFocus();
+
+    // Also try with a small delay to handle timing issues
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+      tryFocus();
+      return GLib.SOURCE_REMOVE;
+    });
+
     return Clutter.EVENT_PROPAGATE;
   });
 
@@ -322,9 +353,32 @@ export function createInputArea(extensionPath, isNewChat = true) {
   inputFieldBox.connect("notify::mapped", () => {
     if (inputFieldBox.mapped) {
       GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-        if (Main && Main.global && Main.global.stage) {
-          Main.global.stage.set_key_focus(inputField.clutter_text);
-        }
+        // Try multiple focus methods to ensure it works
+        const tryFocus = () => {
+          // Method 1: Try stage focus
+          if (Main && Main.global && Main.global.stage) {
+            Main.global.stage.set_key_focus(inputField.clutter_text);
+          }
+
+          // Method 2: Try direct grab_key_focus
+          if (inputField.clutter_text && inputField.clutter_text.grab_key_focus) {
+            inputField.clutter_text.grab_key_focus();
+          }
+
+          // Method 3: Try focusing parent first, then input field
+          const parent = inputField.get_parent();
+          if (parent && parent.grab_key_focus) {
+            parent.grab_key_focus();
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
+              if (inputField.clutter_text && inputField.clutter_text.grab_key_focus) {
+                inputField.clutter_text.grab_key_focus();
+              }
+              return GLib.SOURCE_REMOVE;
+            });
+          }
+        };
+
+        tryFocus();
         return GLib.SOURCE_REMOVE;
       });
     }
