@@ -69,8 +69,28 @@ export class MessageSender {
         // Check for Ctrl+Enter or Shift+Enter - these should create new lines
         if (modifiers & Clutter.ModifierType.CONTROL_MASK || 
             modifiers & Clutter.ModifierType.SHIFT_MASK) {
-          // Let the text field handle the newline naturally
-          this._updateInputFieldHeight();
+          
+          console.log("Modifier detected:", modifiers & Clutter.ModifierType.CONTROL_MASK ? "Ctrl" : "Shift");
+          
+          // Handle Ctrl+Enter manually since it doesn't insert newline automatically
+          if (modifiers & Clutter.ModifierType.CONTROL_MASK) {
+            const clutterText = this._inputField.clutter_text;
+            const cursorPos = clutterText.get_cursor_position();
+            
+            // Use insert_text to insert newline at cursor position
+            clutterText.insert_text('\n', cursorPos);
+            
+            // Update height immediately after manual insertion
+            this._updateInputFieldHeight();
+            return Clutter.EVENT_STOP;
+          }
+          
+          // For Shift+Enter, let the text field handle it naturally
+          GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1, () => {
+            this._updateInputFieldHeight();
+            return GLib.SOURCE_REMOVE;
+          });
+          
           return Clutter.EVENT_PROPAGATE;
         }
         
