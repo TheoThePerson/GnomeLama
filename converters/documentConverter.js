@@ -36,6 +36,17 @@ export const SUPPORTED_FORMATS = {
   yaml: { type: "text", mimeTypes: ["text/yaml"] },
   yml: { type: "text", mimeTypes: ["text/yaml"] },
 
+  // Image formats
+  jpg: { type: "image", mimeTypes: ["image/jpeg"] },
+  jpeg: { type: "image", mimeTypes: ["image/jpeg"] },
+  png: { type: "image", mimeTypes: ["image/png"] },
+  gif: { type: "image", mimeTypes: ["image/gif"] },
+  bmp: { type: "image", mimeTypes: ["image/bmp"] },
+  webp: { type: "image", mimeTypes: ["image/webp"] },
+  svg: { type: "image", mimeTypes: ["image/svg+xml"] },
+  tiff: { type: "image", mimeTypes: ["image/tiff"] },
+  tif: { type: "image", mimeTypes: ["image/tiff"] },
+
   // Document formats (requires conversion)
   odt: {
     type: "document",
@@ -203,6 +214,12 @@ export function convertToText(filePath, fileType) {
       // Handle direct text files
       if (fileType.type === "text") {
         readTextFile(filePath).then(resolve).catch(reject);
+        return;
+      }
+
+      // Handle image files - return special format with file path
+      if (fileType.type === "image") {
+        resolve(`[IMAGE:${filePath}]`);
         return;
       }
 

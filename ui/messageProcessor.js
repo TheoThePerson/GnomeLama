@@ -149,6 +149,8 @@ function updateResponseContainer(container, responseText) {
     return;
   }
 
+  // Handle case where files were attached but no modifications were made
+  // Show the response text as-is, even if it mentions no modifications
   const parts = parseMessageContent(responseText);
   const contentContainer = new St.BoxLayout({
     vertical: true,

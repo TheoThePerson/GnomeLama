@@ -1,7 +1,6 @@
 import Adw from "gi://Adw";
 import Gdk from "gi://Gdk";
 import Gtk from "gi://Gtk";
-import GObject from "gi://GObject";
 import {
   ExtensionPreferences,
   gettext as _,

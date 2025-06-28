@@ -3,6 +3,7 @@
  */
 import Clutter from "gi://Clutter";
 import St from "gi://St";
+import Gio from "gi://Gio";
 import { getSettings } from "../lib/settings.js";
 import * as LayoutManager from "./layoutManager.js";
 
@@ -177,6 +178,93 @@ export class FileBoxRenderer {
   }
 
   /**
+   * Checks if content represents an image
+   */
+  _isImageContent(content) {
+    return typeof content === 'string' && content.startsWith('[IMAGE:') && content.endsWith(']');
+  }
+
+  /**
+   * Extracts the image path from image content
+   */
+  _extractImagePath(content) {
+    const path = content.slice(7, -1); // Remove '[IMAGE:' and ']'
+    // Debug: log the extracted path
+    console.log(`[Linux Copilot] Extracted image path: ${path}`);
+    return path;
+  }
+
+  /**
+   * Creates an image widget for the file box
+   */
+  _createImageWidget(imagePath, contentHeight) {
+    try {
+      // Validate the image path
+      if (!imagePath || typeof imagePath !== 'string') {
+        return this._createErrorLabel("Invalid image path");
+      }
+
+      const file = Gio.File.new_for_path(imagePath);
+      if (!file.query_exists(null)) {
+        return this._createErrorLabel(`Image file not found: ${imagePath}`);
+      }
+
+             // Create a container for the image
+       const imageContainer = new St.Widget({
+         x_expand: true,
+         y_expand: true,
+         x_align: Clutter.ActorAlign.FILL,
+         y_align: Clutter.ActorAlign.FILL,
+         style_class: 'file-content-image',
+       });
+
+               // Calculate the available rectangular space (full width, remaining height after header)
+        const fileBoxSize = contentHeight + UI.FILE_BOX.HEADER.HEIGHT + 20; // Reconstruct original size
+        const availableWidth = fileBoxSize - 16; // Account for box padding
+        const availableHeight = contentHeight + 4; // Extra height from removed bottom margin
+
+       // Use CSS background-image with cover to fill the entire rectangular space
+       imageContainer.set_style(`
+         background-image: url("${imagePath}");
+         background-size: cover;
+         background-repeat: no-repeat;
+         background-position: center;
+         width: ${availableWidth}px;
+         height: ${availableHeight}px;
+         border-radius: 4px;
+         margin: 4px;
+       `);
+
+      return imageContainer;
+
+    } catch (error) {
+      return this._createErrorLabel(`Error loading image: ${error.message}`);
+    }
+  }
+
+  /**
+   * Creates an error label for failed image loading
+   */
+  _createErrorLabel(errorText) {
+    const errorLabel = new St.Label({
+      text: errorText,
+      x_expand: true,
+      y_expand: true,
+      style_class: 'file-content-text',
+    });
+
+    errorLabel.set_style(`
+      font-family: monospace;
+      font-size: 11px;
+      color: #ff0000;
+      padding: 8px;
+      text-align: center;
+    `);
+
+    return errorLabel;
+  }
+
+  /**
    * Creates a completely new file box from scratch
    */
   _createNewFileBox(fileName, content) {
@@ -238,7 +326,7 @@ export class FileBoxRenderer {
       border-radius: 6px;
       padding: 4px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-      margin-bottom: 8px;
+      margin-bottom: 0px;
     `);
 
     // Create title label with proper CSS class
@@ -288,30 +376,39 @@ export class FileBoxRenderer {
     header.add_child(titleLabel);
     header.add_child(closeButton);
 
-    // Create content label with proper CSS class
-    const contentLabel = new St.Label({
-      text: content,
-      x_expand: true,
-      y_expand: true,
-      style_class: 'file-content-text',
-    });
+    // Create content widget - either image or text based on content type
+    let contentWidget;
+    const contentHeight = fileBoxSize - UI.FILE_BOX.HEADER.HEIGHT - 20; // Account for header and padding
 
-    // Force content styling
-    contentLabel.set_style(`
-      font-family: monospace;
-      font-size: 11px;
-      color: #000000;
-      padding: 2px;
-      line-height: 1.4;
-      margin-top: 4px;
-    `);
+    if (this._isImageContent(content)) {
+      const imagePath = this._extractImagePath(content);
+      contentWidget = this._createImageWidget(imagePath, contentHeight);
+    } else {
+      // Create text content label with proper CSS class
+      contentWidget = new St.Label({
+        text: content,
+        x_expand: true,
+        y_expand: true,
+        style_class: 'file-content-text',
+      });
 
-    contentLabel.clutter_text.set_line_wrap(true);
-    contentLabel.clutter_text.set_selectable(true);
+      // Force content styling
+      contentWidget.set_style(`
+        font-family: monospace;
+        font-size: 11px;
+        color: #000000;
+        padding: 2px;
+        line-height: 1.4;
+        margin-top: 4px;
+      `);
 
-    // Add header and content label to the white box
+      contentWidget.clutter_text.set_line_wrap(true);
+      contentWidget.clutter_text.set_selectable(true);
+    }
+
+    // Add header and content widget to the white box
     whiteBox.add_child(header);
-    whiteBox.add_child(contentLabel);
+    whiteBox.add_child(contentWidget);
 
     // Add only the white box to the fileBox
     fileBox.add_child(whiteBox);
@@ -340,44 +437,45 @@ export class FileBoxRenderer {
    * Updates content in an existing file box
    */
   _updateExistingFileBox(fileBox, content) {
-    // With the new structure: fileBox contains [header, contentStack]
-    const children = fileBox.get_children();
+    // Get the white box container (first child of fileBox)
+    const whiteBox = fileBox.get_first_child();
+    if (!whiteBox) return;
+
+    const children = whiteBox.get_children();
     if (children.length >= 2) {
-      const oldContentStack = children[1]; // Second child is content stack
-      fileBox.remove_child(oldContentStack);
+      const oldContentWidget = children[1]; // Second child is content widget
+      whiteBox.remove_child(oldContentWidget);
       
-      // Create new content label with proper CSS class
-      const newContentLabel = new St.Label({
-        text: content,
-        x_expand: true,
-        y_expand: true,
-        style_class: 'file-content-text',
-      });
+      // Create new content widget - either image or text based on content type
+      let newContentWidget;
+      const contentHeight = fileBox.get_height() - UI.FILE_BOX.HEADER.HEIGHT - 20;
 
-      // Force content styling
-      newContentLabel.set_style(`
-        font-family: monospace;
-        font-size: 11px;
-        color: #000000;
-        padding: 2px;
-        line-height: 1.4;
-      `);
+      if (this._isImageContent(content)) {
+        const imagePath = this._extractImagePath(content);
+        newContentWidget = this._createImageWidget(imagePath, contentHeight);
+      } else {
+        // Create new text content label with proper CSS class
+        newContentWidget = new St.Label({
+          text: content,
+          x_expand: true,
+          y_expand: true,
+          style_class: 'file-content-text',
+        });
 
-      newContentLabel.clutter_text.set_line_wrap(true);
-      newContentLabel.clutter_text.set_selectable(true);
+        // Force content styling
+        newContentWidget.set_style(`
+          font-family: monospace;
+          font-size: 11px;
+          color: #000000;
+          padding: 2px;
+          line-height: 1.4;
+        `);
 
-      // Create a bin to stack the white box and new content label
-      const newContentStack = new St.Widget({
-        layout_manager: new Clutter.BinLayout(),
-        x_expand: true,
-        y_expand: false,
-        height: fileBox.get_height() - UI.FILE_BOX.HEADER.HEIGHT - 16,
-      });
+        newContentWidget.clutter_text.set_line_wrap(true);
+        newContentWidget.clutter_text.set_selectable(true);
+      }
 
-      // Add the white box as the background
-      newContentStack.set_child(newContentLabel);
-
-      fileBox.add_child(newContentStack);
+      whiteBox.add_child(newContentWidget);
     }
   }
 

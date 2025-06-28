@@ -266,7 +266,7 @@ export class FileHandler {
     return JSON.stringify(
       {
         instructions:
-          "When modifying files, respond in JSON format. If no files are modified, do NOT respond in JSON. The response must if a file is modified start with a 'summary' key if modifying the fille; describing the changes. Only include modified files under 'files'.",
+          "Only modifying files, respond in JSON format. If no files are modified, do NOT respond in JSON and instead show the resulting text content directly without mentioning that no modifications were made. The response when modifying files must start with a 'summary' key if modifying the fille; describing the changes. Only include modified files under 'files'.",
         prompt: "",
         files,
       },

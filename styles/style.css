@@ -430,11 +430,12 @@
 /* File content header styles - enhanced with high specificity */
 .panel-overlay .input-buttons-container .file-boxes-container .file-content-box .file-content-header {
   width: 100% !important;
-  margin-bottom: 2px !important;
+  margin-bottom: 0px !important;
   background-color: rgba(0, 0, 0, 0.05) !important;
   border-radius: 6px !important;
   padding: 4px !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+  height: 28px !important;
 }
 
 /* File content title styles - enhanced with high specificity */
@@ -468,6 +469,14 @@
   line-height: 1.4 !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
+}
+
+/* File content image styles - enhanced with high specificity */
+.panel-overlay .input-buttons-container .file-boxes-container .file-content-box .file-content-image {
+  background-color: transparent !important;
+  padding: 4px !important;
+  overflow: hidden !important;
+  border-radius: 4px !important;
 }
 
 /* Add close button hover effect directly in CSS */
