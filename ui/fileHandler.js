@@ -109,6 +109,13 @@ export class FileHandler {
   }
 
   /**
+   * Checks if content represents an image
+   */
+  _isImageContent(content) {
+    return typeof content === 'string' && content.startsWith('[IMAGE:') && content.endsWith(']');
+  }
+
+  /**
    * Callback when a file has been processed
    */
   async _onFileProcessed(content, fileName, filePath) {
@@ -137,9 +144,36 @@ export class FileHandler {
       }
     }
 
-    this._fileBoxRenderer.displayFileContentBox(content, fileName);
+    // Check if this is an image file - images are automatically context-only
+    let usage;
+    if (this._isImageContent(content)) {
+      usage = "context";
+    } else {
+      // Ask user how they want to use this file
+      usage = await this._dialogSystem.showDialog({
+        title: "File Usage",
+        message: `How do you want to use "${fileName}"?`,
+        buttons: [
+          { label: "Context Only", action: "context" },
+          { label: "Modifiable", action: "modifiable" },
+          { label: "Cancel", action: "cancel" }
+        ]
+      });
+
+      if (usage === "cancel") {
+        return;
+      }
+    }
+
+    this._fileBoxRenderer.displayFileContentBox(content, fileName, usage);
     this._loadedFiles.set(fileName, content);
     this._filePaths.set(fileName, filePath);
+    
+    // Track file usage type
+    if (!this._fileUsageTypes) {
+      this._fileUsageTypes = new Map();
+    }
+    this._fileUsageTypes.set(fileName, usage);
   }
 
   /**
@@ -149,6 +183,9 @@ export class FileHandler {
     const fileContent = this._loadedFiles.get(fileName);
     this._loadedFiles.delete(fileName);
     this._filePaths.delete(fileName);
+    if (this._fileUsageTypes) {
+      this._fileUsageTypes.delete(fileName);
+    }
     this._notifyContentRemoved(fileContent);
   }
 
@@ -193,6 +230,9 @@ export class FileHandler {
   cleanupFileContentBox() {
     this._loadedFiles.clear();
     this._filePaths.clear();
+    if (this._fileUsageTypes) {
+      this._fileUsageTypes.clear();
+    }
     
     const hadFiles = this._fileBoxRenderer.hasFiles();
     
@@ -253,26 +293,60 @@ export class FileHandler {
       return "";
     }
 
-    const files = [];
+    // Separate files by usage type
+    const modifiableFiles = [];
+    const contextFiles = [];
+    
     for (const [fileName, content] of this._loadedFiles.entries()) {
       const filePath = this._filePaths.get(fileName) || "";
-      files.push({
+      const usageType = this._fileUsageTypes?.get(fileName) || "modifiable";
+      
+      const fileData = {
         filename: fileName,
         content,
         path: filePath,
-      });
+      };
+      
+      if (usageType === "context") {
+        contextFiles.push(fileData);
+      } else {
+        modifiableFiles.push(fileData);
+      }
     }
 
-    return JSON.stringify(
-      {
+    // Build the prompt
+    let promptParts = [];
+    
+    // Add context files to the prompt text
+    if (contextFiles.length > 0) {
+      promptParts.push("Context files for reference:");
+      contextFiles.forEach(file => {
+        promptParts.push(`\n--- ${file.filename} ---\n${file.content}\n`);
+      });
+    }
+    
+    // Handle modifiable files
+    if (modifiableFiles.length > 0) {
+      const jsonData = {
         instructions:
-          "Only modifying files, respond in JSON format. If no files are modified, do NOT respond in JSON and instead show the resulting text content directly without mentioning that no modifications were made. The response when modifying files must start with a 'summary' key if modifying the fille; describing the changes. Only include modified files under 'files'.",
+          "When modifiable files are provided, you MUST modify at least one of them and respond in JSON format. If you cannot or will not modify any files, respond in plain text explaining why. The JSON response must start with a 'summary' key describing the changes. Only include actually modified files under 'files'.",
         prompt: "",
-        files,
-      },
-      null,
-      2
-    ) + " ｢files attached｣";
+        files: modifiableFiles,
+      };
+      
+      const jsonString = JSON.stringify(jsonData, null, 2);
+      
+      if (contextFiles.length > 0) {
+        // Mix of context and modifiable files
+        return promptParts.join("") + "\n\n" + jsonString + " ｢files attached｣";
+      } else {
+        // Only modifiable files
+        return jsonString + " ｢files attached｣";
+      }
+    } else {
+      // Only context files, no JSON needed
+      return promptParts.join("") + " ｢files attached｣";
+    }
   }
 
   /**
@@ -292,13 +366,19 @@ export class FileHandler {
   /**
    * Creates a file box from pasted text
    */
-  createFileBoxFromText(text, title = "Pasted Text") {
+  createFileBoxFromText(text, title = "Pasted Text", usageType = "modifiable") {
     if (!text || text.trim() === "") {
       return;
     }
 
-    this._fileBoxRenderer.createFileBoxFromText(text, title);
+    this._fileBoxRenderer.createFileBoxFromText(text, title, usageType);
     this._loadedFiles.set(title, text);
+    
+    // Track file usage type
+    if (!this._fileUsageTypes) {
+      this._fileUsageTypes = new Map();
+    }
+    this._fileUsageTypes.set(title, usageType);
   }
 
   /**

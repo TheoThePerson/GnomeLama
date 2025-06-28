@@ -163,14 +163,14 @@ export class FileBoxRenderer {
   /**
    * Displays file content in a box
    */
-  displayFileContentBox(content, fileName) {
+  displayFileContentBox(content, fileName, usageType = "modifiable") {
     const container = this.setupFileBoxesContainer();
     const existingFileBox = this._findExistingFileBox(fileName);
 
     if (existingFileBox) {
-      this._updateExistingFileBox(existingFileBox, content);
+      this._updateExistingFileBox(existingFileBox, content, usageType);
     } else {
-      const fileBox = this._createNewFileBox(fileName, content);
+      const fileBox = this._createNewFileBox(fileName, content, usageType);
       container.add_child(fileBox);
     }
 
@@ -267,7 +267,7 @@ export class FileBoxRenderer {
   /**
    * Creates a completely new file box from scratch
    */
-  _createNewFileBox(fileName, content) {
+  _createNewFileBox(fileName, content, usageType = "modifiable") {
     let fileBoxSize = getSettings().get_double("file-box-size");
     
     // Ensure minimum size for visibility
@@ -293,6 +293,9 @@ export class FileBoxRenderer {
       padding: 0;
     `);
 
+    // Choose border color based on usage type
+    const borderColor = usageType === "context" ? "rgba(0, 100, 200, 0.6)" : "rgba(200, 0, 0, 0.6)";
+    
     // Create a white box as the background for both header and content
     const whiteBox = new St.BoxLayout({
       vertical: true,
@@ -305,7 +308,7 @@ export class FileBoxRenderer {
     });
     whiteBox.set_style(`
       background-color: #FFFFFF !important;
-      border: 1px solid rgba(0, 0, 0, 0.2);
+      border: 2px solid ${borderColor};
       border-radius: 10px;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
       width: ${fileBoxSize}px;
@@ -334,6 +337,10 @@ export class FileBoxRenderer {
     if (displayName.length > 15) {
       displayName = displayName.substring(0, 12) + "...";
     }
+    
+    // Add usage type indicator to the display name
+    const usageIndicator = usageType === "context" ? " [C]" : " [M]";
+    displayName = displayName + usageIndicator;
 
     const titleLabel = new St.Label({
       text: displayName,
@@ -436,7 +443,7 @@ export class FileBoxRenderer {
   /**
    * Updates content in an existing file box
    */
-  _updateExistingFileBox(fileBox, content) {
+  _updateExistingFileBox(fileBox, content, usageType = "modifiable") {
     // Get the white box container (first child of fileBox)
     const whiteBox = fileBox.get_first_child();
     if (!whiteBox) return;
@@ -613,7 +620,7 @@ export class FileBoxRenderer {
   /**
    * Creates a file box from pasted text
    */
-  createFileBoxFromText(text, title = "Pasted Text") {
+  createFileBoxFromText(text, title = "Pasted Text", usageType = "modifiable") {
     if (!text || text.trim() === "") {
       return;
     }
@@ -638,7 +645,7 @@ export class FileBoxRenderer {
       counter++;
     }
 
-    this.displayFileContentBox(text, uniqueTitle);
+    this.displayFileContentBox(text, uniqueTitle, usageType);
   }
 
   /**
