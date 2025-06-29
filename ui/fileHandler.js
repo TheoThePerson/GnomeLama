@@ -144,10 +144,10 @@ export class FileHandler {
       }
     }
 
-    // Check if this is an image file - images are automatically context-only
+    // Check if this is an image file - images get their own usage type
     let usage;
     if (this._isImageContent(content)) {
-      usage = "context";
+      usage = "image";
     } else {
       // Ask user how they want to use this file
       usage = await this._dialogSystem.showDialog({
@@ -220,7 +220,7 @@ export class FileHandler {
       return;
     }
 
-    this._fileBoxRenderer.restoreFileUI(this._loadedFiles);
+    this._fileBoxRenderer.restoreFileUI(this._loadedFiles, this._fileUsageTypes);
     this.refreshFileBoxFormatting();
   }
 
@@ -296,6 +296,7 @@ export class FileHandler {
     // Separate files by usage type
     const modifiableFiles = [];
     const contextFiles = [];
+    const imageFiles = [];
     
     for (const [fileName, content] of this._loadedFiles.entries()) {
       const filePath = this._filePaths.get(fileName) || "";
@@ -309,6 +310,8 @@ export class FileHandler {
       
       if (usageType === "context") {
         contextFiles.push(fileData);
+      } else if (usageType === "image") {
+        imageFiles.push(fileData);
       } else {
         modifiableFiles.push(fileData);
       }
@@ -325,6 +328,15 @@ export class FileHandler {
       });
     }
     
+    // Add image files to the prompt text
+    if (imageFiles.length > 0) {
+      if (promptParts.length > 0) promptParts.push("\n");
+      promptParts.push("Images for reference:");
+      imageFiles.forEach(file => {
+        promptParts.push(`\n--- ${file.filename} ---\n${file.content}\n`);
+      });
+    }
+    
     // Handle modifiable files
     if (modifiableFiles.length > 0) {
       const jsonData = {
@@ -336,15 +348,15 @@ export class FileHandler {
       
       const jsonString = JSON.stringify(jsonData, null, 2);
       
-      if (contextFiles.length > 0) {
-        // Mix of context and modifiable files
+      if (contextFiles.length > 0 || imageFiles.length > 0) {
+        // Mix of reference files and modifiable files
         return promptParts.join("") + "\n\n" + jsonString + " ｢files attached｣";
       } else {
         // Only modifiable files
         return jsonString + " ｢files attached｣";
       }
     } else {
-      // Only context files, no JSON needed
+      // Only reference files (context or images), no JSON needed
       return promptParts.join("") + " ｢files attached｣";
     }
   }

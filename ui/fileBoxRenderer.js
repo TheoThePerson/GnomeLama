@@ -294,7 +294,14 @@ export class FileBoxRenderer {
     `);
 
     // Choose border color based on usage type
-    const borderColor = usageType === "context" ? "rgba(0, 100, 200, 0.6)" : "rgba(200, 0, 0, 0.6)";
+    let borderColor;
+    if (usageType === "context") {
+      borderColor = "rgba(0, 100, 200, 0.6)"; // Blue
+    } else if (usageType === "image") {
+      borderColor = "rgba(255, 193, 7, 0.8)"; // Yellow
+    } else {
+      borderColor = "rgba(200, 0, 0, 0.6)"; // Red for modifiable
+    }
     
     // Create a white box as the background for both header and content
     const whiteBox = new St.BoxLayout({
@@ -339,7 +346,14 @@ export class FileBoxRenderer {
     }
     
     // Add usage type indicator to the display name
-    const usageIndicator = usageType === "context" ? " [C]" : " [M]";
+    let usageIndicator;
+    if (usageType === "context") {
+      usageIndicator = " [C]";
+    } else if (usageType === "image") {
+      usageIndicator = " [I]";
+    } else {
+      usageIndicator = " [M]";
+    }
     displayName = displayName + usageIndicator;
 
     const titleLabel = new St.Label({
@@ -673,7 +687,7 @@ export class FileBoxRenderer {
   /**
    * Restores file UI from data
    */
-  restoreFileUI(loadedFiles) {
+  restoreFileUI(loadedFiles, fileUsageTypes = null) {
     if (loadedFiles.size === 0) {
       return;
     }
@@ -688,7 +702,8 @@ export class FileBoxRenderer {
     const container = this.setupFileBoxesContainer();
 
     for (const [fileName, content] of loadedFiles.entries()) {
-      const fileBox = this._createNewFileBox(fileName, content);
+      const usageType = fileUsageTypes?.get(fileName) || "modifiable";
+      const fileBox = this._createNewFileBox(fileName, content, usageType);
       container.add_child(fileBox);
     }
 
