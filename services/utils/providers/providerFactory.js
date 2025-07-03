@@ -195,7 +195,8 @@ export function createCompletionProvider(options) {
         modelName,
         prompt: messageText,
         temperature,
-        context: currentContext
+        context: currentContext,
+        messageContent: messageText
       });
       
       // Create chunk processor with context update callback
