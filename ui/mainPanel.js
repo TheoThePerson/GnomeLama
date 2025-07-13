@@ -50,7 +50,7 @@ export const Indicator = GObject.registerClass(
       // Connect settings and monitor change events
       this._settingsChangedId = this._settings.connect("changed", () => {
         LayoutManager.invalidateCache(); // Invalidate the layout cache when settings change
-        this._updateLayout();
+        this._updateLayout(true);  // Force full update to ensure instant width changes
       });
       Main.layoutManager.connect("monitors-changed", () => {
         LayoutManager.invalidateCache(); // Invalidate the layout cache when monitor changes
