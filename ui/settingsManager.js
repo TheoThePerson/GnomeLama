@@ -31,16 +31,26 @@ export class SettingsManager {
     this._settingsChangedId = this._settings.connect("changed", (settings, key) => {
       if (key === "model-prompt") {
         this._currentPrompt = settings.get_string("model-prompt") || "";
-        this._updatePromptEntry();
+        // Only update the entry if we're not currently editing it
+        if (!this._isEditingPrompt) {
+          this._updatePromptEntry();
+        }
       } else if (key === "temperature") {
         this._currentTemperature = settings.get_double("temperature") || 0.7;
-        this._updateTemperatureEntry();
+        // Only update the entry if we're not currently editing it
+        if (!this._isEditingTemperature) {
+          this._updateTemperatureEntry();
+        }
       }
     });
     
     // Initialize current values
     this._currentPrompt = settings.get_string("model-prompt") || "";
     this._currentTemperature = settings.get_double("temperature") || 0.7;
+    
+    // Editing flags to prevent feedback loops
+    this._isEditingPrompt = false;
+    this._isEditingTemperature = false;
     
     // Get the popup manager
     this._popupManager = getPopupManager();
@@ -435,8 +445,10 @@ export class SettingsManager {
 
     // Handle text changes
     temperatureEntry.clutter_text.connect('text-changed', () => {
+      this._isEditingTemperature = true;
       // Save the value immediately on text change
       this._saveTemperatureValue();
+      this._isEditingTemperature = false;
     });
     
     // Handle key press events (for Enter key)
@@ -444,7 +456,9 @@ export class SettingsManager {
       // Check if Enter was pressed
       if (event.get_key_symbol() === Clutter.KEY_Return || 
           event.get_key_symbol() === Clutter.KEY_KP_Enter) {
+        this._isEditingTemperature = true;
         this._saveTemperatureValue();
+        this._isEditingTemperature = false;
         return Clutter.EVENT_STOP;
       }
       return Clutter.EVENT_PROPAGATE;
@@ -452,7 +466,9 @@ export class SettingsManager {
     
     // Also handle focus out
     temperatureEntry.connect("key-focus-out", () => {
+      this._isEditingTemperature = true;
       this._saveTemperatureValue();
+      this._isEditingTemperature = false;
     });
 
     temperatureItem.actor.add_child(temperatureLabel);
@@ -478,8 +494,10 @@ export class SettingsManager {
     
     // Handle text changes
     promptEntry.clutter_text.connect('text-changed', () => {
+      this._isEditingPrompt = true;
       // Save the value immediately on text change
       this._savePromptValue();
+      this._isEditingPrompt = false;
     });
     
     // Handle key press events (for Enter key)
@@ -487,7 +505,9 @@ export class SettingsManager {
       // Check if Enter was pressed
       if (event.get_key_symbol() === Clutter.KEY_Return || 
           event.get_key_symbol() === Clutter.KEY_KP_Enter) {
+        this._isEditingPrompt = true;
         this._savePromptValue();
+        this._isEditingPrompt = false;
         return Clutter.EVENT_STOP;
       }
       return Clutter.EVENT_PROPAGATE;
@@ -495,7 +515,9 @@ export class SettingsManager {
     
     // Also handle focus out
     promptEntry.connect("key-focus-out", () => {
+      this._isEditingPrompt = true;
       this._savePromptValue();
+      this._isEditingPrompt = false;
     });
     
     promptItem.actor.add_child(promptLabel);
