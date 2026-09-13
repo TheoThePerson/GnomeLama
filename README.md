@@ -2,6 +2,11 @@
 
 # GnomeLama (Linux Copilot)
 
+> [!WARNING]
+> **This project is no longer maintained.** Due to a lack of time, I am no longer updating this repository, and it may not work with the latest versions of GNOME. 
+> 
+> **Feel free to fork this project** and continue development on your own copy if you want to bring it up to date.
+
 GnomeLama is an integration between Ollama (the open source local ai project) and gnome. Trying to bring windows copilot to linux with more functionality.
 
 ## Features
